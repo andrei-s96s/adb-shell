@@ -36,6 +36,15 @@ struct ContentView: View {
 
                 Rectangle().fill(CP.hairline).frame(height: 1)
 
+                if !devicesVM.pinnedDevices.isEmpty {
+                    PinnedTabsStrip(devices: devicesVM.pinnedDevices, selectedSerial: devicesVM.selectedSerial) { serial in
+                        devicesVM.selectedSerial = serial
+                    } onUnpin: { serial in
+                        devicesVM.togglePin(serial)
+                    }
+                    Rectangle().fill(CP.hairline).frame(height: 1)
+                }
+
                 Group {
                     switch tab {
                     case .apps:
@@ -131,6 +140,53 @@ private struct TopBar: View {
             guard let device else { return }
             fingerprint = try? await service.buildFingerprint(serial: device.serial)
         }
+    }
+}
+
+/// Полоска закреплённых устройств — быстрое переключение между несколькими
+/// одновременно подключёнными устройствами без похода в сайдбар.
+private struct PinnedTabsStrip: View {
+    let devices: [Device]
+    let selectedSerial: String?
+    let onSelect: (String) -> Void
+    let onUnpin: (String) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(devices) { device in
+                    let isActive = device.serial == selectedSerial
+                    HStack(spacing: 6) {
+                        StatusDot(color: device.state.isReady ? CP.emerald : CP.crimson)
+                        Text(device.displayName)
+                            .font(CP.mono(11, weight: .medium))
+                            .foregroundColor(isActive ? CP.textPrimary : CP.textMuted)
+                            .lineLimit(1)
+                        Button { onUnpin(device.serial) } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundColor(CP.textMuted)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(isActive ? CP.bgPanelAlt : Color.clear)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(isActive ? CP.gold.opacity(0.4) : CP.hairline, lineWidth: 1)
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture { onSelect(device.serial) }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+        }
+        .background(CP.bgPanel)
     }
 }
 

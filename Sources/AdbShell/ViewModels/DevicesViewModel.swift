@@ -9,12 +9,31 @@ final class DevicesViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var connectHost: String = ""
     @Published var isConnecting = false
+    @Published private(set) var pinnedSerials: [String] = []
 
     let service: ADBService
     private var pollTask: Task<Void, Never>?
 
     var selectedDevice: Device? {
         devices.first { $0.serial == selectedSerial }
+    }
+
+    /// Закреплённые устройства (для быстрого переключения между несколькими
+    /// одновременно подключёнными устройствами) — только те, что реально видны сейчас.
+    var pinnedDevices: [Device] {
+        pinnedSerials.compactMap { serial in devices.first { $0.serial == serial } }
+    }
+
+    func togglePin(_ serial: String) {
+        if let idx = pinnedSerials.firstIndex(of: serial) {
+            pinnedSerials.remove(at: idx)
+        } else {
+            pinnedSerials.append(serial)
+        }
+    }
+
+    func isPinned(_ serial: String) -> Bool {
+        pinnedSerials.contains(serial)
     }
 
     init(service: ADBService) {
@@ -58,12 +77,38 @@ final class DevicesViewModel: ObservableObject {
         isConnecting = true
         defer { isConnecting = false }
         do {
-            _ = try await service.connect(host: host.contains(":") ? host : "\(host):5555")
+            try await performConnect(host)
             connectHost = ""
             await refresh()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Подключение по адресу конкретного профиля (кнопка в списке профилей).
+    func connect(to host: String) async {
+        isConnecting = true
+        defer { isConnecting = false }
+        do {
+            try await performConnect(host)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Best-effort автоподключение при старте — ошибки одного профиля не должны
+    /// мешать остальным (устройство может быть выключено/недоступно).
+    func autoConnect(profiles: [ConnectionProfile]) async {
+        for profile in profiles {
+            try? await performConnect(profile.host)
+        }
+        if !profiles.isEmpty { await refresh() }
+    }
+
+    private func performConnect(_ host: String) async throws {
+        let normalized = host.contains(":") ? host : "\(host):5555"
+        _ = try await service.connect(host: normalized)
     }
 
     func disconnect(_ device: Device) async {

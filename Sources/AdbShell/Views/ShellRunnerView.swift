@@ -27,6 +27,19 @@ struct ShellRunnerView: View {
                     .buttonStyle(NeonButtonStyle(accent: CP.ice))
                 Button("Reboot") { Task { try? await service.reboot(serial: serial) } }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson))
+
+                Menu {
+                    Button("Reboot → Recovery") { Task { try? await service.rebootToRecovery(serial: serial) } }
+                    Button("Reboot → Bootloader") { Task { try? await service.rebootToBootloader(serial: serial) } }
+                    Divider()
+                    Button("adb root") { Task { await runQuick("adb root") { try await service.rootAdb(serial: serial) } } }
+                    Button("adb remount") { Task { await runQuick("adb remount") { try await service.remount(serial: serial) } } }
+                } label: {
+                    Text("Ещё")
+                }
+                .menuStyle(.borderlessButton)
+                .frame(width: 44)
+
                 Button("Очистить лог") { history.removeAll() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
             }
@@ -166,6 +179,16 @@ struct ShellRunnerView: View {
             history.append(HistoryEntry(command: cmd, output: output, isError: false))
         } catch {
             history.append(HistoryEntry(command: cmd, output: error.localizedDescription, isError: true))
+        }
+    }
+
+    /// Логирует результат быстрых действий (adb root/remount) в ту же ленту, что и shell.
+    private func runQuick(_ label: String, _ action: @escaping () async throws -> String) async {
+        do {
+            let output = try await action()
+            history.append(HistoryEntry(command: label, output: output, isError: false))
+        } catch {
+            history.append(HistoryEntry(command: label, output: error.localizedDescription, isError: true))
         }
     }
 

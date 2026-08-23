@@ -146,6 +146,20 @@ final class ADBService {
         }
     }
 
+    /// Сопряжение по коду для Android 11+ wireless debugging
+    /// (Настройки → Для разработчиков → Отладка по Wi-Fi → Сопряжение с
+    /// устройством по коду — там показаны host:port для пейринга и код).
+    /// После успешного пейринга нужно ещё `connect` на отдельный порт
+    /// подключения, который Android покажет на том же экране.
+    func pair(hostPort: String, code: String) async throws -> String {
+        let result = try await run(["pair", hostPort, code])
+        let combined = result.combined
+        if result.exitCode != 0 || combined.localizedCaseInsensitiveContains("failed") {
+            throw ADBError.commandFailed(combined.isEmpty ? "Не удалось сопрячь устройство" : combined)
+        }
+        return combined
+    }
+
     // MARK: - Приложения
 
     func listApps(serial: String) async throws -> [InstalledApp] {
@@ -320,6 +334,29 @@ final class ADBService {
 
     func reboot(serial: String) async throws {
         try await run(["reboot"], serial: serial)
+    }
+
+    func rebootToRecovery(serial: String) async throws {
+        try await run(["reboot", "recovery"], serial: serial)
+    }
+
+    func rebootToBootloader(serial: String) async throws {
+        try await run(["reboot", "bootloader"], serial: serial)
+    }
+
+    /// `adb root` перезапускает adbd с правами root на устройстве — работает
+    /// только на userdebug/eng сборках, на user-сборках вернёт ошибку.
+    @discardableResult
+    func rootAdb(serial: String) async throws -> String {
+        let result = try await run(["root"], serial: serial)
+        return result.combined
+    }
+
+    /// `adb remount` — перемонтирует системные разделы в RW (после adb root).
+    @discardableResult
+    func remount(serial: String) async throws -> String {
+        let result = try await run(["remount"], serial: serial)
+        return result.combined
     }
 
     func screenshot(serial: String) async throws -> Data {
