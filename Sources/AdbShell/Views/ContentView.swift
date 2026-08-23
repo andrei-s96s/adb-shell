@@ -1,9 +1,9 @@
 import SwiftUI
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case apps = "ПРИЛОЖЕНИЯ"
-    case library = "APK БИБЛИОТЕКА"
-    case shell = "SHELL"
+    case apps = "Приложения"
+    case library = "APK библиотека"
+    case shell = "Shell"
     var id: String { rawValue }
 }
 
@@ -16,31 +16,42 @@ struct ContentView: View {
         _devicesVM = StateObject(wrappedValue: DevicesViewModel(service: service))
     }
 
+    private var readyDevice: Device? {
+        let d = devicesVM.selectedDevice
+        return (d?.state.isReady == true) ? d : nil
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             DeviceSidebarView(vm: devicesVM)
                 .frame(width: 260)
                 .background(CP.bgPanel)
 
-            Rectangle().fill(CP.grid).frame(width: 1)
+            Rectangle().fill(CP.hairline).frame(width: 1)
 
             VStack(spacing: 0) {
-                TopBar(tab: $tab, device: devicesVM.selectedDevice)
+                TopBar(tab: $tab, device: readyDevice)
 
-                Rectangle().fill(CP.grid).frame(height: 1)
+                Rectangle().fill(CP.hairline).frame(height: 1)
 
                 Group {
-                    if let device = devicesVM.selectedDevice, device.state.isReady {
-                        switch tab {
-                        case .apps:
+                    switch tab {
+                    case .apps:
+                        if let device = readyDevice {
                             AppsView(serial: device.serial, service: devicesVM.service)
-                        case .library:
-                            ApkLibraryView(serial: device.serial, service: devicesVM.service)
-                        case .shell:
-                            ShellRunnerView(serial: device.serial, service: devicesVM.service)
+                        } else {
+                            NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
                         }
-                    } else {
-                        NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
+                    case .library:
+                        // Библиотека — локальная папка на Mac, устройство нужно только
+                        // для кнопки "Установить", поэтому доступна всегда.
+                        ApkLibraryView(serial: readyDevice?.serial, service: devicesVM.service)
+                    case .shell:
+                        if let device = readyDevice {
+                            ShellRunnerView(serial: device.serial, service: devicesVM.service)
+                        } else {
+                            NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -59,37 +70,41 @@ private struct TopBar: View {
     let device: Device?
 
     var body: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 0) {
+        HStack(spacing: 4) {
+            HStack(spacing: 2) {
                 ForEach(MainTab.allCases) { t in
                     Button {
                         tab = t
                     } label: {
                         Text(t.rawValue)
-                            .font(CP.mono(11, weight: .bold))
-                            .cpTracking(1.5)
-                            .foregroundColor(tab == t ? CP.bg : CP.textMuted)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(tab == t ? CP.yellow : Color.clear)
+                            .font(CP.mono(12, weight: .semibold))
+                            .foregroundColor(tab == t ? CP.textPrimary : CP.textMuted)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(tab == t ? CP.bgPanelAlt : Color.clear)
+                            )
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .padding(4)
 
             Spacer()
 
             if let device {
                 HStack(spacing: 8) {
-                    StatusDot(color: CP.green)
-                    Text(device.displayName.uppercased())
-                        .font(CP.mono(11, weight: .semibold))
+                    StatusDot(color: CP.emerald)
+                    Text(device.displayName)
+                        .font(CP.mono(11, weight: .medium))
                         .foregroundColor(CP.textMuted)
                 }
                 .padding(.trailing, 16)
             }
         }
-        .background(CP.bgPanelAlt)
+        .frame(height: 44)
+        .background(CP.bgPanel)
     }
 }
 
@@ -97,18 +112,17 @@ private struct NoDeviceView: View {
     let hasAny: Bool
     var body: some View {
         VStack(spacing: 14) {
-            Text("⌁")
-                .font(.system(size: 46))
-                .foregroundColor(CP.yellow.opacity(0.8))
-            Text(hasAny ? "ВЫБЕРИТЕ УСТРОЙСТВО" : "НЕТ ПОДКЛЮЧЁННЫХ УСТРОЙСТВ")
-                .font(CP.mono(13, weight: .bold))
-                .cpTracking(2)
+            Image(systemName: "cable.connector.slash")
+                .font(.system(size: 34, weight: .light))
                 .foregroundColor(CP.textMuted)
+            Text(hasAny ? "Выберите устройство" : "Нет подключённых устройств")
+                .font(CP.mono(14, weight: .semibold))
+                .foregroundColor(CP.textPrimary)
             Text(hasAny
                  ? "Кликните по устройству в списке слева"
-                 : "Подключите Voyah по USB или укажите IP для сетевого adb")
-                .font(CP.mono(11))
-                .foregroundColor(CP.textMuted.opacity(0.7))
+                 : "Подключите устройство по USB или укажите IP для сетевого adb")
+                .font(CP.mono(12))
+                .foregroundColor(CP.textMuted)
         }
     }
 }

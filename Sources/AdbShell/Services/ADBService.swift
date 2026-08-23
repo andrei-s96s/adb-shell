@@ -93,8 +93,13 @@ final class ADBService {
 
     func listDevices() async throws -> [Device] {
         let result = try await run(["devices", "-l"])
+        return Self.parseDevices(from: result.stdout)
+    }
+
+    /// Парсинг вывода `adb devices -l` — вынесено в чистую функцию для юнит-тестов.
+    static func parseDevices(from output: String) -> [Device] {
         var devices: [Device] = []
-        let lines = result.stdout.split(separator: "\n").map(String.init)
+        let lines = output.split(separator: "\n").map(String.init)
         for line in lines {
             if line.hasPrefix("List of devices") { continue }
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -144,6 +149,12 @@ final class ADBService {
         let user = try await userResult
         let disabled = try await disabledResult
 
+        return Self.mergeApps(all: all.stdout, user: user.stdout, disabled: disabled.stdout)
+    }
+
+    /// Склеивает три вывода `pm list packages` в список приложений с флагами
+    /// isSystem/isEnabled — вынесено в чистую функцию для юнит-тестов.
+    static func mergeApps(all: String, user: String, disabled: String) -> [InstalledApp] {
         func packageSet(from output: String) -> Set<String> {
             Set(output.split(separator: "\n").compactMap { line -> String? in
                 let s = line.trimmingCharacters(in: .whitespaces)
@@ -152,9 +163,9 @@ final class ADBService {
             })
         }
 
-        let allSet = packageSet(from: all.stdout)
-        let userSet = packageSet(from: user.stdout)
-        let disabledSet = packageSet(from: disabled.stdout)
+        let allSet = packageSet(from: all)
+        let userSet = packageSet(from: user)
+        let disabledSet = packageSet(from: disabled)
 
         return allSet.map { pkg in
             InstalledApp(packageName: pkg, isSystem: !userSet.contains(pkg), isEnabled: !disabledSet.contains(pkg))

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1c1c22"/>
+      <stop offset="100%" stop-color="#0a0a0d"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0d68a"/>
+      <stop offset="100%" stop-color="#c99a3f"/>
+    </linearGradient>
+    <linearGradient id="ice" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#bfe0ff"/>
+      <stop offset="100%" stop-color="#7fb4e0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#d4af66" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#d4af66" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- фон: скруглённый квадрат, как macOS icon -->
+  <rect x="0" y="0" width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="228" fill="url(#glow)"/>
+  <rect x="1" y="1" width="1022" height="1022" rx="227" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="2"/>
+
+  <g filter="url(#softShadow)">
+    <!-- антенны "жука" adb -->
+    <line x1="372" y1="308" x2="298" y2="216" stroke="url(#ice)" stroke-width="26" stroke-linecap="round"/>
+    <line x1="652" y1="308" x2="726" y2="216" stroke="url(#ice)" stroke-width="26" stroke-linecap="round"/>
+    <circle cx="298" cy="216" r="22" fill="url(#ice)"/>
+    <circle cx="726" cy="216" r="22" fill="url(#ice)"/>
+
+    <!-- корпус -->
+    <rect x="322" y="330" width="380" height="330" rx="120" fill="url(#gold)"/>
+
+    <!-- боковые ножки -->
+    <line x1="322" y1="470" x2="230" y2="470" stroke="url(#gold)" stroke-width="30" stroke-linecap="round"/>
+    <line x1="702" y1="470" x2="794" y2="470" stroke="url(#gold)" stroke-width="30" stroke-linecap="round"/>
+    <line x1="352" y1="660" x2="300" y2="748" stroke="url(#gold)" stroke-width="30" stroke-linecap="round"/>
+    <line x1="672" y1="660" x2="724" y2="748" stroke="url(#gold)" stroke-width="30" stroke-linecap="round"/>
+
+    <!-- экран/дисплей с терминальным приглашением -->
+    <rect x="378" y="400" width="268" height="180" rx="34" fill="#0d0d10"/>
+    <text x="412" y="512" font-family="SF Mono, Menlo, monospace" font-size="92" font-weight="700" fill="#7fe0a8">&gt;_</text>
+  </g>
+</svg>

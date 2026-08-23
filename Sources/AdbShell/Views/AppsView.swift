@@ -22,26 +22,30 @@ struct AppsView: View {
                         .font(.system(size: 11))
                     TextField("Поиск по package name…", text: $vm.searchText)
                         .textFieldStyle(.plain)
-                        .font(CP.mono(11))
+                        .font(CP.code(12))
                 }
-                .padding(8)
-                .background(CP.bgPanelAlt)
-                .overlay(Rectangle().stroke(CP.grid, lineWidth: 1))
-                .padding(10)
+                .padding(9)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous).fill(CP.bgPanelAlt)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(CP.hairline, lineWidth: 1)
+                )
+                .padding(12)
 
                 HStack {
                     Toggle(isOn: $vm.showSystemApps) {
                         Text("Системные")
-                            .font(CP.mono(10, weight: .semibold))
+                            .font(CP.mono(11, weight: .medium))
                             .foregroundColor(CP.textMuted)
                     }
-                    .toggleStyle(.checkbox)
+                    .toggleStyle(NeonToggleStyle(accent: CP.ice))
 
                     Spacer()
 
                     Text("\(vm.filteredApps.count)")
-                        .font(CP.mono(10))
-                        .foregroundColor(CP.cyan)
+                        .font(CP.mono(11, weight: .medium))
+                        .foregroundColor(CP.textMuted)
 
                     Button {
                         showInstallPicker = true
@@ -49,21 +53,21 @@ struct AppsView: View {
                         Label("Установить APK", systemImage: "arrow.down.doc")
                             .labelStyle(.iconOnly)
                     }
-                    .buttonStyle(NeonButtonStyle(accent: CP.yellow))
+                    .buttonStyle(NeonButtonStyle(accent: CP.gold))
                     .help("Установить APK из файла")
                 }
-                .padding(.horizontal, 10)
-                .padding(.bottom, 8)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
 
-                Rectangle().fill(CP.grid).frame(height: 1)
+                Rectangle().fill(CP.hairline).frame(height: 1)
 
                 if vm.isLoading {
                     Spacer()
-                    ProgressView().tint(CP.yellow)
+                    ProgressView().tint(CP.gold)
                     Spacer()
                 } else if let error = vm.errorMessage {
                     Spacer()
-                    Text(error).font(CP.mono(10)).foregroundColor(CP.red).padding()
+                    Text(error).font(CP.mono(11)).foregroundColor(CP.crimson).padding()
                     Spacer()
                 } else {
                     ScrollView {
@@ -72,7 +76,7 @@ struct AppsView: View {
                                 AppRow(app: app, isSelected: app.packageName == vm.selectedPackage) {
                                     vm.selectedPackage = app.packageName
                                 }
-                                Rectangle().fill(CP.grid).frame(height: 1)
+                                Rectangle().fill(CP.hairline).frame(height: 1).padding(.leading, 12)
                             }
                         }
                     }
@@ -81,7 +85,7 @@ struct AppsView: View {
             .frame(width: 360)
             .background(CP.bgPanel)
 
-            Rectangle().fill(CP.grid).frame(width: 1)
+            Rectangle().fill(CP.hairline).frame(width: 1)
 
             if let pkg = vm.selectedPackage {
                 AppDetailPanel(serial: serial, service: service, packageName: pkg) {
@@ -89,11 +93,13 @@ struct AppsView: View {
                 }
                 .id(pkg)
             } else {
-                VStack {
+                VStack(spacing: 10) {
                     Spacer()
-                    Text("ВЫБЕРИТЕ ПРИЛОЖЕНИЕ")
-                        .font(CP.mono(12, weight: .bold))
-                        .cpTracking(2)
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundColor(CP.textMuted)
+                    Text("Выберите приложение")
+                        .font(CP.mono(13, weight: .medium))
                         .foregroundColor(CP.textMuted)
                     Spacer()
                 }
@@ -125,27 +131,27 @@ private struct AppRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                StatusDot(color: app.isEnabled ? CP.green : CP.textMuted)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(app.packageName)
-                        .font(CP.mono(11))
-                        .foregroundColor(CP.textPrimary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
+                StatusDot(color: app.isEnabled ? CP.emerald : CP.textMuted)
+                Text(app.packageName)
+                    .font(CP.code(12))
+                    .foregroundColor(CP.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                 Spacer()
                 if app.isSystem {
                     Text("SYS")
-                        .font(CP.mono(8, weight: .bold))
+                        .font(CP.mono(9, weight: .semibold))
                         .foregroundColor(CP.textMuted)
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .overlay(Rectangle().stroke(CP.grid, lineWidth: 1))
+                        .background(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(CP.hairline, lineWidth: 1)
+                        )
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(isSelected ? CP.yellow.opacity(0.14) : Color.clear)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(isSelected ? CP.bgPanelAlt : Color.clear)
         }
         .buttonStyle(.plain)
     }

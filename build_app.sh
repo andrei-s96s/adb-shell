@@ -18,6 +18,7 @@ mkdir -p "$APP_DIR/Contents/Resources"
 
 cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/${APP_NAME}"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 # Подписываем ad-hoc, чтобы Gatekeeper не ругался при локальном запуске
 codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true

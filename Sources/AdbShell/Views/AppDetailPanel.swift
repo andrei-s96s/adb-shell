@@ -25,16 +25,20 @@ struct AppDetailPanel: View {
 
                 if let error = vm.errorMessage {
                     Text(error)
-                        .font(CP.mono(10))
-                        .foregroundColor(CP.red)
+                        .font(CP.mono(11))
+                        .foregroundColor(CP.crimson)
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(CP.red.opacity(0.08))
-                        .overlay(Rectangle().stroke(CP.red.opacity(0.4), lineWidth: 1))
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous).fill(CP.crimson.opacity(0.08))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(CP.crimson.opacity(0.35), lineWidth: 1)
+                        )
                 }
 
                 if vm.isLoading && vm.detail == nil {
-                    ProgressView().tint(CP.yellow)
+                    ProgressView().tint(CP.gold)
                 } else if let detail = vm.detail {
                     infoGrid(detail)
                     actionButtons(detail)
@@ -65,22 +69,22 @@ struct AppDetailPanel: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             Text(packageName)
-                .font(CP.mono(16, weight: .bold))
-                .foregroundColor(CP.yellow)
+                .font(CP.code(17, weight: .semibold))
+                .foregroundColor(CP.textPrimary)
                 .textSelection(.enabled)
             if let v = vm.detail?.versionName {
                 Text("v\(v)" + (vm.detail?.versionCode.map { " (\($0))" } ?? ""))
-                    .font(CP.mono(11))
-                    .foregroundColor(CP.textMuted)
+                    .font(CP.mono(12, weight: .medium))
+                    .foregroundColor(CP.gold)
             }
         }
     }
 
     private func infoGrid(_ detail: AppDetail) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionLabel(text: "Информация", accent: CP.cyan)
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(text: "Информация", accent: CP.ice)
             InfoLine(label: "Target SDK", value: detail.targetSdk ?? "—")
             InfoLine(label: "Установлено", value: shortDate(detail.firstInstallTime))
             InfoLine(label: "Обновлено", value: shortDate(detail.lastUpdateTime))
@@ -100,37 +104,37 @@ struct AppDetailPanel: View {
 
     private func actionButtons(_ detail: AppDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(text: "Действия", accent: CP.magenta)
+            SectionLabel(text: "Действия", accent: CP.rose)
             HStack(spacing: 8) {
                 Button("Остановить") { Task { await vm.forceStop(serial: serial) } }
-                    .buttonStyle(NeonButtonStyle(accent: CP.cyan))
+                    .buttonStyle(NeonButtonStyle(accent: CP.ice))
 
                 Button(detail.isEnabled ? "Отключить" : "Включить") {
                     Task { await vm.setEnabled(serial: serial, enabled: !detail.isEnabled) }
                 }
-                .buttonStyle(NeonButtonStyle(accent: CP.yellow))
+                .buttonStyle(NeonButtonStyle(accent: CP.gold))
 
                 Button("Очистить данные") { showClearConfirm = true }
-                    .buttonStyle(NeonButtonStyle(accent: CP.magenta))
+                    .buttonStyle(NeonButtonStyle(accent: CP.rose))
 
                 Button("Удалить") { showUninstallConfirm = true }
-                    .buttonStyle(NeonButtonStyle(accent: CP.red, filled: true))
+                    .buttonStyle(NeonButtonStyle(accent: CP.crimson, filled: true))
             }
             if vm.isPerformingAction {
-                ProgressView().scaleEffect(0.6).tint(CP.yellow)
+                ProgressView().scaleEffect(0.6).tint(CP.gold)
             }
             if let msg = vm.lastActionMessage {
-                Text(msg).font(CP.mono(9)).foregroundColor(CP.green)
+                Text(msg).font(CP.mono(11)).foregroundColor(CP.emerald)
             }
         }
     }
 
     private func permissionsSection(_ detail: AppDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(text: "Разрешения (\(detail.permissions.count))", accent: CP.yellow)
+            SectionLabel(text: "Разрешения (\(detail.permissions.count))", accent: CP.gold)
             if detail.permissions.isEmpty {
                 Text("Нет запрошенных разрешений")
-                    .font(CP.mono(10))
+                    .font(CP.mono(11))
                     .foregroundColor(CP.textMuted)
             } else {
                 VStack(spacing: 0) {
@@ -141,7 +145,7 @@ struct AppDetailPanel: View {
                         ) {
                             Task { await vm.togglePermission(serial: serial, permission: perm) }
                         }
-                        Rectangle().fill(CP.grid).frame(height: 1)
+                        Rectangle().fill(CP.hairline).frame(height: 1).padding(.leading, 12)
                     }
                 }
                 .cpPanel()
@@ -155,12 +159,12 @@ private struct InfoLine: View {
     let value: String
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Text(label.uppercased())
-                .font(CP.mono(9, weight: .semibold))
+            Text(label)
+                .font(CP.mono(11, weight: .medium))
                 .foregroundColor(CP.textMuted)
-                .frame(width: 100, alignment: .leading)
+                .frame(width: 104, alignment: .leading)
             Text(value)
-                .font(CP.mono(10))
+                .font(CP.code(11))
                 .foregroundColor(CP.textPrimary)
                 .textSelection(.enabled)
                 .lineLimit(2)
@@ -177,13 +181,13 @@ private struct PermissionRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            StatusDot(color: permission.granted ? CP.green : CP.textMuted)
+            StatusDot(color: permission.granted ? CP.emerald : CP.textMuted)
             VStack(alignment: .leading, spacing: 1) {
                 Text(permission.shortName)
-                    .font(CP.mono(11, weight: .semibold))
+                    .font(CP.mono(12, weight: .medium))
                     .foregroundColor(CP.textPrimary)
                 Text(permission.name)
-                    .font(CP.mono(8))
+                    .font(CP.code(9))
                     .foregroundColor(CP.textMuted)
                     .lineLimit(1)
                     .truncationMode(.head)
@@ -193,15 +197,15 @@ private struct PermissionRow: View {
             if isBusy {
                 ProgressView().scaleEffect(0.5)
             } else if permission.isRuntime {
-                Button(permission.granted ? "ЗАБРАТЬ" : "ВЫДАТЬ") { toggle() }
-                    .buttonStyle(NeonButtonStyle(accent: permission.granted ? CP.red : CP.green))
+                Button(permission.granted ? "Забрать" : "Выдать") { toggle() }
+                    .buttonStyle(NeonButtonStyle(accent: permission.granted ? CP.crimson : CP.emerald))
             } else {
                 Text("АВТО")
-                    .font(CP.mono(8, weight: .bold))
+                    .font(CP.mono(9, weight: .semibold))
                     .foregroundColor(CP.textMuted)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 }

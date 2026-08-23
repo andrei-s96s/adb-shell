@@ -17,7 +17,8 @@ enum DumpsysParser {
         var enabled = true
 
         var requested: [String] = []
-        var grantedMap: [String: Bool] = [:]
+        var runtimeGrantedMap: [String: Bool] = [:]
+        var installGrantedMap: [String: Bool] = [:]
 
         var section: Section = .none
 
@@ -72,7 +73,11 @@ enum DumpsysParser {
                 let rest = String(trimmed[colonRange.upperBound...])
                 if name.contains(".permission.") || name.hasPrefix("android.permission") {
                     let granted = rest.contains("granted=true")
-                    grantedMap[name] = granted
+                    if section == .runtime {
+                        runtimeGrantedMap[name] = granted
+                    } else {
+                        installGrantedMap[name] = granted
+                    }
                 }
             case .none:
                 break
@@ -80,15 +85,20 @@ enum DumpsysParser {
         }
 
         var permissionNames = Set(requested)
-        permissionNames.formUnion(grantedMap.keys)
+        permissionNames.formUnion(runtimeGrantedMap.keys)
+        permissionNames.formUnion(installGrantedMap.keys)
 
         let permissions = permissionNames.map { name -> AppPermission in
-            if let granted = grantedMap[name] {
+            // Разрешение реально togglable через `pm grant/revoke` только если
+            // Android перечислил его в секции "runtime permissions:". Всё, что
+            // встретилось лишь в "install permissions:" или только в "requested
+            // permissions:" — install-time (normal/signature), оно выдаётся
+            // автоматически и pm revoke на нём просто падает с ошибкой.
+            if let granted = runtimeGrantedMap[name] {
                 return AppPermission(name: name, granted: granted, isRuntime: true)
             }
-            // Разрешение упомянуто только в requested permissions — обычно
-            // это install-time (normal/signature) разрешение, оно всегда выдано.
-            return AppPermission(name: name, granted: true, isRuntime: false)
+            let granted = installGrantedMap[name] ?? true
+            return AppPermission(name: name, granted: granted, isRuntime: false)
         }.sorted { $0.name < $1.name }
 
         return AppDetail(
@@ -104,7 +114,7 @@ enum DumpsysParser {
         )
     }
 
-    private enum Section {
+    private enum Section: Equatable {
         case none, requested, runtime, install
     }
 

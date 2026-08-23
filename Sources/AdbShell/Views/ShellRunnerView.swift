@@ -73,7 +73,7 @@ struct ShellRunnerView: View {
                 Text("adb shell")
                     .font(CP.mono(11, weight: .bold))
                     .foregroundColor(CP.textMuted)
-                TextField("pm list packages | grep voyah", text: $command)
+                TextField("pm list packages -3", text: $command)
                     .textFieldStyle(.plain)
                     .font(CP.mono(11))
                     .onSubmit { Task { await run() } }
@@ -109,7 +109,7 @@ struct ShellRunnerView: View {
             let data = try await service.screenshot(serial: serial)
             let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
                 ?? FileManager.default.homeDirectoryForCurrentUser
-            let name = "voyah-screenshot-\(Int(Date().timeIntervalSince1970)).png"
+            let name = "adbshell-screenshot-\(Int(Date().timeIntervalSince1970)).png"
             let url = downloads.appendingPathComponent(name)
             try data.write(to: url)
             screenshotMessage = "Сохранено: \(url.path)"

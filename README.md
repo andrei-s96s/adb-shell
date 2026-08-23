@@ -1,7 +1,26 @@
 # ADB Shell
 
-Нативное macOS-приложение (SwiftUI) для работы с Android-устройствами через `adb` —
-в первую очередь для отладки медиасистемы Voyah по USB или по сети.
+Нативное macOS-приложение (SwiftUI) для работы с любыми Android-устройствами
+через `adb`: просмотр и управление приложениями, разрешения, установка APK,
+shell и скриншоты — по USB или по сети.
+
+## Скачать готовое приложение
+
+Собранная `.app` публикуется автоматически на каждый релиз:
+**[скачать последнюю версию](https://github.com/andrei-s96s/adb-shell/releases/latest)**
+(файл `AdbShell-macOS.zip`).
+
+Приложение не подписано платным Apple Developer ID и не нотаризовано, поэтому
+при первом запуске Gatekeeper может отказать. Снять карантин после распаковки:
+
+```bash
+xattr -cr AdbShell.app
+```
+
+и/или через Finder: правый клик по `AdbShell.app` → «Открыть» → «Открыть» в
+диалоге предупреждения. Само приложение умеет проверять обновления при
+запуске и предлагает поставить новую версию в один клик (кнопка «Проверить
+обновления» / баннер в сайдбаре).
 
 ## Возможности
 
@@ -11,9 +30,11 @@
 - Просмотр и управление runtime-разрешениями (выдать / забрать)
 - Установка / удаление APK
 - Force stop, очистка данных, включение/отключение приложения
-- Библиотека APK — локальная папка `~/Documents/AdbShell/APK`, куда можно
-  перетащить `.apk`-файлы и установить их на устройство в один клик
+- Библиотека APK — локальная папка (по умолчанию `~/Documents/AdbShell/APK`,
+  путь можно сменить), куда можно перетащить `.apk`-файлы и установить их на
+  устройство в один клик; доступна и без подключённого устройства
 - Простой shell-раннер (`adb shell <команда>`) и скриншот экрана устройства
+- Проверка обновлений на GitHub Releases и самообновление приложения
 
 ## Требования
 
@@ -27,6 +48,19 @@
 swift run
 ```
 
+## Тесты
+
+```bash
+swift test
+```
+
+Юнит-тесты покрывают парсинг `dumpsys package` (версии, runtime/install-time
+разрешения), парсинг `adb devices -l`, склейку списка пакетов и сравнение
+версий для автообновления. На машине без полного Xcode (только Command Line
+Tools) `swift test` может не найти модуль `Testing` — это ограничение
+локального окружения, в CI (GitHub Actions, полный Xcode) тесты гоняются
+штатно на каждый push.
+
 ## Сборка приложения (.app)
 
 ```bash
@@ -37,13 +71,26 @@ open AdbShell.app
 Скрипт собирает release-бинарник и упаковывает его в `AdbShell.app` с ad-hoc
 подписью — можно перетащить в `/Applications` и запускать двойным кликом.
 
+## Релиз новой версии
+
+1. Обновить `AppVersion.current` в
+   [UpdateService.swift](Sources/AdbShell/Services/UpdateService.swift) и
+   `CFBundleShortVersionString`/`CFBundleVersion` в
+   [Resources/Info.plist](Resources/Info.plist).
+2. Запушить тег `vX.Y.Z` — workflow
+   [release.yml](.github/workflows/release.yml) соберёт `.app`, упакует в
+   `AdbShell-macOS.zip` и опубликует на GitHub Releases.
+
 ## Структура проекта
 
 ```
 Sources/AdbShell/
   Models/       — Device, InstalledApp, AppDetail, AppPermission, ApkFile
-  Services/     — ADBService (обёртка над CLI adb), DumpsysParser
+  Services/     — ADBService (обёртка над CLI adb), DumpsysParser, UpdateService
   ViewModels/   — DevicesViewModel, AppsViewModel, AppDetailViewModel, ApkLibraryViewModel
   Views/        — ContentView, DeviceSidebarView, AppsView, AppDetailPanel, ApkLibraryView, ShellRunnerView
   Design/       — Theme.swift (цветовая палитра и компоненты)
+Tests/AdbShellTests/ — юнит-тесты (Swift Testing)
 ```
+
+См. [ROADMAP.md](ROADMAP.md) — план развития по версиям.

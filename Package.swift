@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
@@ -9,7 +9,14 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "AdbShell",
-            path: "Sources/AdbShell"
+            path: "Sources/AdbShell",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .testTarget(
+            name: "AdbShellTests",
+            dependencies: ["AdbShell"],
+            path: "Tests/AdbShellTests",
+            swiftSettings: [.swiftLanguageMode(.v5)]
         )
     ]
 )
