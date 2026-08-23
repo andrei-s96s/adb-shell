@@ -19,6 +19,7 @@ final class AppsViewModel: ObservableObject {
 
     init(service: ADBService) {
         self.service = service
+        self.showSystemApps = UserDefaults.standard.bool(forKey: "defaultShowSystemApps")
     }
 
     var filteredApps: [InstalledApp] {

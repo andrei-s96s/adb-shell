@@ -5,6 +5,8 @@ struct DeviceSidebarView: View {
     @StateObject private var updateVM = UpdateService()
     @StateObject private var profileStore = ConnectionProfileStore()
     @State private var showPairingSheet = false
+    @State private var showSettingsSheet = false
+    @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -12,13 +14,24 @@ struct DeviceSidebarView: View {
             Color.clear.frame(height: 28)
 
             // Логотип / заголовок
-            VStack(alignment: .leading, spacing: 3) {
-                Text("ADB Shell")
-                    .font(CP.mono(19, weight: .bold))
-                    .foregroundColor(CP.textPrimary)
-                Text("Android Device Control")
-                    .font(CP.mono(11, weight: .medium))
-                    .foregroundColor(CP.gold)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("ADB Shell")
+                        .font(CP.mono(19, weight: .bold))
+                        .foregroundColor(CP.textPrimary)
+                    Text("Android Device Control")
+                        .font(CP.mono(11, weight: .medium))
+                        .foregroundColor(CP.gold)
+                }
+                Spacer()
+                Button {
+                    showSettingsSheet = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13))
+                        .foregroundColor(CP.textMuted)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 18)
@@ -146,10 +159,15 @@ struct DeviceSidebarView: View {
         }
         .task {
             await vm.autoConnect(profiles: profileStore.autoConnectProfiles)
-            await updateVM.checkForUpdates()
+            if autoCheckUpdates {
+                await updateVM.checkForUpdates()
+            }
         }
         .sheet(isPresented: $showPairingSheet) {
             PairingSheet(service: vm.service) { showPairingSheet = false }
+        }
+        .sheet(isPresented: $showSettingsSheet) {
+            SettingsView { showSettingsSheet = false }
         }
     }
 }
