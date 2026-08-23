@@ -7,6 +7,9 @@ struct AppsView: View {
     let service: ADBService
     @StateObject private var vm: AppsViewModel
     @State private var showInstallPicker = false
+    @State private var showBatchDeleteConfirm = false
+    @State private var installResults: [InstallResult] = []
+    @State private var showInstallResults = false
 
     init(serial: String, service: ADBService) {
         self.serial = serial
@@ -49,6 +52,15 @@ struct AppsView: View {
                         .foregroundColor(CP.textMuted)
 
                     Button {
+                        vm.toggleSelectionMode()
+                    } label: {
+                        Label("Выбрать", systemImage: "checkmark.circle")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(NeonButtonStyle(accent: vm.isSelectionMode ? CP.rose : CP.textMuted))
+                    .help("Мультивыбор для пакетного удаления")
+
+                    Button {
                         exportCSV()
                     } label: {
                         Label("Экспорт в CSV", systemImage: "square.and.arrow.up")
@@ -64,10 +76,33 @@ struct AppsView: View {
                             .labelStyle(.iconOnly)
                     }
                     .buttonStyle(NeonButtonStyle(accent: CP.gold))
-                    .help("Установить APK из файла")
+                    .help("Установить APK из файла (можно несколько)")
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
+
+                if vm.isSelectionMode {
+                    HStack {
+                        Text("Выбрано: \(vm.selectedForBatch.count)")
+                            .font(CP.mono(11, weight: .medium))
+                            .foregroundColor(CP.textMuted)
+                        Spacer()
+                        Button("Удалить выбранные") { showBatchDeleteConfirm = true }
+                            .buttonStyle(NeonButtonStyle(accent: CP.crimson, filled: true))
+                            .disabled(vm.selectedForBatch.isEmpty)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                }
+
+                if let progress = vm.batchProgressText {
+                    HStack(spacing: 6) {
+                        ProgressView().scaleEffect(0.5)
+                        Text(progress).font(CP.mono(10)).foregroundColor(CP.textMuted)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                }
 
                 Rectangle().fill(CP.hairline).frame(height: 1)
 
@@ -83,8 +118,17 @@ struct AppsView: View {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(vm.filteredApps) { app in
-                                AppRow(app: app, isSelected: app.packageName == vm.selectedPackage) {
-                                    vm.selectedPackage = app.packageName
+                                AppRow(
+                                    app: app,
+                                    isSelected: app.packageName == vm.selectedPackage,
+                                    isSelectionMode: vm.isSelectionMode,
+                                    isChecked: vm.selectedForBatch.contains(app.packageName)
+                                ) {
+                                    if vm.isSelectionMode {
+                                        vm.toggleSelection(app.packageName)
+                                    } else {
+                                        vm.selectedPackage = app.packageName
+                                    }
                                 }
                                 Rectangle().fill(CP.hairline).frame(height: 1).padding(.leading, 12)
                             }
@@ -97,7 +141,7 @@ struct AppsView: View {
 
             Rectangle().fill(CP.hairline).frame(width: 1)
 
-            if let pkg = vm.selectedPackage {
+            if let pkg = vm.selectedPackage, !vm.isSelectionMode {
                 AppDetailPanel(serial: serial, service: service, packageName: pkg) {
                     Task { await vm.load(serial: serial) }
                 }
@@ -105,10 +149,10 @@ struct AppsView: View {
             } else {
                 VStack(spacing: 10) {
                     Spacer()
-                    Image(systemName: "square.stack.3d.up")
+                    Image(systemName: vm.isSelectionMode ? "checkmark.circle" : "square.stack.3d.up")
                         .font(.system(size: 28, weight: .light))
                         .foregroundColor(CP.textMuted)
-                    Text("Выберите приложение")
+                    Text(vm.isSelectionMode ? "Отметьте приложения слева" : "Выберите приложение")
                         .font(CP.mono(13, weight: .medium))
                         .foregroundColor(CP.textMuted)
                     Spacer()
@@ -122,13 +166,28 @@ struct AppsView: View {
         }
         .fileImporter(isPresented: $showInstallPicker, allowedContentTypes: [UTType(filenameExtension: "apk") ?? .data], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result {
+                installResults = []
                 Task {
-                    for url in urls {
-                        _ = try? await service.install(serial: serial, apkPath: url.path)
+                    await vm.installBatch(urls: urls, serial: serial) { url, outcome in
+                        switch outcome {
+                        case .success:
+                            installResults.append(InstallResult(name: url.lastPathComponent, success: true, message: "OK"))
+                        case .failure(let error):
+                            installResults.append(InstallResult(name: url.lastPathComponent, success: false, message: error.localizedDescription))
+                        }
                     }
-                    await vm.load(serial: serial)
+                    if urls.count > 1 || installResults.contains(where: { !$0.success }) {
+                        showInstallResults = true
+                    }
                 }
             }
+        }
+        .confirmationDialog("Удалить \(vm.selectedForBatch.count) приложений?", isPresented: $showBatchDeleteConfirm, titleVisibility: .visible) {
+            Button("Удалить", role: .destructive) { Task { await vm.deleteSelected(serial: serial) } }
+            Button("Отмена", role: .cancel) { }
+        }
+        .sheet(isPresented: $showInstallResults) {
+            InstallResultsSheet(results: installResults) { showInstallResults = false }
         }
     }
 
@@ -146,15 +205,63 @@ struct AppsView: View {
     }
 }
 
+private struct InstallResult: Identifiable {
+    let id = UUID()
+    let name: String
+    let success: Bool
+    let message: String
+}
+
+private struct InstallResultsSheet: View {
+    let results: [InstallResult]
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel(text: "Результат установки", accent: CP.gold)
+            ScrollView {
+                VStack(spacing: 6) {
+                    ForEach(results) { r in
+                        HStack(spacing: 8) {
+                            Image(systemName: r.success ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(r.success ? CP.emerald : CP.crimson)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(r.name).font(CP.code(11, weight: .medium)).foregroundColor(CP.textPrimary)
+                                if !r.success {
+                                    Text(r.message).font(CP.mono(9)).foregroundColor(CP.crimson).lineLimit(2)
+                                }
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 300)
+            Button("Закрыть") { onClose() }
+                .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
+        }
+        .padding(20)
+        .frame(width: 380)
+        .background(CP.bg)
+    }
+}
+
 private struct AppRow: View {
     let app: InstalledApp
     let isSelected: Bool
+    let isSelectionMode: Bool
+    let isChecked: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                StatusDot(color: app.isEnabled ? CP.emerald : CP.textMuted)
+                if isSelectionMode {
+                    Image(systemName: isChecked ? "checkmark.square.fill" : "square")
+                        .foregroundColor(isChecked ? CP.gold : CP.textMuted)
+                } else {
+                    StatusDot(color: app.isEnabled ? CP.emerald : CP.textMuted)
+                }
                 Text(app.packageName)
                     .font(CP.code(12))
                     .foregroundColor(CP.textPrimary)

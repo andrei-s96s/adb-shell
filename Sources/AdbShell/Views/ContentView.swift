@@ -3,6 +3,7 @@ import SwiftUI
 enum MainTab: String, CaseIterable, Identifiable {
     case apps = "Приложения"
     case library = "APK библиотека"
+    case files = "Файлы"
     case logcat = "Logcat"
     case shell = "Shell"
     var id: String { rawValue }
@@ -47,6 +48,12 @@ struct ContentView: View {
                         // Библиотека — локальная папка на Mac, устройство нужно только
                         // для кнопки "Установить", поэтому доступна всегда.
                         ApkLibraryView(serial: readyDevice?.serial, service: devicesVM.service)
+                    case .files:
+                        if let device = readyDevice {
+                            FilesView(serial: device.serial, service: devicesVM.service)
+                        } else {
+                            NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
+                        }
                     case .logcat:
                         if let device = readyDevice {
                             LogcatView(serial: device.serial, service: devicesVM.service)

@@ -1,5 +1,7 @@
 import Foundation
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppDetailViewModel: ObservableObject {
@@ -75,6 +77,27 @@ final class AppDetailViewModel: ObservableObject {
         do {
             try await service.clearData(serial: serial, packageName: packageName)
             lastActionMessage = "Данные очищены"
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func exportApk(serial: String) async {
+        guard let packageName = detail?.packageName else { return }
+        isPerformingAction = true
+        defer { isPerformingAction = false }
+        do {
+            let paths = try await service.apkPaths(serial: serial, packageName: packageName)
+            guard let basePath = paths.first(where: { $0.hasSuffix("base.apk") }) ?? paths.first else {
+                errorMessage = "Путь к APK не найден"
+                return
+            }
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = "\(packageName).apk"
+            panel.allowedContentTypes = [UTType(filenameExtension: "apk") ?? .data]
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            try await service.pull(serial: serial, remotePath: basePath, localPath: url.path)
+            lastActionMessage = "APK экспортирован: \(url.path)"
         } catch {
             errorMessage = error.localizedDescription
         }

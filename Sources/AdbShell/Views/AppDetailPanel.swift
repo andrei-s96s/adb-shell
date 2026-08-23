@@ -117,6 +117,9 @@ struct AppDetailPanel: View {
                 Button("Очистить данные") { showClearConfirm = true }
                     .buttonStyle(NeonButtonStyle(accent: CP.rose))
 
+                Button("Экспортировать APK") { Task { await vm.exportApk(serial: serial) } }
+                    .buttonStyle(NeonButtonStyle(accent: CP.ice))
+
                 Button("Удалить") { showUninstallConfirm = true }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson, filled: true))
             }

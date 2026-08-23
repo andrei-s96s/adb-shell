@@ -202,6 +202,61 @@ final class ADBService {
         }
     }
 
+    /// Пути к APK установленного пакета (`pm path`) — может быть несколько для split APK.
+    func apkPaths(serial: String, packageName: String) async throws -> [String] {
+        let result = try await run(["shell", "pm", "path", packageName], serial: serial)
+        let paths = result.stdout.split(separator: "\n").compactMap { line -> String? in
+            let s = line.trimmingCharacters(in: .whitespaces)
+            guard s.hasPrefix("package:") else { return nil }
+            return String(s.dropFirst("package:".count))
+        }
+        guard !paths.isEmpty else {
+            throw ADBError.commandFailed(result.combined.isEmpty ? "Путь к APK не найден" : result.combined)
+        }
+        return paths
+    }
+
+    // MARK: - Файлы устройства
+
+    func listDirectory(serial: String, path: String) async throws -> [RemoteFile] {
+        let result = try await run(["shell", "ls", "-la", path], serial: serial)
+        if result.stdout.isEmpty && !result.stderr.isEmpty {
+            throw ADBError.commandFailed(result.stderr)
+        }
+        return RemoteFileParser.parse(output: result.stdout, parentPath: path)
+    }
+
+    func push(serial: String, localPath: String, remotePath: String) async throws {
+        let result = try await run(["push", localPath, remotePath], serial: serial, timeout: 300)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
+    func pull(serial: String, remotePath: String, localPath: String) async throws {
+        let result = try await run(["pull", remotePath, localPath], serial: serial, timeout: 300)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
+    func makeDirectory(serial: String, path: String) async throws {
+        let result = try await run(["shell", "mkdir", "-p", path], serial: serial)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
+    func removeRemote(serial: String, path: String, recursive: Bool) async throws {
+        var args = ["shell", "rm"]
+        args.append(recursive ? "-rf" : "-f")
+        args.append(path)
+        let result = try await run(args, serial: serial)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
     func forceStop(serial: String, packageName: String) async throws {
         try await run(["shell", "am", "force-stop", packageName], serial: serial)
     }
