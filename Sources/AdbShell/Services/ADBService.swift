@@ -32,7 +32,15 @@ final class ADBService {
         self.adbPath = ADBService.locateADB()
     }
 
-    private static func locateADB() -> String {
+    static func locateADB() -> String {
+        // 1) adb, вшитый в .app сборкой build_app.sh — так релиз не требует
+        //    отдельной установки Android Platform Tools на машине пользователя.
+        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("adb").path,
+           FileManager.default.isExecutableFile(atPath: bundled) {
+            return bundled
+        }
+        // 2) системный adb — для `swift run` в разработке и на случай,
+        //    если пользователь всё же поставил Platform Tools сам.
         let candidates = [
             "/opt/homebrew/bin/adb",
             "/usr/local/bin/adb",

@@ -10,6 +10,9 @@ shell и скриншоты — по USB или по сети.
 **[скачать последнюю версию](https://github.com/andrei-s96s/adb-shell/releases/latest)**
 (файл `AdbShell-macOS.zip`).
 
+`adb` (Android Platform Tools, Apache-2.0) вшит прямо в `.app` — отдельно
+ставить его на Mac не нужно, ничего больше скачивать не требуется.
+
 Приложение не подписано платным Apple Developer ID и не нотаризовано, поэтому
 при первом запуске Gatekeeper может отказать. Снять карантин после распаковки:
 
@@ -38,9 +41,14 @@ xattr -cr AdbShell.app
 
 ## Требования
 
+Для готового релиза (см. выше) — только macOS 13+, ничего ставить не нужно.
+
+Для сборки из исходников:
 - macOS 13+
-- `adb` в `PATH` (например, `brew install android-platform-tools`)
 - Swift 5.9+ (входит в Command Line Tools, Xcode не обязателен)
+- `adb` в `PATH` только для `swift run` (например,
+  `brew install android-platform-tools`) — `build_app.sh` сам скачивает и
+  вшивает adb в `.app`, системный нужен лишь для запуска через `swift run`
 
 ## Запуск в режиме разработки
 
@@ -68,8 +76,10 @@ Tools) `swift test` может не найти модуль `Testing` — это
 open AdbShell.app
 ```
 
-Скрипт собирает release-бинарник и упаковывает его в `AdbShell.app` с ad-hoc
-подписью — можно перетащить в `/Applications` и запускать двойным кликом.
+Скрипт собирает release-бинарник, скачивает (кеширует в `.build/`) и вшивает
+`adb` из официальных Android Platform Tools, упаковывает всё в `AdbShell.app`
+с ad-hoc подписью — можно перетащить в `/Applications` и запускать двойным
+кликом.
 
 ## Релиз новой версии
 
@@ -94,3 +104,9 @@ Tests/AdbShellTests/ — юнит-тесты (Swift Testing)
 ```
 
 См. [ROADMAP.md](ROADMAP.md) — план развития по версиям.
+
+## Лицензии
+
+`adb` — часть Android Platform Tools от Google, распространяется под
+Apache License 2.0; при сборке `.app` рядом кладётся `adb-NOTICE.txt` с
+атрибуцией. Исходники ADB Shell — см. лицензию репозитория.
