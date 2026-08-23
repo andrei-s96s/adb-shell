@@ -50,8 +50,17 @@ final class UpdateService: ObservableObject {
             var request = URLRequest(url: apiURL)
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                state = .error("GitHub вернул ошибку при проверке обновлений")
+            guard let http = response as? HTTPURLResponse else {
+                state = .error("Нет ответа от GitHub")
+                return
+            }
+            if http.statusCode == 404 {
+                // В репозитории ещё нет ни одного опубликованного релиза — это не ошибка.
+                state = .upToDate
+                return
+            }
+            guard http.statusCode == 200 else {
+                state = .error("GitHub вернул ошибку \(http.statusCode) при проверке обновлений")
                 return
             }
             let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
