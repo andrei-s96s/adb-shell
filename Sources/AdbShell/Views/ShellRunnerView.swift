@@ -16,16 +16,17 @@ struct ShellRunnerView: View {
     @State private var history: [HistoryEntry] = []
     @State private var isRunning = false
     @State private var screenshotMessage: String?
+    @StateObject private var savedCommands = ShellHistoryStore()
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                SectionLabel(text: "Shell", accent: CP.magenta)
+                SectionLabel(text: "Shell", accent: CP.rose)
                 Spacer()
                 Button("Скриншот") { Task { await takeScreenshot() } }
-                    .buttonStyle(NeonButtonStyle(accent: CP.cyan))
+                    .buttonStyle(NeonButtonStyle(accent: CP.ice))
                 Button("Reboot") { Task { try? await service.reboot(serial: serial) } }
-                    .buttonStyle(NeonButtonStyle(accent: CP.red))
+                    .buttonStyle(NeonButtonStyle(accent: CP.crimson))
                 Button("Очистить лог") { history.removeAll() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
             }
@@ -33,13 +34,17 @@ struct ShellRunnerView: View {
 
             if let screenshotMessage {
                 Text(screenshotMessage)
-                    .font(CP.mono(9))
-                    .foregroundColor(CP.green)
+                    .font(CP.mono(10))
+                    .foregroundColor(CP.emerald)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
             }
 
-            Rectangle().fill(CP.grid).frame(height: 1)
+            if !savedCommands.favorites.isEmpty {
+                quickCommandsStrip
+            }
+
+            Rectangle().fill(CP.hairline).frame(height: 1)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -47,11 +52,11 @@ struct ShellRunnerView: View {
                         ForEach(history) { entry in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("$ \(entry.command)")
-                                    .font(CP.mono(11, weight: .bold))
-                                    .foregroundColor(CP.yellow)
+                                    .font(CP.code(11, weight: .semibold))
+                                    .foregroundColor(CP.gold)
                                 Text(entry.output.isEmpty ? "(пусто)" : entry.output)
-                                    .font(CP.mono(10))
-                                    .foregroundColor(entry.isError ? CP.red : CP.textPrimary)
+                                    .font(CP.code(10))
+                                    .foregroundColor(entry.isError ? CP.crimson : CP.textPrimary)
                                     .textSelection(.enabled)
                             }
                             .id(entry.id)
@@ -67,27 +72,86 @@ struct ShellRunnerView: View {
                 }
             }
 
-            Rectangle().fill(CP.grid).frame(height: 1)
+            Rectangle().fill(CP.hairline).frame(height: 1)
 
+            inputBar
+        }
+    }
+
+    private var quickCommandsStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(savedCommands.favorites) { saved in
+                    Button {
+                        command = saved.text
+                        Task { await run() }
+                    } label: {
+                        Text(saved.text)
+                            .font(CP.code(10))
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(NeonButtonStyle(accent: CP.gold))
+                    .contextMenu {
+                        Button("Убрать из избранного") { savedCommands.toggleFavorite(saved.id) }
+                        Button("Удалить", role: .destructive) { savedCommands.remove(saved.id) }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private var inputBar: some View {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Text("adb shell")
-                    .font(CP.mono(11, weight: .bold))
+                    .font(CP.mono(11, weight: .semibold))
                     .foregroundColor(CP.textMuted)
                 TextField("pm list packages -3", text: $command)
                     .textFieldStyle(.plain)
-                    .font(CP.mono(11))
+                    .font(CP.code(12))
                     .onSubmit { Task { await run() } }
+
+                Button {
+                    savedCommands.favorite(command)
+                } label: {
+                    Image(systemName: "star")
+                        .foregroundColor(CP.gold)
+                }
+                .buttonStyle(.plain)
+                .disabled(command.trimmingCharacters(in: .whitespaces).isEmpty)
+                .help("Добавить в избранное")
+
+                Menu {
+                    if savedCommands.recent.isEmpty {
+                        Text("Пока пусто")
+                    } else {
+                        ForEach(savedCommands.recent) { saved in
+                            Button(saved.text) {
+                                command = saved.text
+                                Task { await run() }
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "clock")
+                        .foregroundColor(CP.textMuted)
+                }
+                .menuStyle(.borderlessButton)
+                .frame(width: 22)
+
                 if isRunning {
                     ProgressView().scaleEffect(0.6)
                 } else {
                     Button("Выполнить") { Task { await run() } }
-                        .buttonStyle(NeonButtonStyle(accent: CP.magenta, filled: true))
+                        .buttonStyle(NeonButtonStyle(accent: CP.rose, filled: true))
                         .disabled(command.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .padding(12)
-            .background(CP.bgPanelAlt)
         }
+        .background(CP.bgPanelAlt)
     }
 
     private func run() async {
@@ -96,6 +160,7 @@ struct ShellRunnerView: View {
         isRunning = true
         command = ""
         defer { isRunning = false }
+        savedCommands.record(cmd)
         do {
             let output = try await service.shell(serial: serial, command: cmd)
             history.append(HistoryEntry(command: cmd, output: output, isError: false))

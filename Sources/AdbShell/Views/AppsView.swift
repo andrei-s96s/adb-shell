@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import AppKit
 
 struct AppsView: View {
     let serial: String
@@ -46,6 +47,15 @@ struct AppsView: View {
                     Text("\(vm.filteredApps.count)")
                         .font(CP.mono(11, weight: .medium))
                         .foregroundColor(CP.textMuted)
+
+                    Button {
+                        exportCSV()
+                    } label: {
+                        Label("Экспорт в CSV", systemImage: "square.and.arrow.up")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(NeonButtonStyle(accent: CP.ice))
+                    .help("Экспортировать список в CSV")
 
                     Button {
                         showInstallPicker = true
@@ -120,6 +130,19 @@ struct AppsView: View {
                 }
             }
         }
+    }
+
+    private func exportCSV() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "packages-\(serial).csv"
+        panel.allowedContentTypes = [.commaSeparatedText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        var csv = "package_name,is_system,is_enabled\n"
+        for app in vm.filteredApps {
+            csv += "\(app.packageName),\(app.isSystem),\(app.isEnabled)\n"
+        }
+        try? csv.write(to: url, atomically: true, encoding: .utf8)
     }
 }
 

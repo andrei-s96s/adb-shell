@@ -3,6 +3,7 @@ import SwiftUI
 enum MainTab: String, CaseIterable, Identifiable {
     case apps = "Приложения"
     case library = "APK библиотека"
+    case logcat = "Logcat"
     case shell = "Shell"
     var id: String { rawValue }
 }
@@ -30,7 +31,7 @@ struct ContentView: View {
             Rectangle().fill(CP.hairline).frame(width: 1)
 
             VStack(spacing: 0) {
-                TopBar(tab: $tab, device: readyDevice)
+                TopBar(tab: $tab, device: readyDevice, service: devicesVM.service)
 
                 Rectangle().fill(CP.hairline).frame(height: 1)
 
@@ -46,6 +47,12 @@ struct ContentView: View {
                         // Библиотека — локальная папка на Mac, устройство нужно только
                         // для кнопки "Установить", поэтому доступна всегда.
                         ApkLibraryView(serial: readyDevice?.serial, service: devicesVM.service)
+                    case .logcat:
+                        if let device = readyDevice {
+                            LogcatView(serial: device.serial, service: devicesVM.service)
+                        } else {
+                            NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
+                        }
                     case .shell:
                         if let device = readyDevice {
                             ShellRunnerView(serial: device.serial, service: devicesVM.service)
@@ -68,6 +75,8 @@ struct ContentView: View {
 private struct TopBar: View {
     @Binding var tab: MainTab
     let device: Device?
+    let service: ADBService
+    @State private var fingerprint: String?
 
     var body: some View {
         HStack(spacing: 4) {
@@ -99,12 +108,22 @@ private struct TopBar: View {
                     Text(device.displayName)
                         .font(CP.mono(11, weight: .medium))
                         .foregroundColor(CP.textMuted)
+                    if let fingerprint {
+                        Text("· \(fingerprint)")
+                            .font(CP.code(10))
+                            .foregroundColor(CP.textMuted.opacity(0.7))
+                    }
                 }
                 .padding(.trailing, 16)
             }
         }
         .frame(height: 44)
         .background(CP.bgPanel)
+        .task(id: device?.serial) {
+            fingerprint = nil
+            guard let device else { return }
+            fingerprint = try? await service.buildFingerprint(serial: device.serial)
+        }
     }
 }
 

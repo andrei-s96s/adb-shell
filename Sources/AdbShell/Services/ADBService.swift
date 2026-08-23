@@ -238,6 +238,24 @@ final class ADBService {
         }
     }
 
+    /// Короткая строка вида "Android 13 · SDK 33" для шапки устройства.
+    func buildFingerprint(serial: String) async throws -> String {
+        async let releaseResult = run(["shell", "getprop", "ro.build.version.release"], serial: serial)
+        async let sdkResult = run(["shell", "getprop", "ro.build.version.sdk"], serial: serial)
+        let release = try await releaseResult.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sdk = try await sdkResult.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        var parts: [String] = []
+        if !release.isEmpty { parts.append("Android \(release)") }
+        if !sdk.isEmpty { parts.append("SDK \(sdk)") }
+        return parts.joined(separator: " · ")
+    }
+
+    // MARK: - Logcat
+
+    func makeLogcatSession(serial: String) -> LogcatSession {
+        LogcatSession(adbPath: adbPath, serial: serial)
+    }
+
     // MARK: - Прочее
 
     func shell(serial: String, command: String) async throws -> String {
