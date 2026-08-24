@@ -5,7 +5,7 @@ import AppKit
 
 /// Текущая версия приложения — держать в паре с CFBundleShortVersionString в Resources/Info.plist.
 enum AppVersion {
-    static let current = "1.4.0"
+    static let current = "1.5.0"
 }
 
 private struct GitHubRelease: Decodable {
@@ -51,7 +51,7 @@ final class UpdateService: ObservableObject {
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                state = .error("Нет ответа от GitHub")
+                state = .error(L("update.error.noResponse"))
                 return
             }
             if http.statusCode == 404 {
@@ -60,7 +60,7 @@ final class UpdateService: ObservableObject {
                 return
             }
             guard http.statusCode == 200 else {
-                state = .error("GitHub вернул ошибку \(http.statusCode) при проверке обновлений")
+                state = .error(L("update.error.httpStatus", http.statusCode))
                 return
             }
             let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
@@ -73,12 +73,12 @@ final class UpdateService: ObservableObject {
             guard let asset = release.assets.first(where: { $0.name.hasSuffix(".zip") }),
                   let assetURL = URL(string: asset.browser_download_url),
                   let releaseURL = URL(string: release.html_url) else {
-                state = .error("В релизе \(release.tag_name) нет .zip вложения")
+                state = .error(L("update.error.noZipAsset", release.tag_name))
                 return
             }
             state = .available(version: remoteVersion, downloadURL: assetURL, releaseURL: releaseURL)
         } catch {
-            state = .error("Не удалось проверить обновления: \(error.localizedDescription)")
+            state = .error(L("update.error.checkFailed", error.localizedDescription))
         }
     }
 
@@ -91,7 +91,7 @@ final class UpdateService: ObservableObject {
     /// Скачивает .zip релиза, распаковывает и заменяет текущий .app, затем перезапускает.
     func downloadAndInstall(from url: URL) async {
         guard canSelfInstall else {
-            state = .error("Автообновление доступно только для собранного .app (см. build_app.sh)")
+            state = .error(L("update.error.cannotSelfInstall"))
             return
         }
         do {
@@ -110,7 +110,7 @@ final class UpdateService: ObservableObject {
             let extracted = try FileManager.default.contentsOfDirectory(at: workDir, includingPropertiesForKeys: nil)
                 .first { $0.pathExtension == "app" }
             guard let newApp = extracted else {
-                state = .error("В архиве не найден .app")
+                state = .error(L("update.error.noAppInArchive"))
                 return
             }
 
@@ -140,7 +140,7 @@ final class UpdateService: ObservableObject {
 
             relaunch(at: currentAppPath)
         } catch {
-            state = .error("Обновление не удалось: \(error.localizedDescription)")
+            state = .error(L("update.error.installFailed", error.localizedDescription))
         }
     }
 

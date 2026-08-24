@@ -84,12 +84,12 @@ final class FilesViewModel: ObservableObject {
 
     func pull(_ file: RemoteFile, to destinationDir: URL, serial: String) async {
         isBusy = true
-        statusMessage = "Скачивание \(file.name)…"
+        statusMessage = L("files.downloading", file.name)
         defer { isBusy = false }
         do {
             let localPath = destinationDir.appendingPathComponent(file.name).path
             try await service.pull(serial: serial, remotePath: file.path, localPath: localPath)
-            statusMessage = "Скачано: \(localPath)"
+            statusMessage = L("files.downloaded", localPath)
         } catch {
             errorMessage = error.localizedDescription
             statusMessage = nil
@@ -100,7 +100,7 @@ final class FilesViewModel: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         for url in urls {
-            statusMessage = "Загрузка \(url.lastPathComponent)…"
+            statusMessage = L("files.uploading", url.lastPathComponent)
             do {
                 let remotePath = RemoteFile.joinPath(currentPath, url.lastPathComponent)
                 try await service.push(serial: serial, localPath: url.path, remotePath: remotePath)

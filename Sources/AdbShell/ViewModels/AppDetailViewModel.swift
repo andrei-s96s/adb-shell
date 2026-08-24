@@ -64,7 +64,7 @@ final class AppDetailViewModel: ObservableObject {
         defer { isPerformingAction = false }
         do {
             try await service.forceStop(serial: serial, packageName: packageName)
-            lastActionMessage = "Процесс остановлен"
+            lastActionMessage = L("appDetail.stopped")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -76,7 +76,7 @@ final class AppDetailViewModel: ObservableObject {
         defer { isPerformingAction = false }
         do {
             try await service.clearData(serial: serial, packageName: packageName)
-            lastActionMessage = "Данные очищены"
+            lastActionMessage = L("appDetail.dataCleared")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -89,7 +89,7 @@ final class AppDetailViewModel: ObservableObject {
         do {
             let paths = try await service.apkPaths(serial: serial, packageName: packageName)
             guard let basePath = paths.first(where: { $0.hasSuffix("base.apk") }) ?? paths.first else {
-                errorMessage = "Путь к APK не найден"
+                errorMessage = L("error.apkPathNotFound")
                 return
             }
             let panel = NSSavePanel()
@@ -97,7 +97,7 @@ final class AppDetailViewModel: ObservableObject {
             panel.allowedContentTypes = [UTType(filenameExtension: "apk") ?? .data]
             guard panel.runModal() == .OK, let url = panel.url else { return }
             try await service.pull(serial: serial, remotePath: basePath, localPath: url.path)
-            lastActionMessage = "APK экспортирован: \(url.path)"
+            lastActionMessage = L("appDetail.apkExported", url.path)
         } catch {
             errorMessage = error.localizedDescription
         }

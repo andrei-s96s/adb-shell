@@ -8,6 +8,7 @@ struct SettingsView: View {
 
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
     @AppStorage("defaultShowSystemApps") private var defaultShowSystemApps = false
+    @EnvironmentObject private var loc: LocalizationManager
 
     @StateObject private var apkLibrary = ApkLibraryViewModel()
     @StateObject private var shellHistory = ShellHistoryStore()
@@ -17,7 +18,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
-                SectionLabel(text: "Настройки", accent: CP.gold)
+                SectionLabel(text: L("settings.title"), accent: CP.gold)
                 Spacer()
                 Button {
                     onClose()
@@ -28,14 +29,27 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Обновления", accent: CP.ice)
+                SectionLabel(text: L("settings.language"), accent: CP.rose)
+                Picker("", selection: $loc.language) {
+                    ForEach(LocalizationManager.Language.allCases) { lang in
+                        Text(lang.label).tag(lang)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            .padding(12)
+            .cpPanel()
+
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: L("settings.updates"), accent: CP.ice)
                 Toggle(isOn: $autoCheckUpdates) {
-                    Text("Проверять обновления при запуске")
+                    Text(L("settings.checkOnLaunch"))
                         .font(CP.mono(12, weight: .medium))
                         .foregroundColor(CP.textPrimary)
                 }
                 .toggleStyle(NeonToggleStyle(accent: CP.gold))
-                Text("Сейчас установлена версия v\(AppVersion.current)")
+                Text(L("settings.currentVersion", AppVersion.current))
                     .font(CP.mono(10))
                     .foregroundColor(CP.textMuted)
             }
@@ -43,9 +57,9 @@ struct SettingsView: View {
             .cpPanel()
 
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Приложения", accent: CP.ice)
+                SectionLabel(text: L("settings.apps"), accent: CP.ice)
                 Toggle(isOn: $defaultShowSystemApps) {
-                    Text("Показывать системные приложения по умолчанию")
+                    Text(L("settings.showSystemAppsDefault"))
                         .font(CP.mono(12, weight: .medium))
                         .foregroundColor(CP.textPrimary)
                 }
@@ -55,7 +69,7 @@ struct SettingsView: View {
             .cpPanel()
 
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Данные", accent: CP.rose)
+                SectionLabel(text: L("settings.data"), accent: CP.rose)
 
                 HStack {
                     Text(apkLibrary.directoryURL.path)
@@ -64,22 +78,22 @@ struct SettingsView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
-                    Button("Показать в Finder") { apkLibrary.revealInFinder() }
+                    Button(L("library.showInFinder")) { apkLibrary.revealInFinder() }
                         .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
                 }
 
                 Divider().background(CP.hairline)
 
                 HStack(spacing: 8) {
-                    Button("Очистить историю shell") {
+                    Button(L("settings.clearShellHistory")) {
                         for item in shellHistory.recent { shellHistory.remove(item.id) }
-                        clearedMessage = "История команд очищена"
+                        clearedMessage = L("settings.shellHistoryCleared")
                     }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson))
 
-                    Button("Удалить профили подключения") {
+                    Button(L("settings.removeProfiles")) {
                         for profile in profiles.profiles { profiles.remove(profile.id) }
-                        clearedMessage = "Профили подключения удалены"
+                        clearedMessage = L("settings.profilesRemoved")
                     }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson))
                 }
@@ -92,18 +106,18 @@ struct SettingsView: View {
             .cpPanel()
 
             VStack(alignment: .leading, spacing: 8) {
-                SectionLabel(text: "О программе", accent: CP.gold)
+                SectionLabel(text: L("settings.about"), accent: CP.gold)
                 Text("ADB Shell v\(AppVersion.current)")
                     .font(CP.mono(12, weight: .semibold))
                     .foregroundColor(CP.textPrimary)
-                Button("Открыть репозиторий на GitHub") {
+                Button(L("settings.openRepo")) {
                     NSWorkspace.shared.open(URL(string: "https://github.com/andrei-s96s/adb-shell")!)
                 }
                 .buttonStyle(.plain)
                 .font(CP.mono(11, weight: .medium))
                 .foregroundColor(CP.ice)
 
-                Button("История версий (Releases)") {
+                Button(L("settings.releaseHistory")) {
                     NSWorkspace.shared.open(URL(string: "https://github.com/andrei-s96s/adb-shell/releases")!)
                 }
                 .buttonStyle(.plain)
@@ -116,7 +130,8 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(20)
-        .frame(width: 420, height: 560)
+        .frame(width: 420, height: 660)
         .background(CP.bg)
+        .id(loc.language)
     }
 }

@@ -48,8 +48,13 @@ xattr -cr AdbShell.app
   профили подключения с автоподключением, сопряжение по коду (Android 11+)
 - Быстрые действия: reboot recovery/bootloader, adb root/remount
 - Экран настроек: автопроверка обновлений, поведение по умолчанию, очистка
-  сохранённых данных
+  сохранённых данных, переключатель языка (Системный / Русский / English)
+- **Наборы приложений**: экспорт нескольких выбранных приложений вместе с их
+  выданными runtime-разрешениями в один `.zip`, и установка такого набора на
+  другом устройстве одним кликом («Импорт набора…») — приложения ставятся и
+  сразу получают те же разрешения
 - Проверка обновлений на GitHub Releases и самообновление приложения
+- Интерфейс полностью локализован на русский и английский
 
 ## Требования
 
@@ -107,11 +112,12 @@ open AdbShell.app
 
 ```
 Sources/AdbShell/
-  Models/       — Device, InstalledApp, AppDetail, AppPermission, ApkFile
-  Services/     — ADBService (обёртка над CLI adb), DumpsysParser, UpdateService
-  ViewModels/   — DevicesViewModel, AppsViewModel, AppDetailViewModel, ApkLibraryViewModel
-  Views/        — ContentView, DeviceSidebarView, AppsView, AppDetailPanel, ApkLibraryView, ShellRunnerView
+  Models/       — Device, InstalledApp, AppDetail, AppPermission, ApkFile, AppBundleManifest, RemoteFile
+  Services/     — ADBService (обёртка над CLI adb), DumpsysParser, UpdateService, ZipUtil
+  ViewModels/   — DevicesViewModel, AppsViewModel, AppDetailViewModel, ApkLibraryViewModel, FilesViewModel, LogcatViewModel
+  Views/        — ContentView, DeviceSidebarView, AppsView, AppDetailPanel, ApkLibraryView, FilesView, LogcatView, ShellRunnerView, SettingsView
   Design/       — Theme.swift (цветовая палитра и компоненты)
+  Localization/ — L10n.swift (LocalizationManager + функция L()), ru.lproj/en.lproj Localizable.strings
 Tests/AdbShellTests/ — юнит-тесты (Swift Testing)
 ```
 

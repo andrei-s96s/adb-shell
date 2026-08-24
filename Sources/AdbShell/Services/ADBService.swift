@@ -7,9 +7,9 @@ enum ADBError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .adbNotFound:
-            return "Не найден исполняемый файл adb. Установите Android Platform Tools (brew install android-platform-tools)."
+            return L("error.adbNotFound")
         case .commandFailed(let message):
-            return message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Команда adb завершилась с ошибкой." : message
+            return message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? L("error.commandFailed") : message
         }
     }
 }
@@ -81,7 +81,7 @@ final class ADBService {
                 do {
                     try process.run()
                 } catch {
-                    continuation.resume(throwing: ADBError.commandFailed("Не удалось запустить adb: \(error.localizedDescription)"))
+                    continuation.resume(throwing: ADBError.commandFailed(L("error.adbLaunchFailed", error.localizedDescription)))
                     return
                 }
 
@@ -155,7 +155,7 @@ final class ADBService {
         let result = try await run(["pair", hostPort, code])
         let combined = result.combined
         if result.exitCode != 0 || combined.localizedCaseInsensitiveContains("failed") {
-            throw ADBError.commandFailed(combined.isEmpty ? "Не удалось сопрячь устройство" : combined)
+            throw ADBError.commandFailed(combined.isEmpty ? L("error.pairFailed") : combined)
         }
         return combined
     }
@@ -225,7 +225,7 @@ final class ADBService {
             return String(s.dropFirst("package:".count))
         }
         guard !paths.isEmpty else {
-            throw ADBError.commandFailed(result.combined.isEmpty ? "Путь к APK не найден" : result.combined)
+            throw ADBError.commandFailed(result.combined.isEmpty ? L("error.apkPathNotFound") : result.combined)
         }
         return paths
     }

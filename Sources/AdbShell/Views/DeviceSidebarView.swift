@@ -7,6 +7,7 @@ struct DeviceSidebarView: View {
     @State private var showPairingSheet = false
     @State private var showSettingsSheet = false
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -19,7 +20,7 @@ struct DeviceSidebarView: View {
                     Text("ADB Shell")
                         .font(CP.mono(19, weight: .bold))
                         .foregroundColor(CP.textPrimary)
-                    Text("Android Device Control")
+                    Text(L("sidebar.subtitle"))
                         .font(CP.mono(11, weight: .medium))
                         .foregroundColor(CP.gold)
                 }
@@ -40,7 +41,7 @@ struct DeviceSidebarView: View {
 
             // Устройства
             HStack {
-                SectionLabel(text: "Устройства", accent: CP.ice)
+                SectionLabel(text: L("sidebar.devices"), accent: CP.ice)
                 Spacer()
                 Button {
                     Task { await vm.refresh() }
@@ -56,7 +57,7 @@ struct DeviceSidebarView: View {
             .padding(.bottom, 8)
 
             if vm.devices.isEmpty {
-                Text("Поиск устройств…")
+                Text(L("sidebar.searching"))
                     .font(CP.mono(12))
                     .foregroundColor(CP.textMuted)
                     .padding(.horizontal, 16)
@@ -92,7 +93,7 @@ struct DeviceSidebarView: View {
             // Подключение по сети
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    SectionLabel(text: "Подключение по IP", accent: CP.rose)
+                    SectionLabel(text: L("sidebar.connectByIp"), accent: CP.rose)
                     Spacer()
                     Button {
                         showPairingSheet = true
@@ -102,7 +103,7 @@ struct DeviceSidebarView: View {
                             .foregroundColor(CP.textMuted)
                     }
                     .buttonStyle(.plain)
-                    .help("Сопряжение по коду (Android 11+ Wireless debugging)")
+                    .help(L("sidebar.pairing.help"))
                 }
                 HStack(spacing: 6) {
                     TextField("192.168.1.50:5555", text: $vm.connectHost)
@@ -127,12 +128,12 @@ struct DeviceSidebarView: View {
                     .buttonStyle(.plain)
                     .foregroundColor(CP.textMuted)
                     .disabled(vm.connectHost.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .help("Сохранить как профиль")
+                    .help(L("sidebar.saveProfile.help"))
 
                     Button {
                         Task { await vm.connect() }
                     } label: {
-                        Text(vm.isConnecting ? "…" : "Connect")
+                        Text(vm.isConnecting ? "…" : L("sidebar.connect"))
                     }
                     .buttonStyle(NeonButtonStyle(accent: CP.rose, filled: true))
                     .disabled(vm.connectHost.trimmingCharacters(in: .whitespaces).isEmpty || vm.isConnecting)
@@ -157,6 +158,7 @@ struct DeviceSidebarView: View {
             Rectangle().fill(CP.hairline).frame(height: 1)
             UpdateFooter(vm: updateVM)
         }
+        .id(loc.language)
         .task {
             await vm.autoConnect(profiles: profileStore.autoConnectProfiles)
             if autoCheckUpdates {
@@ -184,19 +186,19 @@ private struct PairingSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionLabel(text: "Сопряжение по коду", accent: CP.rose)
-            Text("Android 11+: Настройки → Для разработчиков → Отладка по Wi-Fi →\n«Сопряжение устройства с помощью кода». Введите то, что показано там.")
+            SectionLabel(text: L("pairing.title"), accent: CP.rose)
+            Text(L("pairing.instructions"))
                 .font(CP.mono(11))
                 .foregroundColor(CP.textMuted)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("IP:порт сопряжения").font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
+                Text(L("pairing.hostPort")).font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
                 TextField("192.168.1.50:37251", text: $pairHostPort)
                     .textFieldStyle(.roundedBorder)
                     .font(CP.code(12))
             }
             VStack(alignment: .leading, spacing: 6) {
-                Text("Код сопряжения").font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
+                Text(L("pairing.code")).font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
                 TextField("123456", text: $code)
                     .textFieldStyle(.roundedBorder)
                     .font(CP.code(12))
@@ -210,9 +212,9 @@ private struct PairingSheet: View {
 
             HStack {
                 Spacer()
-                Button("Закрыть") { onClose() }
+                Button(L("common.close")) { onClose() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
-                Button(isPairing ? "…" : "Сопрячь") { Task { await pair() } }
+                Button(isPairing ? "…" : L("pairing.pair")) { Task { await pair() } }
                     .buttonStyle(NeonButtonStyle(accent: CP.rose, filled: true))
                     .disabled(pairHostPort.trimmingCharacters(in: .whitespaces).isEmpty || code.trimmingCharacters(in: .whitespaces).isEmpty || isPairing)
             }
@@ -227,7 +229,7 @@ private struct PairingSheet: View {
         defer { isPairing = false }
         do {
             let output = try await service.pair(hostPort: pairHostPort.trimmingCharacters(in: .whitespaces), code: code.trimmingCharacters(in: .whitespaces))
-            resultMessage = output.isEmpty ? "Сопряжено. Теперь подключитесь по IP:порту из «Подключение по IP»." : output
+            resultMessage = output.isEmpty ? L("pairing.success") : output
             isError = false
         } catch {
             resultMessage = error.localizedDescription
@@ -250,7 +252,7 @@ private struct ProfileRow: View {
                     .foregroundColor(profile.autoConnect ? CP.gold : CP.textMuted)
             }
             .buttonStyle(.plain)
-            .help("Автоподключение при запуске")
+            .help(L("sidebar.profile.autoConnect.help"))
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(profile.name)
@@ -300,7 +302,7 @@ private struct UpdateFooter: View {
                         .font(CP.code(10))
                         .foregroundColor(CP.textMuted)
                     Spacer()
-                    Button("Проверить обновления") { Task { await vm.checkForUpdates() } }
+                    Button(L("update.checkNow")) { Task { await vm.checkForUpdates() } }
                         .buttonStyle(.plain)
                         .font(CP.mono(10, weight: .medium))
                         .foregroundColor(CP.textMuted)
@@ -309,7 +311,7 @@ private struct UpdateFooter: View {
             case .upToDate:
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle").foregroundColor(CP.emerald)
-                    Text("v\(AppVersion.current) — актуальная версия")
+                    Text(L("update.upToDate", AppVersion.current))
                         .font(CP.mono(10, weight: .medium))
                         .foregroundColor(CP.textMuted)
                 }
@@ -318,16 +320,16 @@ private struct UpdateFooter: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.down.circle.fill").foregroundColor(CP.gold)
-                        Text("Доступна версия v\(version)")
+                        Text(L("update.available", version))
                             .font(CP.mono(11, weight: .semibold))
                             .foregroundColor(CP.gold)
                     }
                     HStack(spacing: 8) {
                         if vm.canSelfInstall {
-                            Button("Обновить") { Task { await vm.downloadAndInstall(from: downloadURL) } }
+                            Button(L("update.install")) { Task { await vm.downloadAndInstall(from: downloadURL) } }
                                 .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
                         }
-                        Button("Страница релиза") { vm.openReleasePage(releaseURL) }
+                        Button(L("update.releasePage")) { vm.openReleasePage(releaseURL) }
                             .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
                     }
                 }
@@ -335,7 +337,7 @@ private struct UpdateFooter: View {
             case .downloading:
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.5)
-                    Text("Скачивание обновления…")
+                    Text(L("update.downloading"))
                         .font(CP.mono(10, weight: .medium))
                         .foregroundColor(CP.textMuted)
                 }
@@ -343,7 +345,7 @@ private struct UpdateFooter: View {
             case .installing:
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.5)
-                    Text("Установка… приложение перезапустится")
+                    Text(L("update.installing"))
                         .font(CP.mono(10, weight: .medium))
                         .foregroundColor(CP.textMuted)
                 }
@@ -354,7 +356,7 @@ private struct UpdateFooter: View {
                         .font(CP.mono(10))
                         .foregroundColor(CP.crimson)
                         .lineLimit(2)
-                    Button("Повторить") { Task { await vm.checkForUpdates() } }
+                    Button(L("common.retry")) { Task { await vm.checkForUpdates() } }
                         .buttonStyle(.plain)
                         .font(CP.mono(10, weight: .medium))
                         .foregroundColor(CP.textMuted)
@@ -403,7 +405,7 @@ private struct DeviceRow: View {
                         .foregroundColor(isPinned ? CP.gold : CP.textMuted)
                 }
                 .buttonStyle(.plain)
-                .help(isPinned ? "Открепить вкладку" : "Закрепить как вкладку для быстрого переключения")
+                .help(isPinned ? L("sidebar.unpin.help") : L("sidebar.pin.help"))
 
                 if device.isNetwork {
                     Button(action: disconnect) {

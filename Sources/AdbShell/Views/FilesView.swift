@@ -10,6 +10,7 @@ struct FilesView: View {
     @State private var newFolderName = ""
     @State private var showPushPicker = false
     @State private var deleteTarget: RemoteFile?
+    @EnvironmentObject private var loc: LocalizationManager
 
     init(serial: String, service: ADBService) {
         self.serial = serial
@@ -43,7 +44,7 @@ struct FilesView: View {
                 Spacer()
             } else if vm.entries.isEmpty {
                 Spacer()
-                Text("Пусто")
+                Text(L("files.empty"))
                     .font(CP.mono(12))
                     .foregroundColor(CP.textMuted)
                 Spacer()
@@ -64,6 +65,7 @@ struct FilesView: View {
                 }
             }
         }
+        .id(loc.language)
         .background(
             RoundedRectangle(cornerRadius: 0).fill(isDropTargeted ? CP.gold.opacity(0.05) : Color.clear)
         )
@@ -72,10 +74,10 @@ struct FilesView: View {
             return true
         }
         .task(id: serial) { await vm.load(serial: serial) }
-        .alert("Новая папка", isPresented: $showNewFolderPrompt) {
-            TextField("Имя папки", text: $newFolderName)
-            Button("Создать") { Task { await vm.makeDirectory(name: newFolderName, serial: serial); newFolderName = "" } }
-            Button("Отмена", role: .cancel) { newFolderName = "" }
+        .alert(L("files.newFolder.title"), isPresented: $showNewFolderPrompt) {
+            TextField(L("files.newFolder.placeholder"), text: $newFolderName)
+            Button(L("files.newFolder.create")) { Task { await vm.makeDirectory(name: newFolderName, serial: serial); newFolderName = "" } }
+            Button(L("common.cancel"), role: .cancel) { newFolderName = "" }
         }
         .fileImporter(isPresented: $showPushPicker, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result {
@@ -83,31 +85,31 @@ struct FilesView: View {
             }
         }
         .confirmationDialog(
-            deleteTarget.map { "Удалить «\($0.name)»?" } ?? "",
+            deleteTarget.map { L("files.deleteConfirm", $0.name) } ?? "",
             isPresented: Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } }),
             titleVisibility: .visible
         ) {
-            Button("Удалить", role: .destructive) {
+            Button(L("common.delete"), role: .destructive) {
                 if let file = deleteTarget { Task { await vm.delete(file, serial: serial) } }
                 deleteTarget = nil
             }
-            Button("Отмена", role: .cancel) { deleteTarget = nil }
+            Button(L("common.cancel"), role: .cancel) { deleteTarget = nil }
         }
     }
 
     private var toolbar: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionLabel(text: "Файлы устройства", accent: CP.ice)
+                SectionLabel(text: L("files.title"), accent: CP.ice)
                 Spacer()
                 if vm.isBusy {
                     ProgressView().scaleEffect(0.6)
                 }
-                Button("Обновить") { Task { await vm.load(serial: serial) } }
+                Button(L("common.refresh")) { Task { await vm.load(serial: serial) } }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
-                Button("Новая папка") { showNewFolderPrompt = true }
+                Button(L("files.newFolder")) { showNewFolderPrompt = true }
                     .buttonStyle(NeonButtonStyle(accent: CP.ice))
-                Button("Загрузить сюда…") { showPushPicker = true }
+                Button(L("files.upload")) { showPushPicker = true }
                     .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
             }
 
@@ -134,7 +136,7 @@ struct FilesView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        panel.prompt = "Сохранить сюда"
+        panel.prompt = L("files.saveHere")
         guard panel.runModal() == .OK, let dir = panel.url else { return }
         Task { await vm.pull(file, to: dir, serial: serial) }
     }

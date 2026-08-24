@@ -1,12 +1,18 @@
 import SwiftUI
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case apps = "Приложения"
-    case library = "APK библиотека"
-    case files = "Файлы"
-    case logcat = "Logcat"
-    case shell = "Shell"
+    case apps, library, files, logcat, shell
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .apps: return L("tab.apps")
+        case .library: return L("tab.library")
+        case .files: return L("tab.files")
+        case .logcat: return "Logcat"
+        case .shell: return "Shell"
+        }
+    }
 }
 
 struct ContentView: View {
@@ -93,6 +99,7 @@ private struct TopBar: View {
     let device: Device?
     let service: ADBService
     @State private var fingerprint: String?
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         HStack(spacing: 4) {
@@ -101,7 +108,7 @@ private struct TopBar: View {
                     Button {
                         tab = t
                     } label: {
-                        Text(t.rawValue)
+                        Text(t.title)
                             .font(CP.mono(12, weight: .semibold))
                             .foregroundColor(tab == t ? CP.textPrimary : CP.textMuted)
                             .padding(.horizontal, 14)
@@ -115,6 +122,7 @@ private struct TopBar: View {
                 }
             }
             .padding(4)
+            .id(loc.language)
 
             Spacer()
 
@@ -192,19 +200,20 @@ private struct PinnedTabsStrip: View {
 
 private struct NoDeviceView: View {
     let hasAny: Bool
+    @EnvironmentObject private var loc: LocalizationManager
+
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "cable.connector.slash")
                 .font(.system(size: 34, weight: .light))
                 .foregroundColor(CP.textMuted)
-            Text(hasAny ? "Выберите устройство" : "Нет подключённых устройств")
+            Text(hasAny ? L("nodevice.select") : L("nodevice.none"))
                 .font(CP.mono(14, weight: .semibold))
                 .foregroundColor(CP.textPrimary)
-            Text(hasAny
-                 ? "Кликните по устройству в списке слева"
-                 : "Подключите устройство по USB или укажите IP для сетевого adb")
+            Text(hasAny ? L("nodevice.select.hint") : L("nodevice.none.hint"))
                 .font(CP.mono(12))
                 .foregroundColor(CP.textMuted)
         }
+        .id(loc.language)
     }
 }

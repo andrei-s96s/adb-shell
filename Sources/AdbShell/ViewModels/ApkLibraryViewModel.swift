@@ -38,8 +38,8 @@ final class ApkLibraryViewModel: ObservableObject {
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
         panel.directoryURL = directoryURL
-        panel.prompt = "Выбрать"
-        panel.message = "Папка для хранения и установки APK"
+        panel.prompt = L("common.choose")
+        panel.message = L("library.chooseFolder.message")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         setDirectory(url)
     }
@@ -111,7 +111,7 @@ final class ApkLibraryViewModel: ObservableObject {
         defer { installingPath = nil }
         do {
             let result = try await service.install(serial: serial, apkPath: file.path)
-            lastInstallMessage = result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Установлено: \(file.name)" : result
+            lastInstallMessage = result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? L("library.installed", file.name) : result
         } catch {
             errorMessage = error.localizedDescription
         }

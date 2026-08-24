@@ -10,11 +10,11 @@ struct Device: Identifiable, Hashable {
 
         var label: String {
             switch self {
-            case .device: return "Подключено"
-            case .offline: return "Не отвечает"
-            case .unauthorized: return "Не авторизовано"
-            case .noPermissions: return "Нет прав"
-            case .unknown: return "Неизвестно"
+            case .device: return L("device.state.connected")
+            case .offline: return L("device.state.offline")
+            case .unauthorized: return L("device.state.unauthorized")
+            case .noPermissions: return L("device.state.noPermissions")
+            case .unknown: return L("device.state.unknown")
             }
         }
 

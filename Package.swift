@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "AdbShell",
+    defaultLocalization: "ru",
     platforms: [
         .macOS(.v13)
     ],
@@ -10,6 +11,10 @@ let package = Package(
         .executableTarget(
             name: "AdbShell",
             path: "Sources/AdbShell",
+            resources: [
+                .process("Localization/ru.lproj"),
+                .process("Localization/en.lproj")
+            ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(

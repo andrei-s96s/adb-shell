@@ -9,6 +9,7 @@ struct AppDetailPanel: View {
     @StateObject private var vm: AppDetailViewModel
     @State private var showUninstallConfirm = false
     @State private var showClearConfirm = false
+    @EnvironmentObject private var loc: LocalizationManager
 
     init(serial: String, service: ADBService, packageName: String, onChanged: @escaping () -> Void) {
         self.serial = serial
@@ -49,22 +50,23 @@ struct AppDetailPanel: View {
             }
             .padding(20)
         }
+        .id(loc.language)
         .task(id: packageName) {
             await vm.load(serial: serial, packageName: packageName)
         }
-        .confirmationDialog("Удалить \(packageName)?", isPresented: $showUninstallConfirm, titleVisibility: .visible) {
-            Button("Удалить", role: .destructive) {
+        .confirmationDialog(L("appDetail.uninstallConfirm", packageName), isPresented: $showUninstallConfirm, titleVisibility: .visible) {
+            Button(L("common.delete"), role: .destructive) {
                 Task {
                     if await vm.uninstall(serial: serial) { onChanged() }
                 }
             }
-            Button("Отмена", role: .cancel) { }
+            Button(L("common.cancel"), role: .cancel) { }
         }
-        .confirmationDialog("Очистить данные \(packageName)?", isPresented: $showClearConfirm, titleVisibility: .visible) {
-            Button("Очистить", role: .destructive) {
+        .confirmationDialog(L("appDetail.clearConfirm", packageName), isPresented: $showClearConfirm, titleVisibility: .visible) {
+            Button(L("appDetail.clearData"), role: .destructive) {
                 Task { await vm.clearData(serial: serial) }
             }
-            Button("Отмена", role: .cancel) { }
+            Button(L("common.cancel"), role: .cancel) { }
         }
     }
 
@@ -84,12 +86,12 @@ struct AppDetailPanel: View {
 
     private func infoGrid(_ detail: AppDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(text: "Информация", accent: CP.ice)
+            SectionLabel(text: L("appDetail.info"), accent: CP.ice)
             InfoLine(label: "Target SDK", value: detail.targetSdk ?? "—")
-            InfoLine(label: "Установлено", value: shortDate(detail.firstInstallTime))
-            InfoLine(label: "Обновлено", value: shortDate(detail.lastUpdateTime))
-            InfoLine(label: "Путь", value: detail.apkPath ?? "—")
-            InfoLine(label: "Состояние", value: detail.isEnabled ? "Включено" : "Отключено")
+            InfoLine(label: L("appDetail.installed"), value: shortDate(detail.firstInstallTime))
+            InfoLine(label: L("appDetail.updated"), value: shortDate(detail.lastUpdateTime))
+            InfoLine(label: L("appDetail.path"), value: detail.apkPath ?? "—")
+            InfoLine(label: L("appDetail.state"), value: detail.isEnabled ? L("appDetail.enabled") : L("appDetail.disabled"))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -104,23 +106,23 @@ struct AppDetailPanel: View {
 
     private func actionButtons(_ detail: AppDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(text: "Действия", accent: CP.rose)
+            SectionLabel(text: L("appDetail.actions"), accent: CP.rose)
             HStack(spacing: 8) {
-                Button("Остановить") { Task { await vm.forceStop(serial: serial) } }
+                Button(L("appDetail.forceStop")) { Task { await vm.forceStop(serial: serial) } }
                     .buttonStyle(NeonButtonStyle(accent: CP.ice))
 
-                Button(detail.isEnabled ? "Отключить" : "Включить") {
+                Button(detail.isEnabled ? L("appDetail.disable") : L("appDetail.enable")) {
                     Task { await vm.setEnabled(serial: serial, enabled: !detail.isEnabled) }
                 }
                 .buttonStyle(NeonButtonStyle(accent: CP.gold))
 
-                Button("Очистить данные") { showClearConfirm = true }
+                Button(L("appDetail.clearData")) { showClearConfirm = true }
                     .buttonStyle(NeonButtonStyle(accent: CP.rose))
 
-                Button("Экспортировать APK") { Task { await vm.exportApk(serial: serial) } }
+                Button(L("appDetail.exportApk")) { Task { await vm.exportApk(serial: serial) } }
                     .buttonStyle(NeonButtonStyle(accent: CP.ice))
 
-                Button("Удалить") { showUninstallConfirm = true }
+                Button(L("common.delete")) { showUninstallConfirm = true }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson, filled: true))
             }
             if vm.isPerformingAction {
@@ -134,9 +136,9 @@ struct AppDetailPanel: View {
 
     private func permissionsSection(_ detail: AppDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(text: "Разрешения (\(detail.permissions.count))", accent: CP.gold)
+            SectionLabel(text: L("appDetail.permissions", detail.permissions.count), accent: CP.gold)
             if detail.permissions.isEmpty {
-                Text("Нет запрошенных разрешений")
+                Text(L("appDetail.noPermissions"))
                     .font(CP.mono(11))
                     .foregroundColor(CP.textMuted)
             } else {
@@ -200,10 +202,10 @@ private struct PermissionRow: View {
             if isBusy {
                 ProgressView().scaleEffect(0.5)
             } else if permission.isRuntime {
-                Button(permission.granted ? "Забрать" : "Выдать") { toggle() }
+                Button(permission.granted ? L("appDetail.revoke") : L("appDetail.grant")) { toggle() }
                     .buttonStyle(NeonButtonStyle(accent: permission.granted ? CP.crimson : CP.emerald))
             } else {
-                Text("АВТО")
+                Text(L("appDetail.auto"))
                     .font(CP.mono(9, weight: .semibold))
                     .foregroundColor(CP.textMuted)
             }

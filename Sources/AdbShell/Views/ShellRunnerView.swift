@@ -17,30 +17,31 @@ struct ShellRunnerView: View {
     @State private var isRunning = false
     @State private var screenshotMessage: String?
     @StateObject private var savedCommands = ShellHistoryStore()
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 SectionLabel(text: "Shell", accent: CP.rose)
                 Spacer()
-                Button("Скриншот") { Task { await takeScreenshot() } }
+                Button(L("shell.screenshot")) { Task { await takeScreenshot() } }
                     .buttonStyle(NeonButtonStyle(accent: CP.ice))
-                Button("Reboot") { Task { try? await service.reboot(serial: serial) } }
+                Button(L("shell.reboot")) { Task { try? await service.reboot(serial: serial) } }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson))
 
                 Menu {
-                    Button("Reboot → Recovery") { Task { try? await service.rebootToRecovery(serial: serial) } }
-                    Button("Reboot → Bootloader") { Task { try? await service.rebootToBootloader(serial: serial) } }
+                    Button(L("shell.rebootRecovery")) { Task { try? await service.rebootToRecovery(serial: serial) } }
+                    Button(L("shell.rebootBootloader")) { Task { try? await service.rebootToBootloader(serial: serial) } }
                     Divider()
                     Button("adb root") { Task { await runQuick("adb root") { try await service.rootAdb(serial: serial) } } }
                     Button("adb remount") { Task { await runQuick("adb remount") { try await service.remount(serial: serial) } } }
                 } label: {
-                    Text("Ещё")
+                    Text(L("shell.more"))
                 }
                 .menuStyle(.borderlessButton)
                 .frame(width: 44)
 
-                Button("Очистить лог") { history.removeAll() }
+                Button(L("shell.clearLog")) { history.removeAll() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
             }
             .padding(16)
@@ -67,7 +68,7 @@ struct ShellRunnerView: View {
                                 Text("$ \(entry.command)")
                                     .font(CP.code(11, weight: .semibold))
                                     .foregroundColor(CP.gold)
-                                Text(entry.output.isEmpty ? "(пусто)" : entry.output)
+                                Text(entry.output.isEmpty ? L("shell.emptyOutput") : entry.output)
                                     .font(CP.code(10))
                                     .foregroundColor(entry.isError ? CP.crimson : CP.textPrimary)
                                     .textSelection(.enabled)
@@ -89,6 +90,7 @@ struct ShellRunnerView: View {
 
             inputBar
         }
+        .id(loc.language)
     }
 
     private var quickCommandsStrip: some View {
@@ -105,8 +107,8 @@ struct ShellRunnerView: View {
                     }
                     .buttonStyle(NeonButtonStyle(accent: CP.gold))
                     .contextMenu {
-                        Button("Убрать из избранного") { savedCommands.toggleFavorite(saved.id) }
-                        Button("Удалить", role: .destructive) { savedCommands.remove(saved.id) }
+                        Button(L("shell.removeFavorite")) { savedCommands.toggleFavorite(saved.id) }
+                        Button(L("common.delete"), role: .destructive) { savedCommands.remove(saved.id) }
                     }
                 }
             }
@@ -134,11 +136,11 @@ struct ShellRunnerView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(command.trimmingCharacters(in: .whitespaces).isEmpty)
-                .help("Добавить в избранное")
+                .help(L("shell.addFavorite.help"))
 
                 Menu {
                     if savedCommands.recent.isEmpty {
-                        Text("Пока пусто")
+                        Text(L("shell.historyEmpty"))
                     } else {
                         ForEach(savedCommands.recent) { saved in
                             Button(saved.text) {
@@ -157,7 +159,7 @@ struct ShellRunnerView: View {
                 if isRunning {
                     ProgressView().scaleEffect(0.6)
                 } else {
-                    Button("Выполнить") { Task { await run() } }
+                    Button(L("shell.run")) { Task { await run() } }
                         .buttonStyle(NeonButtonStyle(accent: CP.rose, filled: true))
                         .disabled(command.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -200,10 +202,10 @@ struct ShellRunnerView: View {
             let name = "adbshell-screenshot-\(Int(Date().timeIntervalSince1970)).png"
             let url = downloads.appendingPathComponent(name)
             try data.write(to: url)
-            screenshotMessage = "Сохранено: \(url.path)"
+            screenshotMessage = L("shell.screenshotSaved", url.path)
             NSWorkspace.shared.activateFileViewerSelecting([url])
         } catch {
-            screenshotMessage = "Ошибка скриншота: \(error.localizedDescription)"
+            screenshotMessage = L("shell.screenshotError", error.localizedDescription)
         }
     }
 }

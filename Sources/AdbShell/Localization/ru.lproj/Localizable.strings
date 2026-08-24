@@ -1,0 +1,190 @@
+/* Общие */
+"common.cancel" = "Отмена";
+"common.choose" = "Выбрать";
+"common.clear" = "Очистить";
+"common.close" = "Закрыть";
+"common.delete" = "Удалить";
+"common.refresh" = "Обновить";
+"common.retry" = "Повторить";
+
+/* Вкладки */
+"tab.apps" = "Приложения";
+"tab.library" = "APK библиотека";
+"tab.files" = "Файлы";
+
+/* Нет устройства */
+"nodevice.select" = "Выберите устройство";
+"nodevice.select.hint" = "Кликните по устройству в списке слева";
+"nodevice.none" = "Нет подключённых устройств";
+"nodevice.none.hint" = "Подключите устройство по USB или укажите IP для сетевого adb";
+
+/* Сайдбар */
+"sidebar.subtitle" = "Android Device Control";
+"sidebar.devices" = "Устройства";
+"sidebar.searching" = "Поиск устройств…";
+"sidebar.connectByIp" = "Подключение по IP";
+"sidebar.connect" = "Connect";
+"sidebar.pairing.help" = "Сопряжение по коду (Android 11+ Wireless debugging)";
+"sidebar.saveProfile.help" = "Сохранить как профиль";
+"sidebar.pin.help" = "Закрепить как вкладку для быстрого переключения";
+"sidebar.unpin.help" = "Открепить вкладку";
+"sidebar.profile.autoConnect.help" = "Автоподключение при запуске";
+
+/* Пейринг */
+"pairing.title" = "Сопряжение по коду";
+"pairing.instructions" = "Android 11+: Настройки → Для разработчиков → Отладка по Wi-Fi →\n«Сопряжение устройства с помощью кода». Введите то, что показано там.";
+"pairing.hostPort" = "IP:порт сопряжения";
+"pairing.code" = "Код сопряжения";
+"pairing.pair" = "Сопрячь";
+"pairing.success" = "Сопряжено. Теперь подключитесь по IP:порту из «Подключение по IP».";
+
+/* Обновления (сайдбар) */
+"update.checkNow" = "Проверить обновления";
+"update.upToDate" = "v%@ — актуальная версия";
+"update.available" = "Доступна версия v%@";
+"update.install" = "Обновить";
+"update.releasePage" = "Страница релиза";
+"update.downloading" = "Скачивание обновления…";
+"update.installing" = "Установка… приложение перезапустится";
+"update.error.noResponse" = "Нет ответа от GitHub";
+"update.error.httpStatus" = "GitHub вернул ошибку %d при проверке обновлений";
+"update.error.noZipAsset" = "В релизе %@ нет .zip вложения";
+"update.error.checkFailed" = "Не удалось проверить обновления: %@";
+"update.error.cannotSelfInstall" = "Автообновление доступно только для собранного .app (см. build_app.sh)";
+"update.error.noAppInArchive" = "В архиве не найден .app";
+"update.error.installFailed" = "Обновление не удалось: %@";
+
+/* Состояния устройства */
+"device.state.connected" = "Подключено";
+"device.state.offline" = "Не отвечает";
+"device.state.unauthorized" = "Не авторизовано";
+"device.state.noPermissions" = "Нет прав";
+"device.state.unknown" = "Неизвестно";
+
+/* Ошибки adb */
+"error.adbNotFound" = "Не найден исполняемый файл adb. Установите Android Platform Tools (brew install android-platform-tools).";
+"error.commandFailed" = "Команда adb завершилась с ошибкой.";
+"error.adbLaunchFailed" = "Не удалось запустить adb: %@";
+"error.pairFailed" = "Не удалось сопрячь устройство";
+"error.apkPathNotFound" = "Путь к APK не найден";
+
+/* Приложения — список */
+"apps.search.placeholder" = "Поиск по package name…";
+"apps.system" = "Системные";
+"apps.select" = "Выбрать";
+"apps.select.help" = "Мультивыбор для пакетного удаления";
+"apps.exportCsv" = "Экспорт в CSV";
+"apps.exportCsv.help" = "Экспортировать список в CSV";
+"apps.importBundle" = "Импорт набора…";
+"apps.importBundle.help" = "Установить набор приложений с разрешениями из .zip";
+"apps.installApk" = "Установить APK";
+"apps.installApk.help" = "Установить APK из файла (можно несколько)";
+"apps.selectedCount" = "Выбрано: %d";
+"apps.exportSelected" = "Экспортировать выбранные";
+"apps.deleteSelected" = "Удалить выбранные";
+"apps.deleteConfirm.title" = "Удалить %d приложений?";
+"apps.markOnLeft" = "Отметьте приложения слева";
+"apps.selectApp" = "Выберите приложение";
+"apps.installResults.title" = "Результат установки";
+"apps.bundleResults.title" = "Результат операции";
+"apps.installing.progress" = "Установка %1$d/%2$d: %3$@";
+"apps.deleting.progress" = "Удаление %1$d/%2$d: %3$@";
+"apps.export.progress" = "Экспорт %1$d/%2$d: %3$@";
+"apps.export.noApk" = "Путь к APK не найден";
+"apps.export.permCount" = "Экспортировано, разрешений: %d";
+"apps.export.nothingExported" = "Не удалось экспортировать ни одного приложения";
+"apps.import.progress" = "Установка %1$d/%2$d: %3$@";
+"apps.import.apkMissing" = "APK не найден в наборе";
+"apps.import.grantedCount" = "Установлено, выдано разрешений: %1$d/%2$d";
+
+/* Детали приложения */
+"appDetail.info" = "Информация";
+"appDetail.installed" = "Установлено";
+"appDetail.updated" = "Обновлено";
+"appDetail.path" = "Путь";
+"appDetail.state" = "Состояние";
+"appDetail.enabled" = "Включено";
+"appDetail.disabled" = "Отключено";
+"appDetail.actions" = "Действия";
+"appDetail.forceStop" = "Остановить";
+"appDetail.enable" = "Включить";
+"appDetail.disable" = "Отключить";
+"appDetail.clearData" = "Очистить данные";
+"appDetail.exportApk" = "Экспортировать APK";
+"appDetail.permissions" = "Разрешения (%d)";
+"appDetail.noPermissions" = "Нет запрошенных разрешений";
+"appDetail.grant" = "Выдать";
+"appDetail.revoke" = "Забрать";
+"appDetail.auto" = "АВТО";
+"appDetail.uninstallConfirm" = "Удалить %@?";
+"appDetail.clearConfirm" = "Очистить данные %@?";
+"appDetail.stopped" = "Процесс остановлен";
+"appDetail.dataCleared" = "Данные очищены";
+"appDetail.apkExported" = "APK экспортирован: %@";
+
+/* Библиотека APK */
+"library.title" = "Библиотека APK";
+"library.chooseFolder" = "Выбрать папку…";
+"library.chooseFolder.message" = "Папка для хранения и установки APK";
+"library.showInFinder" = "Показать в Finder";
+"library.addApk" = "Добавить APK…";
+"library.noDevice" = "Устройство не подключено — файлы можно добавлять и удалять, установка станет доступна после подключения устройства";
+"library.dropZone" = "Перетащите .apk сюда";
+"library.install" = "Установить";
+"library.install.needDevice" = "Подключите устройство, чтобы установить";
+"library.installed" = "Установлено: %@";
+
+/* Файлы устройства */
+"files.title" = "Файлы устройства";
+"files.empty" = "Пусто";
+"files.newFolder" = "Новая папка";
+"files.newFolder.title" = "Новая папка";
+"files.newFolder.placeholder" = "Имя папки";
+"files.newFolder.create" = "Создать";
+"files.upload" = "Загрузить сюда…";
+"files.saveHere" = "Сохранить сюда";
+"files.deleteConfirm" = "Удалить «%@»?";
+"files.downloading" = "Скачивание %@…";
+"files.downloaded" = "Скачано: %@";
+"files.uploading" = "Загрузка %@…";
+
+/* Logcat */
+"logcat.streaming" = "стрим";
+"logcat.stopped" = "остановлен";
+"logcat.pause" = "Пауза";
+"logcat.resume" = "Продолжить";
+"logcat.filter.placeholder" = "Фильтр по тексту, тегу, PID…";
+"logcat.autoScroll" = "Автоскролл";
+
+/* Shell */
+"shell.screenshot" = "Скриншот";
+"shell.reboot" = "Reboot";
+"shell.rebootRecovery" = "Reboot → Recovery";
+"shell.rebootBootloader" = "Reboot → Bootloader";
+"shell.more" = "Ещё";
+"shell.clearLog" = "Очистить лог";
+"shell.run" = "Выполнить";
+"shell.emptyOutput" = "(пусто)";
+"shell.addFavorite.help" = "Добавить в избранное";
+"shell.historyEmpty" = "Пока пусто";
+"shell.removeFavorite" = "Убрать из избранного";
+"shell.screenshotSaved" = "Сохранено: %@";
+"shell.screenshotError" = "Ошибка скриншота: %@";
+
+/* Настройки */
+"settings.title" = "Настройки";
+"settings.language" = "Язык";
+"settings.language.system" = "Системный";
+"settings.updates" = "Обновления";
+"settings.checkOnLaunch" = "Проверять обновления при запуске";
+"settings.currentVersion" = "Сейчас установлена версия v%@";
+"settings.apps" = "Приложения";
+"settings.showSystemAppsDefault" = "Показывать системные приложения по умолчанию";
+"settings.data" = "Данные";
+"settings.clearShellHistory" = "Очистить историю shell";
+"settings.shellHistoryCleared" = "История команд очищена";
+"settings.removeProfiles" = "Удалить профили подключения";
+"settings.profilesRemoved" = "Профили подключения удалены";
+"settings.about" = "О программе";
+"settings.openRepo" = "Открыть репозиторий на GitHub";
+"settings.releaseHistory" = "История версий (Releases)";

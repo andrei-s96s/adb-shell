@@ -2,9 +2,12 @@ import SwiftUI
 
 @main
 struct AdbShellApp: App {
+    @StateObject private var loc = LocalizationManager.shared
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(loc)
                 .preferredColorScheme(.dark)
                 .frame(minWidth: 1080, minHeight: 680)
         }

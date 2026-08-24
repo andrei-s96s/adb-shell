@@ -4,6 +4,7 @@ struct LogcatView: View {
     let serial: String
     let service: ADBService
     @StateObject private var vm: LogcatViewModel
+    @EnvironmentObject private var loc: LocalizationManager
 
     init(serial: String, service: ADBService) {
         self.serial = serial
@@ -34,6 +35,7 @@ struct LogcatView: View {
                 }
             }
         }
+        .id(loc.language)
         .task(id: serial) {
             vm.clear()
             vm.start(serial: serial)
@@ -48,7 +50,7 @@ struct LogcatView: View {
 
                 HStack(spacing: 6) {
                     StatusDot(color: vm.isStreaming ? CP.emerald : CP.textMuted)
-                    Text(vm.isStreaming ? "стрим" : "остановлен")
+                    Text(vm.isStreaming ? L("logcat.streaming") : L("logcat.stopped"))
                         .font(CP.mono(10, weight: .medium))
                         .foregroundColor(CP.textMuted)
                 }
@@ -59,12 +61,12 @@ struct LogcatView: View {
                     .font(CP.mono(10))
                     .foregroundColor(CP.textMuted)
 
-                Button(vm.isStreaming ? "Пауза" : "Продолжить") {
+                Button(vm.isStreaming ? L("logcat.pause") : L("logcat.resume")) {
                     if vm.isStreaming { vm.stop() } else { vm.start(serial: serial) }
                 }
                 .buttonStyle(NeonButtonStyle(accent: CP.ice))
 
-                Button("Очистить") { vm.clearDeviceBufferAndScreen() }
+                Button(L("common.clear")) { vm.clearDeviceBufferAndScreen() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
             }
 
@@ -72,7 +74,7 @@ struct LogcatView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 11))
                     .foregroundColor(CP.textMuted)
-                TextField("Фильтр по тексту, тегу, PID…", text: $vm.filterText)
+                TextField(L("logcat.filter.placeholder"), text: $vm.filterText)
                     .textFieldStyle(.plain)
                     .font(CP.code(11))
 
@@ -87,7 +89,7 @@ struct LogcatView: View {
                 .frame(width: 110)
 
                 Toggle(isOn: $vm.autoScroll) {
-                    Text("Автоскролл").font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
+                    Text(L("logcat.autoScroll")).font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
                 }
                 .toggleStyle(NeonToggleStyle(accent: CP.gold))
             }

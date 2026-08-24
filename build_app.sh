@@ -23,6 +23,14 @@ cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/${APP_NAME}"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
 
+# Ресурс-бандл локализации (SPM resources: ru.lproj/en.lproj) — сгенерированный
+# resource_bundle_accessor ищет его через Bundle.main.bundleURL, т.е. прямо в
+# корне .app, рядом с Contents, а не внутри Contents/Resources.
+RESOURCE_BUNDLE=".build/release/${APP_NAME}_${APP_NAME}.bundle"
+if [ -d "$RESOURCE_BUNDLE" ]; then
+  cp -R "$RESOURCE_BUNDLE" "$APP_DIR/${APP_NAME}_${APP_NAME}.bundle"
+fi
+
 # --- adb: берём из локального кеша, иначе качаем официальный Platform Tools ---
 if [ ! -x "$CACHE_DIR/platform-tools/adb" ]; then
   echo "==> Скачиваю Android Platform Tools (adb) от Google…"

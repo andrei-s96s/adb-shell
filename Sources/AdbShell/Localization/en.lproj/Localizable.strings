@@ -1,0 +1,190 @@
+/* Common */
+"common.cancel" = "Cancel";
+"common.choose" = "Choose";
+"common.clear" = "Clear";
+"common.close" = "Close";
+"common.delete" = "Delete";
+"common.refresh" = "Refresh";
+"common.retry" = "Retry";
+
+/* Tabs */
+"tab.apps" = "Apps";
+"tab.library" = "APK Library";
+"tab.files" = "Files";
+
+/* No device */
+"nodevice.select" = "Select a device";
+"nodevice.select.hint" = "Click a device in the list on the left";
+"nodevice.none" = "No devices connected";
+"nodevice.none.hint" = "Connect a device over USB or enter an IP for network adb";
+
+/* Sidebar */
+"sidebar.subtitle" = "Android Device Control";
+"sidebar.devices" = "Devices";
+"sidebar.searching" = "Searching for devices…";
+"sidebar.connectByIp" = "Connect by IP";
+"sidebar.connect" = "Connect";
+"sidebar.pairing.help" = "Pair by code (Android 11+ Wireless debugging)";
+"sidebar.saveProfile.help" = "Save as profile";
+"sidebar.pin.help" = "Pin as a tab for quick switching";
+"sidebar.unpin.help" = "Unpin tab";
+"sidebar.profile.autoConnect.help" = "Auto-connect on launch";
+
+/* Pairing */
+"pairing.title" = "Pair by code";
+"pairing.instructions" = "Android 11+: Settings → Developer options → Wireless debugging →\n\"Pair device with pairing code\". Enter what's shown there.";
+"pairing.hostPort" = "Pairing IP:port";
+"pairing.code" = "Pairing code";
+"pairing.pair" = "Pair";
+"pairing.success" = "Paired. Now connect using the IP:port from \"Connect by IP\".";
+
+/* Updates (sidebar) */
+"update.checkNow" = "Check for updates";
+"update.upToDate" = "v%@ — up to date";
+"update.available" = "Version v%@ available";
+"update.install" = "Update";
+"update.releasePage" = "Release page";
+"update.downloading" = "Downloading update…";
+"update.installing" = "Installing… the app will restart";
+"update.error.noResponse" = "No response from GitHub";
+"update.error.httpStatus" = "GitHub returned error %d while checking for updates";
+"update.error.noZipAsset" = "Release %@ has no .zip asset";
+"update.error.checkFailed" = "Couldn't check for updates: %@";
+"update.error.cannotSelfInstall" = "Self-update only works for a built .app (see build_app.sh)";
+"update.error.noAppInArchive" = "No .app found in the archive";
+"update.error.installFailed" = "Update failed: %@";
+
+/* Device states */
+"device.state.connected" = "Connected";
+"device.state.offline" = "Not responding";
+"device.state.unauthorized" = "Unauthorized";
+"device.state.noPermissions" = "No permissions";
+"device.state.unknown" = "Unknown";
+
+/* adb errors */
+"error.adbNotFound" = "adb executable not found. Install Android Platform Tools (brew install android-platform-tools).";
+"error.commandFailed" = "The adb command failed.";
+"error.adbLaunchFailed" = "Couldn't launch adb: %@";
+"error.pairFailed" = "Couldn't pair the device";
+"error.apkPathNotFound" = "APK path not found";
+
+/* Apps — list */
+"apps.search.placeholder" = "Search by package name…";
+"apps.system" = "System";
+"apps.select" = "Select";
+"apps.select.help" = "Multi-select for batch uninstall";
+"apps.exportCsv" = "Export to CSV";
+"apps.exportCsv.help" = "Export the list to CSV";
+"apps.importBundle" = "Import bundle…";
+"apps.importBundle.help" = "Install an app bundle with permissions from a .zip";
+"apps.installApk" = "Install APK";
+"apps.installApk.help" = "Install an APK from a file (multiple allowed)";
+"apps.selectedCount" = "Selected: %d";
+"apps.exportSelected" = "Export selected";
+"apps.deleteSelected" = "Delete selected";
+"apps.deleteConfirm.title" = "Delete %d apps?";
+"apps.markOnLeft" = "Mark apps on the left";
+"apps.selectApp" = "Select an app";
+"apps.installResults.title" = "Install results";
+"apps.bundleResults.title" = "Operation results";
+"apps.installing.progress" = "Installing %1$d/%2$d: %3$@";
+"apps.deleting.progress" = "Deleting %1$d/%2$d: %3$@";
+"apps.export.progress" = "Exporting %1$d/%2$d: %3$@";
+"apps.export.noApk" = "APK path not found";
+"apps.export.permCount" = "Exported, permissions: %d";
+"apps.export.nothingExported" = "Couldn't export any app";
+"apps.import.progress" = "Installing %1$d/%2$d: %3$@";
+"apps.import.apkMissing" = "APK missing from the bundle";
+"apps.import.grantedCount" = "Installed, permissions granted: %1$d/%2$d";
+
+/* App detail */
+"appDetail.info" = "Info";
+"appDetail.installed" = "Installed";
+"appDetail.updated" = "Updated";
+"appDetail.path" = "Path";
+"appDetail.state" = "State";
+"appDetail.enabled" = "Enabled";
+"appDetail.disabled" = "Disabled";
+"appDetail.actions" = "Actions";
+"appDetail.forceStop" = "Force stop";
+"appDetail.enable" = "Enable";
+"appDetail.disable" = "Disable";
+"appDetail.clearData" = "Clear data";
+"appDetail.exportApk" = "Export APK";
+"appDetail.permissions" = "Permissions (%d)";
+"appDetail.noPermissions" = "No requested permissions";
+"appDetail.grant" = "Grant";
+"appDetail.revoke" = "Revoke";
+"appDetail.auto" = "AUTO";
+"appDetail.uninstallConfirm" = "Uninstall %@?";
+"appDetail.clearConfirm" = "Clear data for %@?";
+"appDetail.stopped" = "Process stopped";
+"appDetail.dataCleared" = "Data cleared";
+"appDetail.apkExported" = "APK exported: %@";
+
+/* APK library */
+"library.title" = "APK Library";
+"library.chooseFolder" = "Choose folder…";
+"library.chooseFolder.message" = "Folder to store and install APKs from";
+"library.showInFinder" = "Show in Finder";
+"library.addApk" = "Add APK…";
+"library.noDevice" = "No device connected — files can still be added and removed, install becomes available once a device is connected";
+"library.dropZone" = "Drop .apk files here";
+"library.install" = "Install";
+"library.install.needDevice" = "Connect a device to install";
+"library.installed" = "Installed: %@";
+
+/* Device files */
+"files.title" = "Device Files";
+"files.empty" = "Empty";
+"files.newFolder" = "New folder";
+"files.newFolder.title" = "New folder";
+"files.newFolder.placeholder" = "Folder name";
+"files.newFolder.create" = "Create";
+"files.upload" = "Upload here…";
+"files.saveHere" = "Save here";
+"files.deleteConfirm" = "Delete \"%@\"?";
+"files.downloading" = "Downloading %@…";
+"files.downloaded" = "Downloaded: %@";
+"files.uploading" = "Uploading %@…";
+
+/* Logcat */
+"logcat.streaming" = "streaming";
+"logcat.stopped" = "stopped";
+"logcat.pause" = "Pause";
+"logcat.resume" = "Resume";
+"logcat.filter.placeholder" = "Filter by text, tag, PID…";
+"logcat.autoScroll" = "Auto-scroll";
+
+/* Shell */
+"shell.screenshot" = "Screenshot";
+"shell.reboot" = "Reboot";
+"shell.rebootRecovery" = "Reboot → Recovery";
+"shell.rebootBootloader" = "Reboot → Bootloader";
+"shell.more" = "More";
+"shell.clearLog" = "Clear log";
+"shell.run" = "Run";
+"shell.emptyOutput" = "(empty)";
+"shell.addFavorite.help" = "Add to favorites";
+"shell.historyEmpty" = "Nothing yet";
+"shell.removeFavorite" = "Remove from favorites";
+"shell.screenshotSaved" = "Saved: %@";
+"shell.screenshotError" = "Screenshot error: %@";
+
+/* Settings */
+"settings.title" = "Settings";
+"settings.language" = "Language";
+"settings.language.system" = "System";
+"settings.updates" = "Updates";
+"settings.checkOnLaunch" = "Check for updates on launch";
+"settings.currentVersion" = "Currently installed: v%@";
+"settings.apps" = "Apps";
+"settings.showSystemAppsDefault" = "Show system apps by default";
+"settings.data" = "Data";
+"settings.clearShellHistory" = "Clear shell history";
+"settings.shellHistoryCleared" = "Command history cleared";
+"settings.removeProfiles" = "Remove connection profiles";
+"settings.profilesRemoved" = "Connection profiles removed";
+"settings.about" = "About";
+"settings.openRepo" = "Open repository on GitHub";
+"settings.releaseHistory" = "Release history";

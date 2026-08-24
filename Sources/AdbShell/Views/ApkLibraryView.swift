@@ -9,23 +9,24 @@ struct ApkLibraryView: View {
     @StateObject private var vm = ApkLibraryViewModel()
     @State private var isDropTargeted = false
     @State private var showImporter = false
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    SectionLabel(text: "Библиотека APK", accent: CP.ice)
+                    SectionLabel(text: L("library.title"), accent: CP.ice)
                     Text(vm.directoryURL.path)
                         .font(CP.code(10))
                         .foregroundColor(CP.textMuted)
                         .textSelection(.enabled)
                 }
                 Spacer()
-                Button("Выбрать папку…") { vm.chooseDirectory() }
+                Button(L("library.chooseFolder")) { vm.chooseDirectory() }
                     .buttonStyle(NeonButtonStyle(accent: CP.ice))
-                Button("Показать в Finder") { vm.revealInFinder() }
+                Button(L("library.showInFinder")) { vm.revealInFinder() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
-                Button("Добавить APK…") { showImporter = true }
+                Button(L("library.addApk")) { showImporter = true }
                     .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
             }
             .padding(16)
@@ -35,7 +36,7 @@ struct ApkLibraryView: View {
             if serial == nil {
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle")
-                    Text("Устройство не подключено — файлы можно добавлять и удалять, установка станет доступна после подключения устройства")
+                    Text(L("library.noDevice"))
                 }
                 .font(CP.mono(11))
                 .foregroundColor(CP.textMuted)
@@ -77,6 +78,7 @@ struct ApkLibraryView: View {
                 }
             }
         }
+        .id(loc.language)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             handleDrop(providers)
@@ -94,7 +96,7 @@ struct ApkLibraryView: View {
             Image(systemName: "square.and.arrow.down.on.square")
                 .font(.system(size: 22, weight: .light))
                 .foregroundColor(isDropTargeted ? CP.gold : CP.textMuted)
-            Text("Перетащите .apk сюда")
+            Text(L("library.dropZone"))
                 .font(CP.mono(12, weight: .medium))
                 .foregroundColor(isDropTargeted ? CP.gold : CP.textMuted)
         }
@@ -147,10 +149,10 @@ private struct ApkRow: View {
             if isInstalling {
                 ProgressView().scaleEffect(0.6).tint(CP.gold)
             } else {
-                Button("Установить") { onInstall() }
+                Button(L("library.install")) { onInstall() }
                     .buttonStyle(NeonButtonStyle(accent: canInstall ? CP.emerald : CP.textMuted))
                     .disabled(!canInstall)
-                    .help(canInstall ? "" : "Подключите устройство, чтобы установить")
+                    .help(canInstall ? "" : L("library.install.needDevice"))
             }
             Button {
                 onDelete()
