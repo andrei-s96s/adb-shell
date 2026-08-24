@@ -20,7 +20,10 @@ final class IconService: ObservableObject {
     private let maxConcurrent = 3
     private var pendingQueue: [() -> Void] = []
 
-    static func locateAapt2() -> String? {
+    /// nonisolated — не трогает актор-изолированное состояние (только Bundle/
+    /// FileManager), а вызывается и извне (ApkInspectorService), где await
+    /// на каждый вызов был бы лишним.
+    nonisolated static func locateAapt2() -> String? {
         guard let bundled = Bundle.main.resourceURL?.appendingPathComponent("aapt2").path,
               FileManager.default.isExecutableFile(atPath: bundled) else { return nil }
         return bundled
