@@ -273,6 +273,19 @@
 "stats.kill" = "Завершить";
 "stats.killConfirm" = "Завершить процесс %@ (PID %@)?";
 
+"security.title" = "Безопасность";
+"security.verifiedBoot.green" = "Verified Boot: заводская прошивка, полностью проверена";
+"security.verifiedBoot.orange" = "Verified Boot: bootloader разлочен, возможна кастомная прошивка";
+"security.verifiedBoot.yellow" = "Verified Boot: прошивка подписана пользовательским ключом";
+"security.verifiedBoot.red" = "Verified Boot: проверка целостности не пройдена";
+"security.bootloader.locked" = "Bootloader заблокирован";
+"security.bootloader.unlocked" = "Bootloader разлочен";
+"security.su.present" = "Найден бинарник su — вероятен root-доступ";
+"security.debuggable" = "Сборка debuggable (ro.debuggable=1)";
+"security.insecure" = "Небезопасная сборка (ro.secure=0)";
+"security.playProtect.disabled" = "Google Play Protect отключён пользователем";
+"security.allClear" = "Явных признаков root/разлочки не найдено";
+
 "crashes.button" = "ANR/Tombstones";
 "crashes.title" = "ANR / Tombstones";
 "crashes.empty" = "Файлы не найдены — либо крашей не было, либо /data/anr и /data/tombstones недоступны без root.";
