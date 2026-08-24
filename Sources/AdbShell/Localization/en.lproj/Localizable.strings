@@ -33,6 +33,9 @@
 "sidebar.pin.help" = "Pin as a tab for quick switching";
 "sidebar.unpin.help" = "Unpin tab";
 "sidebar.profile.autoConnect.help" = "Auto-connect on launch";
+"sidebar.profiles" = "Profiles";
+"sidebar.profiles.import" = "Import profiles from JSON";
+"sidebar.profiles.export" = "Export profiles to JSON";
 "sidebar.foundOnNetwork" = "Found on network";
 "sidebar.pairAction" = "Pair";
 "sidebar.copySerial" = "Copy serial number";
@@ -244,6 +247,13 @@
 "macros.steps.example" = "Example:\nadb wait-for-device\nadb root\nadb remount\nadb shell iptables -P INPUT ACCEPT";
 "macros.empty" = "No macros yet";
 "macros.empty.hint" = "Build a sequence of adb commands (e.g. for flashing) and run it with one button — instead of typing each command by hand.";
+"macros.variables.hint" = "Lines can use variables ${NAME} — you'll be asked for their values before the macro runs.";
+"macros.variables.title" = "Variables for \"%@\"";
+"macros.abortOnFailure" = "Stop on first error";
+"macros.autorun" = "Run automatically when a device connects";
+"macros.autorun.help" = "Runs automatically when a device connects";
+"macros.import" = "Import";
+"macros.export" = "Export";
 
 "stats.loading" = "Polling device…";
 "stats.cpu" = "CPU";

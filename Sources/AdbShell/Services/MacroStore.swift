@@ -7,7 +7,7 @@ import Foundation
 final class MacroStore: ObservableObject {
     @Published private(set) var macros: [Macro] = []
 
-    private static let key = "shellMacros"
+    static let key = "shellMacros"
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -15,21 +15,32 @@ final class MacroStore: ObservableObject {
         load()
     }
 
-    func add(name: String, rawText: String) {
+    /// Свежее чтение сохранённых макросов напрямую из UserDefaults, без создания
+    /// полноценного @MainActor-стора — используется автозапуском по подключению
+    /// устройства (DevicesViewModel), которому не нужно наблюдать за изменениями.
+    nonisolated static func loadPersisted(defaults: UserDefaults = .standard) -> [Macro] {
+        guard let data = defaults.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([Macro].self, from: data) else { return [] }
+        return decoded
+    }
+
+    func add(name: String, rawText: String, autorunOnConnect: Bool = false, abortOnFirstFailure: Bool = false) {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         let steps = Self.parseSteps(from: rawText)
         guard !trimmedName.isEmpty, !steps.isEmpty else { return }
-        macros.append(Macro(name: trimmedName, steps: steps))
+        macros.append(Macro(name: trimmedName, steps: steps, autorunOnConnect: autorunOnConnect, abortOnFirstFailure: abortOnFirstFailure))
         save()
     }
 
-    func update(_ id: UUID, name: String, rawText: String) {
+    func update(_ id: UUID, name: String, rawText: String, autorunOnConnect: Bool = false, abortOnFirstFailure: Bool = false) {
         guard let idx = macros.firstIndex(where: { $0.id == id }) else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         let steps = Self.parseSteps(from: rawText)
         guard !trimmedName.isEmpty, !steps.isEmpty else { return }
         macros[idx].name = trimmedName
         macros[idx].steps = steps
+        macros[idx].autorunOnConnect = autorunOnConnect
+        macros[idx].abortOnFirstFailure = abortOnFirstFailure
         save()
     }
 
@@ -65,6 +76,21 @@ final class MacroStore: ObservableObject {
             steps.append(MacroStep(argsLine: line))
         }
         return steps
+    }
+
+    /// Сериализует все макросы в JSON — для экспорта на диск и переноса на другую машину.
+    func exportJSON() -> Data? {
+        try? JSONEncoder().encode(macros)
+    }
+
+    /// Импортирует макросы из JSON, полученного `exportJSON()`. По умолчанию
+    /// добавляет только те, которых ещё нет (по id) — повторный импорт того же
+    /// файла не плодит дубликаты.
+    func importJSON(_ data: Data) throws {
+        let imported = try JSONDecoder().decode([Macro].self, from: data)
+        let existingIDs = Set(macros.map(\.id))
+        macros += imported.filter { !existingIDs.contains($0.id) }
+        save()
     }
 
     private func load() {

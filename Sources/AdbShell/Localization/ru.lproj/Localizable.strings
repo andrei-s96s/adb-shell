@@ -33,6 +33,9 @@
 "sidebar.pin.help" = "Закрепить как вкладку для быстрого переключения";
 "sidebar.unpin.help" = "Открепить вкладку";
 "sidebar.profile.autoConnect.help" = "Автоподключение при запуске";
+"sidebar.profiles" = "Профили";
+"sidebar.profiles.import" = "Импортировать профили из JSON";
+"sidebar.profiles.export" = "Экспортировать профили в JSON";
 "sidebar.foundOnNetwork" = "Найдено в сети";
 "sidebar.pairAction" = "Сопрячь";
 "sidebar.copySerial" = "Скопировать серийный номер";
@@ -244,6 +247,13 @@
 "macros.steps.example" = "Например:\nadb wait-for-device\nadb root\nadb remount\nadb shell iptables -P INPUT ACCEPT";
 "macros.empty" = "Пока нет ни одного макроса";
 "macros.empty.hint" = "Соберите последовательность adb-команд (например для прошивки) и запускайте её одной кнопкой — вместо ручного ввода каждой команды по отдельности.";
+"macros.variables.hint" = "В строках можно использовать переменные ${ИМЯ} — перед запуском их значения будут запрошены.";
+"macros.variables.title" = "Переменные макроса «%@»";
+"macros.abortOnFailure" = "Останавливаться на первой ошибке";
+"macros.autorun" = "Запускать автоматически при подключении устройства";
+"macros.autorun.help" = "Автозапуск при подключении устройства";
+"macros.import" = "Импорт";
+"macros.export" = "Экспорт";
 
 "stats.loading" = "Опрашиваем устройство…";
 "stats.cpu" = "CPU";

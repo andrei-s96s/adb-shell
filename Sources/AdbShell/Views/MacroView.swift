@@ -1,15 +1,12 @@
 import SwiftUI
-
-private struct MacroStepResult: Identifiable {
-    let id = UUID()
-    let argsLine: String
-    let output: String
-    let isError: Bool
-}
+import AppKit
+import UniformTypeIdentifiers
 
 /// Вкладка «Макросы»: именованные последовательности adb-команд (например
 /// порядок действий при прошивке — root → remount → серия shell-команд),
 /// запускаются одной кнопкой, шаг за шагом, с логом результата каждого шага.
+/// Шаги могут содержать переменные `${NAME}` (запрашиваются перед запуском)
+/// и остановку на первой ошибке — см. MacroRunner.
 struct MacroView: View {
     let serial: String
     let service: ADBService
@@ -17,9 +14,11 @@ struct MacroView: View {
     @StateObject private var store = MacroStore()
     @State private var expandedMacroID: UUID?
     @State private var runningMacroID: UUID?
-    @State private var results: [UUID: [MacroStepResult]] = [:]
+    @State private var results: [UUID: [MacroRunResult]] = [:]
     @State private var editingMacro: Macro?
     @State private var showEditor = false
+    @State private var pendingVariablesMacro: Macro?
+    @State private var variableValues: [String: String] = [:]
     @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
@@ -27,6 +26,11 @@ struct MacroView: View {
             HStack {
                 SectionLabel(text: L("macros.title"), accent: CP.gold)
                 Spacer()
+                Button(L("macros.import")) { importMacros() }
+                    .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+                Button(L("macros.export")) { exportMacros() }
+                    .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+                    .disabled(store.macros.isEmpty)
                 Button(L("macros.new")) {
                     editingMacro = nil
                     showEditor = true
@@ -52,16 +56,27 @@ struct MacroView: View {
         }
         .id(loc.language)
         .sheet(isPresented: $showEditor) {
-            MacroEditorSheet(editing: editingMacro) { name, rawText in
+            MacroEditorSheet(editing: editingMacro) { name, rawText, autorun, abortOnFailure in
                 if let editingMacro {
-                    store.update(editingMacro.id, name: name, rawText: rawText)
+                    store.update(editingMacro.id, name: name, rawText: rawText, autorunOnConnect: autorun, abortOnFirstFailure: abortOnFailure)
                 } else {
-                    store.add(name: name, rawText: rawText)
+                    store.add(name: name, rawText: rawText, autorunOnConnect: autorun, abortOnFirstFailure: abortOnFailure)
                 }
                 showEditor = false
             } onCancel: {
                 showEditor = false
             }
+        }
+        .sheet(item: $pendingVariablesMacro) { macro in
+            MacroVariablesSheet(
+                macro: macro,
+                values: $variableValues,
+                onRun: {
+                    pendingVariablesMacro = nil
+                    startRun(macro, variables: variableValues)
+                },
+                onCancel: { pendingVariablesMacro = nil }
+            )
         }
     }
 
@@ -97,9 +112,15 @@ struct MacroView: View {
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(CP.textMuted)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(macro.name)
-                                .font(CP.mono(13, weight: .semibold))
-                                .foregroundColor(CP.textPrimary)
+                            HStack(spacing: 6) {
+                                Text(macro.name)
+                                    .font(CP.mono(13, weight: .semibold))
+                                    .foregroundColor(CP.textPrimary)
+                                if macro.autorunOnConnect {
+                                    Image(systemName: "bolt.fill").font(.system(size: 9)).foregroundColor(CP.gold)
+                                        .help(L("macros.autorun.help"))
+                                }
+                            }
                             Text(L("macros.stepsCount", macro.steps.count))
                                 .font(CP.mono(10))
                                 .foregroundColor(CP.textMuted)
@@ -113,7 +134,7 @@ struct MacroView: View {
                 if runningMacroID == macro.id {
                     ProgressView().scaleEffect(0.6)
                 } else {
-                    Button(L("macros.run")) { runMacro(macro) }
+                    Button(L("macros.run")) { requestRun(macro) }
                         .buttonStyle(NeonButtonStyle(accent: CP.emerald, filled: true))
                         .disabled(runningMacroID != nil)
                 }
@@ -171,45 +192,105 @@ struct MacroView: View {
         .cpPanel()
     }
 
-    private func runMacro(_ macro: Macro) {
+    /// Если в макросе есть переменные — сначала спрашивает их значения,
+    /// иначе запускает сразу.
+    private func requestRun(_ macro: Macro) {
+        let names = MacroRunner.variableNames(in: macro)
+        guard !names.isEmpty else {
+            startRun(macro, variables: [:])
+            return
+        }
+        variableValues = Dictionary(uniqueKeysWithValues: names.map { ($0, "") })
+        pendingVariablesMacro = macro
+    }
+
+    private func exportMacros() {
+        guard let data = store.exportJSON() else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "adbshell-macros.json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? data.write(to: url)
+    }
+
+    private func importMacros() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        try? store.importJSON(data)
+    }
+
+    private func startRun(_ macro: Macro, variables: [String: String]) {
         guard runningMacroID == nil else { return }
         runningMacroID = macro.id
         expandedMacroID = macro.id
         results[macro.id] = []
         Task {
-            for step in macro.steps {
-                let tokens = step.argsLine.split(separator: " ").map(String.init)
-                guard !tokens.isEmpty else { continue }
-                do {
-                    let result = try await service.run(tokens, serial: serial)
-                    results[macro.id, default: []].append(
-                        MacroStepResult(argsLine: step.argsLine, output: result.combined, isError: result.exitCode != 0)
-                    )
-                } catch {
-                    results[macro.id, default: []].append(
-                        MacroStepResult(argsLine: step.argsLine, output: error.localizedDescription, isError: true)
-                    )
-                }
+            await MacroRunner.run(macro, serial: serial, service: service, variables: variables) { stepResult in
+                results[macro.id, default: []].append(stepResult)
             }
             runningMacroID = nil
         }
     }
 }
 
+/// Запрашивает значения `${NAME}`-переменных макроса перед запуском.
+private struct MacroVariablesSheet: View {
+    let macro: Macro
+    @Binding var values: [String: String]
+    let onRun: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionLabel(text: L("macros.variables.title", macro.name), accent: CP.ice)
+            ForEach(MacroRunner.variableNames(in: macro), id: \.self) { name in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(name).font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
+                    TextField(name, text: Binding(
+                        get: { values[name] ?? "" },
+                        set: { values[name] = $0 }
+                    ))
+                    .textFieldStyle(.plain)
+                    .font(CP.code(12))
+                    .padding(8)
+                    .background(CP.bgPanelAlt)
+                    .cornerRadius(6)
+                }
+            }
+            HStack {
+                Spacer()
+                Button(L("common.cancel")) { onCancel() }
+                    .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+                Button(L("macros.run")) { onRun() }
+                    .buttonStyle(NeonButtonStyle(accent: CP.emerald, filled: true))
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
+        .background(CP.bg)
+    }
+}
+
 private struct MacroEditorSheet: View {
     let editing: Macro?
-    let onSave: (String, String) -> Void
+    let onSave: (String, String, Bool, Bool) -> Void
     let onCancel: () -> Void
 
     @State private var name: String
     @State private var rawText: String
+    @State private var autorunOnConnect: Bool
+    @State private var abortOnFirstFailure: Bool
 
-    init(editing: Macro?, onSave: @escaping (String, String) -> Void, onCancel: @escaping () -> Void) {
+    init(editing: Macro?, onSave: @escaping (String, String, Bool, Bool) -> Void, onCancel: @escaping () -> Void) {
         self.editing = editing
         self.onSave = onSave
         self.onCancel = onCancel
         _name = State(initialValue: editing?.name ?? "")
         _rawText = State(initialValue: editing?.steps.map { "adb \($0.argsLine)" }.joined(separator: "\n") ?? "")
+        _autorunOnConnect = State(initialValue: editing?.autorunOnConnect ?? false)
+        _abortOnFirstFailure = State(initialValue: editing?.abortOnFirstFailure ?? false)
     }
 
     private var parsedStepsCount: Int { MacroStore.parseSteps(from: rawText).count }
@@ -239,11 +320,14 @@ private struct MacroEditorSheet: View {
                 Text(L("macros.steps.example"))
                     .font(CP.code(9))
                     .foregroundColor(CP.textMuted.opacity(0.8))
+                Text(L("macros.variables.hint"))
+                    .font(CP.code(9))
+                    .foregroundColor(CP.textMuted.opacity(0.8))
             }
 
             TextEditor(text: $rawText)
                 .font(CP.code(11))
-                .frame(minHeight: 220)
+                .frame(minHeight: 180)
                 .padding(6)
                 .background(CP.bgPanelAlt)
                 .cornerRadius(6)
@@ -253,17 +337,27 @@ private struct MacroEditorSheet: View {
                 .font(CP.mono(10))
                 .foregroundColor(CP.textMuted)
 
+            Toggle(isOn: $abortOnFirstFailure) {
+                Text(L("macros.abortOnFailure")).font(CP.mono(11, weight: .medium)).foregroundColor(CP.textPrimary)
+            }
+            .toggleStyle(NeonToggleStyle(accent: CP.rose))
+
+            Toggle(isOn: $autorunOnConnect) {
+                Text(L("macros.autorun")).font(CP.mono(11, weight: .medium)).foregroundColor(CP.textPrimary)
+            }
+            .toggleStyle(NeonToggleStyle(accent: CP.gold))
+
             HStack {
                 Spacer()
                 Button(L("common.cancel")) { onCancel() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
-                Button(L("common.save")) { onSave(name, rawText) }
+                Button(L("common.save")) { onSave(name, rawText, autorunOnConnect, abortOnFirstFailure) }
                     .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || parsedStepsCount == 0)
             }
         }
         .padding(20)
-        .frame(width: 500, height: 460)
+        .frame(width: 500, height: 540)
         .background(CP.bg)
     }
 }

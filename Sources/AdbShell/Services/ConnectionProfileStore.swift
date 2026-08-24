@@ -57,6 +57,20 @@ final class ConnectionProfileStore: ObservableObject {
         save()
     }
 
+    /// Сериализует все профили в JSON — для экспорта на диск и переноса на другую машину.
+    func exportJSON() -> Data? {
+        try? JSONEncoder().encode(profiles)
+    }
+
+    /// Импортирует профили из JSON, полученного `exportJSON()`. Добавляет только
+    /// те, которых ещё нет (по id) — повторный импорт того же файла не плодит дубликаты.
+    func importJSON(_ data: Data) throws {
+        let imported = try JSONDecoder().decode([ConnectionProfile].self, from: data)
+        let existingIDs = Set(profiles.map(\.id))
+        profiles += imported.filter { !existingIDs.contains($0.id) }
+        save()
+    }
+
     private func load() {
         guard let data = defaults.data(forKey: Self.key),
               let decoded = try? JSONDecoder().decode([ConnectionProfile].self, from: data) else { return }
