@@ -364,6 +364,12 @@ final class ADBService {
         }
     }
 
+    /// Экранное время приложений за текущий период — best-effort, см. UsageStatsParser.
+    func usageStats(serial: String) async throws -> [AppUsageStat] {
+        let result = try await run(["shell", "dumpsys", "usagestats"], serial: serial)
+        return UsageStatsParser.parse(result.combined)
+    }
+
     // MARK: - Безопасность устройства
 
     /// Локальные признаки целостности устройства (root/разлочка/debuggable) —

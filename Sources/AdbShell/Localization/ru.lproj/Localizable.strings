@@ -303,6 +303,8 @@
 "stats.memory" = "Память";
 "stats.charging" = "заряжается";
 "stats.exportCsv" = "Экспорт в CSV";
+"stats.usage" = "Экранное время";
+"stats.usage.empty" = "Нет данных — формат dumpsys usagestats может отличаться на этой версии Android";
 "stats.processes" = "Процессы (%d)";
 "stats.processFilter" = "Поиск по имени/PID…";
 "stats.kill" = "Завершить";

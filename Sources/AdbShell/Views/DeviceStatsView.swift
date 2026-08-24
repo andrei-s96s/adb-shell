@@ -61,6 +61,7 @@ struct DeviceStatsView: View {
                         footnote: memFootnote
                     )
                     processesSection
+                    usageStatsSection
                     securitySection
                 }
 
@@ -73,6 +74,7 @@ struct DeviceStatsView: View {
         .task(id: serial) {
             vm.startPolling(serial: serial)
             await vm.loadSecurityInfo(serial: serial)
+            await vm.loadUsageStats(serial: serial)
         }
         .onDisappear { vm.stopPolling() }
         .confirmationDialog(
@@ -87,6 +89,33 @@ struct DeviceStatsView: View {
                 killTarget = nil
             }
             Button(L("common.cancel"), role: .cancel) { killTarget = nil }
+        }
+    }
+
+    private var usageStatsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(text: L("stats.usage"), accent: CP.ice)
+            if vm.usageStats.isEmpty {
+                Text(L("stats.usage.empty"))
+                    .font(CP.mono(11))
+                    .foregroundColor(CP.textMuted)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(vm.usageStats.prefix(15)) { stat in
+                        HStack {
+                            Text(stat.packageName)
+                                .font(CP.code(11)).foregroundColor(CP.textPrimary)
+                                .lineLimit(1).truncationMode(.middle)
+                            Spacer()
+                            Text(stat.formattedDuration)
+                                .font(CP.code(10)).foregroundColor(CP.textMuted)
+                        }
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        Rectangle().fill(CP.hairline).frame(height: 1)
+                    }
+                }
+                .cpPanel()
+            }
         }
     }
 
