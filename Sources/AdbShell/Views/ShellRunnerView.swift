@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 private struct HistoryEntry: Identifiable {
     let id = UUID()
@@ -16,6 +17,9 @@ struct ShellRunnerView: View {
     @State private var history: [HistoryEntry] = []
     @State private var isRunning = false
     @State private var screenshotMessage: String?
+    @State private var isCapturingScreenshot = false
+    @State private var screenshotData: Data?
+    @State private var showScreenshotSheet = false
     @StateObject private var savedCommands = ShellHistoryStore()
     @EnvironmentObject private var loc: LocalizationManager
 
@@ -24,8 +28,12 @@ struct ShellRunnerView: View {
             HStack {
                 SectionLabel(text: "Shell", accent: CP.rose)
                 Spacer()
-                Button(L("shell.screenshot")) { Task { await takeScreenshot() } }
-                    .buttonStyle(NeonButtonStyle(accent: CP.ice))
+                if isCapturingScreenshot {
+                    ProgressView().scaleEffect(0.6)
+                } else {
+                    Button(L("shell.screenshot")) { Task { await takeScreenshot() } }
+                        .buttonStyle(NeonButtonStyle(accent: CP.ice))
+                }
                 Button(L("shell.reboot")) { Task { try? await service.reboot(serial: serial) } }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson))
 
@@ -91,6 +99,11 @@ struct ShellRunnerView: View {
             inputBar
         }
         .id(loc.language)
+        .sheet(isPresented: $showScreenshotSheet) {
+            if let screenshotData {
+                ScreenshotPreviewSheet(data: screenshotData) { showScreenshotSheet = false }
+            }
+        }
     }
 
     private var quickCommandsStrip: some View {
@@ -195,17 +208,78 @@ struct ShellRunnerView: View {
     }
 
     private func takeScreenshot() async {
+        isCapturingScreenshot = true
+        defer { isCapturingScreenshot = false }
         do {
             let data = try await service.screenshot(serial: serial)
-            let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
-                ?? FileManager.default.homeDirectoryForCurrentUser
-            let name = "adbshell-screenshot-\(Int(Date().timeIntervalSince1970)).png"
-            let url = downloads.appendingPathComponent(name)
-            try data.write(to: url)
-            screenshotMessage = L("shell.screenshotSaved", url.path)
-            NSWorkspace.shared.activateFileViewerSelecting([url])
+            screenshotData = data
+            showScreenshotSheet = true
         } catch {
             screenshotMessage = L("shell.screenshotError", error.localizedDescription)
         }
+    }
+}
+
+private struct ScreenshotPreviewSheet: View {
+    let data: Data
+    let onClose: () -> Void
+    @State private var savedMessage: String?
+
+    private var image: NSImage? { NSImage(data: data) }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack {
+                SectionLabel(text: L("shell.screenshot"), accent: CP.ice)
+                Spacer()
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(CP.textMuted)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: 420, maxHeight: 420)
+                    .background(CP.bgPanelAlt)
+                    .cornerRadius(8)
+            }
+
+            if let savedMessage {
+                Text(savedMessage).font(CP.mono(10)).foregroundColor(CP.emerald)
+            }
+
+            HStack(spacing: 8) {
+                Button(L("shell.screenshot.copy")) {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    if let image { pasteboard.writeObjects([image]) }
+                    savedMessage = L("shell.screenshot.copied")
+                }
+                .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+
+                Button(L("shell.screenshot.saveAs")) {
+                    let panel = NSSavePanel()
+                    panel.nameFieldStringValue = "adbshell-screenshot-\(Int(Date().timeIntervalSince1970)).png"
+                    panel.allowedContentTypes = [.png]
+                    guard panel.runModal() == .OK, let url = panel.url else { return }
+                    do {
+                        try data.write(to: url)
+                        savedMessage = L("shell.screenshotSaved", url.path)
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    } catch {
+                        savedMessage = L("shell.screenshotError", error.localizedDescription)
+                    }
+                }
+                .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+        .background(CP.bg)
     }
 }

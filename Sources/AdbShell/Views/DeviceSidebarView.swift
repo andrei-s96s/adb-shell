@@ -1,10 +1,12 @@
 import SwiftUI
+import AppKit
 
 struct DeviceSidebarView: View {
     @ObservedObject var vm: DevicesViewModel
     @StateObject private var updateVM = UpdateService()
     @StateObject private var profileStore = ConnectionProfileStore()
     @State private var showPairingSheet = false
+    @State private var pairingPrefillHost = ""
     @State private var showSettingsSheet = false
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
     @EnvironmentObject private var loc: LocalizationManager
@@ -75,6 +77,16 @@ struct DeviceSidebarView: View {
                         }
                     }
                     .padding(.horizontal, 12)
+                }
+            }
+
+            if !vm.undiscoveredMdnsDevices.isEmpty {
+                Rectangle().fill(CP.hairline).frame(height: 1)
+                MdnsSection(devices: vm.undiscoveredMdnsDevices) { mdns in
+                    Task { await vm.connect(to: mdns.address) }
+                } onPair: { mdns in
+                    pairingPrefillHost = mdns.address
+                    showPairingSheet = true
                 }
             }
 
@@ -160,13 +172,18 @@ struct DeviceSidebarView: View {
         }
         .id(loc.language)
         .task {
+            vm.startMdnsDiscovery()
             await vm.autoConnect(profiles: profileStore.autoConnectProfiles)
             if autoCheckUpdates {
                 await updateVM.checkForUpdates()
             }
         }
+        .onDisappear { vm.stopMdnsDiscovery() }
         .sheet(isPresented: $showPairingSheet) {
-            PairingSheet(service: vm.service) { showPairingSheet = false }
+            PairingSheet(service: vm.service, prefillHostPort: pairingPrefillHost) {
+                showPairingSheet = false
+                pairingPrefillHost = ""
+            }
         }
         .sheet(isPresented: $showSettingsSheet) {
             SettingsView { showSettingsSheet = false }
@@ -174,8 +191,51 @@ struct DeviceSidebarView: View {
     }
 }
 
+private struct MdnsSection: View {
+    let devices: [MdnsDevice]
+    let onConnect: (MdnsDevice) -> Void
+    let onPair: (MdnsDevice) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel(text: L("sidebar.foundOnNetwork"), accent: CP.emerald)
+            VStack(spacing: 4) {
+                ForEach(devices) { device in
+                    HStack(spacing: 8) {
+                        StatusDot(color: device.needsPairing ? CP.gold : CP.emerald)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(device.name)
+                                .font(CP.mono(10, weight: .medium))
+                                .foregroundColor(CP.textPrimary)
+                                .lineLimit(1)
+                            Text(device.address)
+                                .font(CP.code(9))
+                                .foregroundColor(CP.textMuted)
+                        }
+                        Spacer()
+                        if device.needsPairing {
+                            Button(L("sidebar.pairAction")) { onPair(device) }
+                                .buttonStyle(NeonButtonStyle(accent: CP.gold))
+                        } else {
+                            Button(L("sidebar.connect")) { onConnect(device) }
+                                .buttonStyle(NeonButtonStyle(accent: CP.emerald))
+                        }
+                    }
+                    .padding(6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous).fill(CP.bgPanelAlt)
+                    )
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+}
+
 private struct PairingSheet: View {
     let service: ADBService
+    var prefillHostPort: String = ""
     let onClose: () -> Void
 
     @State private var pairHostPort = ""
@@ -183,6 +243,13 @@ private struct PairingSheet: View {
     @State private var isPairing = false
     @State private var resultMessage: String?
     @State private var isError = false
+
+    init(service: ADBService, prefillHostPort: String = "", onClose: @escaping () -> Void) {
+        self.service = service
+        self.prefillHostPort = prefillHostPort
+        self.onClose = onClose
+        _pairHostPort = State(initialValue: prefillHostPort)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -427,5 +494,12 @@ private struct DeviceRow: View {
             )
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(L("sidebar.copySerial")) {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(device.serial, forType: .string)
+            }
+        }
     }
 }

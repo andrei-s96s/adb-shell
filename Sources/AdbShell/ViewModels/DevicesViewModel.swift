@@ -10,9 +10,11 @@ final class DevicesViewModel: ObservableObject {
     @Published var connectHost: String = ""
     @Published var isConnecting = false
     @Published private(set) var pinnedSerials: [String] = []
+    @Published private(set) var mdnsDevices: [MdnsDevice] = []
 
     let service: ADBService
     private var pollTask: Task<Void, Never>?
+    private var mdnsTask: Task<Void, Never>?
 
     var selectedDevice: Device? {
         devices.first { $0.serial == selectedSerial }
@@ -36,6 +38,13 @@ final class DevicesViewModel: ObservableObject {
         pinnedSerials.contains(serial)
     }
 
+    /// mDNS-находки, которые ещё не подключены как обычное устройство —
+    /// иначе они дублировали бы уже видимую в списке запись.
+    var undiscoveredMdnsDevices: [MdnsDevice] {
+        let connectedSerials = Set(devices.map(\.serial))
+        return mdnsDevices.filter { !connectedSerials.contains($0.address) }
+    }
+
     init(service: ADBService) {
         self.service = service
     }
@@ -54,6 +63,27 @@ final class DevicesViewModel: ObservableObject {
     func stopPolling() {
         pollTask?.cancel()
         pollTask = nil
+    }
+
+    /// Периодический опрос mDNS в фоне — устройства с Wireless debugging
+    /// сами появляются в сайдбаре, без ручного ввода IP. Молча игнорирует
+    /// ошибки (например, если mdns-демон недоступен на этой машине).
+    func startMdnsDiscovery() {
+        stopMdnsDiscovery()
+        mdnsTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                if let found = try? await self.service.discoverMdnsDevices() {
+                    self.mdnsDevices = found
+                }
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
+        }
+    }
+
+    func stopMdnsDiscovery() {
+        mdnsTask?.cancel()
+        mdnsTask = nil
     }
 
     func refresh(silent: Bool = false) async {

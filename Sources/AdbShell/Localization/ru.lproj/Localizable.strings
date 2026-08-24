@@ -6,6 +6,7 @@
 "common.delete" = "Удалить";
 "common.refresh" = "Обновить";
 "common.retry" = "Повторить";
+"common.copy" = "Скопировать";
 
 /* Вкладки */
 "tab.apps" = "Приложения";
@@ -29,6 +30,9 @@
 "sidebar.pin.help" = "Закрепить как вкладку для быстрого переключения";
 "sidebar.unpin.help" = "Открепить вкладку";
 "sidebar.profile.autoConnect.help" = "Автоподключение при запуске";
+"sidebar.foundOnNetwork" = "Найдено в сети";
+"sidebar.pairAction" = "Сопрячь";
+"sidebar.copySerial" = "Скопировать серийный номер";
 
 /* Пейринг */
 "pairing.title" = "Сопряжение по коду";
@@ -147,6 +151,8 @@
 "files.downloading" = "Скачивание %@…";
 "files.downloaded" = "Скачано: %@";
 "files.uploading" = "Загрузка %@…";
+"files.search.placeholder" = "Поиск в текущей папке…";
+"files.searchEmpty" = "Ничего не найдено";
 
 /* Logcat */
 "logcat.streaming" = "стрим";
@@ -170,6 +176,9 @@
 "shell.removeFavorite" = "Убрать из избранного";
 "shell.screenshotSaved" = "Сохранено: %@";
 "shell.screenshotError" = "Ошибка скриншота: %@";
+"shell.screenshot.copy" = "Скопировать";
+"shell.screenshot.copied" = "Скопировано в буфер обмена";
+"shell.screenshot.saveAs" = "Сохранить как…";
 
 /* Настройки */
 "settings.title" = "Настройки";

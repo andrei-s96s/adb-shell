@@ -9,12 +9,18 @@ final class FilesViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isBusy = false
     @Published var statusMessage: String?
+    @Published var searchText: String = ""
 
     let service: ADBService
 
     init(service: ADBService, startPath: String = "/sdcard") {
         self.service = service
         self.currentPath = startPath
+    }
+
+    var filteredEntries: [RemoteFile] {
+        guard !searchText.isEmpty else { return entries }
+        return entries.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
 
     var breadcrumbs: [(name: String, path: String)] {
@@ -43,6 +49,7 @@ final class FilesViewModel: ObservableObject {
     func open(_ file: RemoteFile, serial: String) async {
         guard file.isDirectory else { return }
         currentPath = file.path
+        searchText = ""
         await load(serial: serial)
     }
 
@@ -50,11 +57,13 @@ final class FilesViewModel: ObservableObject {
         guard currentPath != "/" else { return }
         let parent = (currentPath as NSString).deletingLastPathComponent
         currentPath = parent.isEmpty ? "/" : parent
+        searchText = ""
         await load(serial: serial)
     }
 
     func goTo(_ path: String, serial: String) async {
         currentPath = path
+        searchText = ""
         await load(serial: serial)
     }
 

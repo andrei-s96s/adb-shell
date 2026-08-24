@@ -6,6 +6,7 @@
 "common.delete" = "Delete";
 "common.refresh" = "Refresh";
 "common.retry" = "Retry";
+"common.copy" = "Copy";
 
 /* Tabs */
 "tab.apps" = "Apps";
@@ -29,6 +30,9 @@
 "sidebar.pin.help" = "Pin as a tab for quick switching";
 "sidebar.unpin.help" = "Unpin tab";
 "sidebar.profile.autoConnect.help" = "Auto-connect on launch";
+"sidebar.foundOnNetwork" = "Found on network";
+"sidebar.pairAction" = "Pair";
+"sidebar.copySerial" = "Copy serial number";
 
 /* Pairing */
 "pairing.title" = "Pair by code";
@@ -147,6 +151,8 @@
 "files.downloading" = "Downloading %@…";
 "files.downloaded" = "Downloaded: %@";
 "files.uploading" = "Uploading %@…";
+"files.search.placeholder" = "Search in current folder…";
+"files.searchEmpty" = "No matches";
 
 /* Logcat */
 "logcat.streaming" = "streaming";
@@ -170,6 +176,9 @@
 "shell.removeFavorite" = "Remove from favorites";
 "shell.screenshotSaved" = "Saved: %@";
 "shell.screenshotError" = "Screenshot error: %@";
+"shell.screenshot.copy" = "Copy";
+"shell.screenshot.copied" = "Copied to clipboard";
+"shell.screenshot.saveAs" = "Save As…";
 
 /* Settings */
 "settings.title" = "Settings";

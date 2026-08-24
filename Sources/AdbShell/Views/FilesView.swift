@@ -48,10 +48,16 @@ struct FilesView: View {
                     .font(CP.mono(12))
                     .foregroundColor(CP.textMuted)
                 Spacer()
+            } else if vm.filteredEntries.isEmpty {
+                Spacer()
+                Text(L("files.searchEmpty"))
+                    .font(CP.mono(12))
+                    .foregroundColor(CP.textMuted)
+                Spacer()
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(vm.entries) { file in
+                        ForEach(vm.filteredEntries) { file in
                             FileRow(file: file) {
                                 Task { await vm.open(file, serial: serial) }
                             } onPull: {
@@ -126,6 +132,22 @@ struct FilesView: View {
                     }
                 }
             }
+
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11))
+                    .foregroundColor(CP.textMuted)
+                TextField(L("files.search.placeholder"), text: $vm.searchText)
+                    .textFieldStyle(.plain)
+                    .font(CP.code(11))
+            }
+            .padding(7)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous).fill(CP.bgPanelAlt)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(CP.hairline, lineWidth: 1)
+            )
         }
         .padding(16)
         .background(CP.bgPanel)

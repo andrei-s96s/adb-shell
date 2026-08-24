@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct AppDetailPanel: View {
     let serial: String
@@ -72,10 +73,23 @@ struct AppDetailPanel: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(packageName)
-                .font(CP.code(17, weight: .semibold))
-                .foregroundColor(CP.textPrimary)
-                .textSelection(.enabled)
+            HStack(spacing: 8) {
+                Text(packageName)
+                    .font(CP.code(17, weight: .semibold))
+                    .foregroundColor(CP.textPrimary)
+                    .textSelection(.enabled)
+                Button {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(packageName, forType: .string)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 11))
+                        .foregroundColor(CP.textMuted)
+                }
+                .buttonStyle(.plain)
+                .help(L("common.copy"))
+            }
             if let v = vm.detail?.versionName {
                 Text("v\(v)" + (vm.detail?.versionCode.map { " (\($0))" } ?? ""))
                     .font(CP.mono(12, weight: .medium))

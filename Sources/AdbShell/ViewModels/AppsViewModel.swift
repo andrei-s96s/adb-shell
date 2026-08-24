@@ -169,6 +169,7 @@ final class AppsViewModel: ObservableObject {
                 try FileManager.default.removeItem(at: destinationZip)
             }
             try await ZipUtil.zipContents(of: workDir, to: destinationZip)
+            NSWorkspace.shared.activateFileViewerSelecting([destinationZip])
         } catch {
             errorMessage = error.localizedDescription
         }

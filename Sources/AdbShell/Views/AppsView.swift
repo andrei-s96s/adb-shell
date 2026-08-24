@@ -235,6 +235,7 @@ struct AppsView: View {
             csv += "\(app.packageName),\(app.isSystem),\(app.isEnabled)\n"
         }
         try? csv.write(to: url, atomically: true, encoding: .utf8)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 }
 

@@ -160,6 +160,13 @@ final class ADBService {
         return combined
     }
 
+    /// Устройства с включённой беспроводной отладкой (Android 11+), найденные
+    /// в локальной сети через mDNS/Bonjour — без ручного ввода IP.
+    func discoverMdnsDevices() async throws -> [MdnsDevice] {
+        let result = try await run(["mdns", "services"])
+        return MdnsParser.parse(result.stdout)
+    }
+
     // MARK: - Приложения
 
     func listApps(serial: String) async throws -> [InstalledApp] {
