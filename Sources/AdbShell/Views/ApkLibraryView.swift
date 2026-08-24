@@ -9,6 +9,7 @@ struct ApkLibraryView: View {
     @StateObject private var vm = ApkLibraryViewModel()
     @State private var isDropTargeted = false
     @State private var showImporter = false
+    @State private var infoTarget: ApkFile?
     @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
@@ -67,6 +68,8 @@ struct ApkLibraryView: View {
                                 Task { await vm.install(file, to: serial, service: service) }
                             } onInstallToAll: {
                                 Task { await vm.installToAllDevices(file, service: service) }
+                            } onShowInfo: {
+                                infoTarget = file
                             } onDelete: {
                                 vm.delete(file)
                             }
@@ -90,6 +93,9 @@ struct ApkLibraryView: View {
             if case .success(let urls) = result {
                 vm.importFiles(urls)
             }
+        }
+        .sheet(item: $infoTarget) { file in
+            ApkInfoSheet(apkPath: file.path, serial: serial, service: service)
         }
     }
 
@@ -133,6 +139,7 @@ private struct ApkRow: View {
     let canInstall: Bool
     let onInstall: () -> Void
     let onInstallToAll: () -> Void
+    let onShowInfo: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -166,6 +173,14 @@ private struct ApkRow: View {
                 .disabled(!canInstall)
                 .help(L("library.install.allDevices"))
             }
+            Button {
+                onShowInfo()
+            } label: {
+                Image(systemName: "info.circle")
+                    .foregroundColor(CP.ice)
+            }
+            .buttonStyle(.plain)
+            .help(L("library.info"))
             Button {
                 onDelete()
             } label: {
