@@ -27,10 +27,16 @@ enum CP {
     static let hairline = dynamicColor(light: (0, 0, 0), dark: (1, 1, 1), alpha: 0.08)
     static let grid = hairline // алиас для обратной совместимости
 
-    static let gold = dynamicColor(light: (0.72, 0.56, 0.24), dark: (0.83, 0.69, 0.40))     // акцент
+    // Светлые значения gold/emerald подобраны расчётом WCAG-контраста (не на глаз —
+    // в этой среде нет возможности отрендерить SwiftUI): исходные (0.72,0.56,0.24) и
+    // (0.13,0.52,0.35) давали всего ~2.5:1 и ~3.9:1 против CP.bgPanelAlt, где эти цвета
+    // реально используются как foregroundColor текста (NeonButtonStyle, версии, статусы) —
+    // ниже минимума 4.5:1 для обычного текста. Новые значения дают ≥4.5:1 против bg/
+    // bgPanel/bgPanelAlt при той же тональности (тёплое золото / зелёный), см. историю коммита.
+    static let gold = dynamicColor(light: (0.51, 0.40, 0.17), dark: (0.83, 0.69, 0.40))     // акцент
     static let ice = dynamicColor(light: (0.20, 0.42, 0.66), dark: (0.56, 0.72, 0.90))      // вторичный акцент
     static let rose = dynamicColor(light: (0.62, 0.30, 0.37), dark: (0.78, 0.52, 0.56))     // акцент "сеть"
-    static let emerald = dynamicColor(light: (0.13, 0.52, 0.35), dark: (0.35, 0.78, 0.58)) // успех
+    static let emerald = dynamicColor(light: (0.12, 0.47, 0.32), dark: (0.35, 0.78, 0.58)) // успех
     static let crimson = dynamicColor(light: (0.74, 0.16, 0.20), dark: (0.87, 0.34, 0.37)) // ошибка/деструктив
 
     // Алиасы под старые имена, чтобы не переписывать все вызовы в View-файлах.
@@ -161,4 +167,47 @@ struct SectionLabel: View {
                 .foregroundColor(CP.textMuted)
         }
     }
+}
+
+/// Витрина базовых элементов темы в обеих цветовых схемах — без неё
+/// светлая/тёмная тема ни разу не была видна глазами: эта среда разработки
+/// не может отрендерить SwiftUI, только Xcode Preview на реальном Mac.
+private struct ThemeGallery: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionLabel(text: "Section label", accent: CP.gold)
+            SectionLabel(text: "Ice accent", accent: CP.ice)
+            SectionLabel(text: "Emerald accent", accent: CP.emerald)
+            SectionLabel(text: "Crimson accent", accent: CP.crimson)
+
+            HStack(spacing: 8) {
+                Button("Filled") {}.buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
+                Button("Ghost") {}.buttonStyle(NeonButtonStyle(accent: CP.gold))
+                Button("Destructive") {}.buttonStyle(NeonButtonStyle(accent: CP.crimson, filled: true))
+            }
+
+            Toggle("Toggle", isOn: .constant(true)).toggleStyle(NeonToggleStyle(accent: CP.gold))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Panel body text").font(CP.mono(12)).foregroundColor(CP.textPrimary)
+                Text("Muted caption").font(CP.code(11)).foregroundColor(CP.textMuted)
+                Text("Gold accent text").font(CP.mono(12, weight: .semibold)).foregroundColor(CP.gold)
+                Text("Emerald accent text").font(CP.mono(12, weight: .semibold)).foregroundColor(CP.emerald)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cpPanel()
+        }
+        .padding(20)
+        .frame(width: 340)
+        .background(CP.bg)
+    }
+}
+
+#Preview("Theme Gallery — Dark") {
+    ThemeGallery().preferredColorScheme(.dark)
+}
+
+#Preview("Theme Gallery — Light") {
+    ThemeGallery().preferredColorScheme(.light)
 }

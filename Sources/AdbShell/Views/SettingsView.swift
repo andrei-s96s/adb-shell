@@ -247,3 +247,15 @@ struct SettingsView: View {
         .id(loc.language)
     }
 }
+
+#Preview("Settings — Dark") {
+    SettingsView { }
+        .environmentObject(LocalizationManager.shared)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Settings — Light") {
+    SettingsView { }
+        .environmentObject(LocalizationManager.shared)
+        .preferredColorScheme(.light)
+}
