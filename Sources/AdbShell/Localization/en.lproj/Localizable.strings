@@ -289,6 +289,8 @@
 "macros.title" = "Macros";
 "macros.new" = "+ New macro";
 "macros.run" = "Run";
+"macros.run.needDevice" = "Connect a device to run";
+"macros.noDevice" = "No device connected — macros can still be created, edited, and imported, running becomes available once a device is connected";
 "macros.editAction" = "Edit";
 "macros.stepsCount" = "Steps: %d";
 "macros.name.placeholder" = "Name, e.g. \"Flashing — SSH forward\"";

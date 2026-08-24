@@ -91,11 +91,9 @@ struct ContentView: View {
                             NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
                         }
                     case .macros:
-                        if let device = readyDevice {
-                            MacroView(serial: device.serial, service: devicesVM.service)
-                        } else {
-                            NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
-                        }
+                        // Список макросов — локальные данные на Mac, устройство нужно
+                        // только для запуска, поэтому вкладка доступна всегда.
+                        MacroView(serial: readyDevice?.serial, service: devicesVM.service)
                     case .stats:
                         if let device = readyDevice {
                             DeviceStatsView(serial: device.serial, service: devicesVM.service)
