@@ -20,7 +20,9 @@ struct ShellRunnerView: View {
     @State private var isCapturingScreenshot = false
     @State private var screenshotData: Data?
     @State private var showScreenshotSheet = false
+    @State private var mirrorMessage: String?
     @StateObject private var savedCommands = ShellHistoryStore()
+    @StateObject private var mirror = ScreenMirrorService()
     @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
@@ -34,6 +36,16 @@ struct ShellRunnerView: View {
                     Button(L("shell.screenshot")) { Task { await takeScreenshot() } }
                         .buttonStyle(NeonButtonStyle(accent: CP.ice))
                 }
+
+                if mirror.isRunning(serial) {
+                    Label(L("shell.mirroring"), systemImage: "airplayvideo.fill")
+                        .font(CP.mono(10))
+                        .foregroundColor(CP.emerald)
+                } else {
+                    Button(L("shell.mirror")) { launchMirror() }
+                        .buttonStyle(NeonButtonStyle(accent: CP.ice))
+                }
+
                 Button(L("shell.reboot")) { Task { try? await service.reboot(serial: serial) } }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson))
 
@@ -58,6 +70,14 @@ struct ShellRunnerView: View {
                 Text(screenshotMessage)
                     .font(CP.mono(10))
                     .foregroundColor(CP.emerald)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
+
+            if let mirrorMessage {
+                Text(mirrorMessage)
+                    .font(CP.mono(10))
+                    .foregroundColor(CP.crimson)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
             }
@@ -204,6 +224,15 @@ struct ShellRunnerView: View {
             history.append(HistoryEntry(command: label, output: output, isError: false))
         } catch {
             history.append(HistoryEntry(command: label, output: error.localizedDescription, isError: true))
+        }
+    }
+
+    private func launchMirror() {
+        do {
+            try mirror.launch(serial: serial, adbPath: service.adbPath)
+            mirrorMessage = nil
+        } catch {
+            mirrorMessage = error.localizedDescription
         }
     }
 

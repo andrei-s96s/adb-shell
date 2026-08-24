@@ -5,7 +5,7 @@
 shell и скриншоты — по USB или по сети.
 
 Бесплатно и без рекламы. Если приложение полезно — [поддержите проект
-донатом](#поддержать-проект) в USDT (BEP20).
+донатом](https://andrei-s96s.github.io/adb-shell/) в USDT (BEP20).
 
 ## Скачать готовое приложение
 
@@ -13,8 +13,9 @@ shell и скриншоты — по USB или по сети.
 **[скачать последнюю версию](https://github.com/andrei-s96s/adb-shell/releases/latest)**
 (файл `AdbShell-macOS.zip`).
 
-`adb` (Android Platform Tools, Apache-2.0) вшит прямо в `.app` — отдельно
-ставить его на Mac не нужно, ничего больше скачивать не требуется.
+`adb` (Android Platform Tools, Apache-2.0), `scrcpy` (Genymobile, Apache-2.0) и
+`aapt2` (Android Gradle Plugin, Apache-2.0) вшиты прямо в `.app` — отдельно
+ставить их на Mac не нужно, ничего больше скачивать не требуется.
 
 Приложение не подписано платным Apple Developer ID и не нотаризовано, поэтому
 при первом запуске Gatekeeper может отказать. Снять карантин после распаковки:
@@ -31,7 +32,8 @@ xattr -cr AdbShell.app
 ## Возможности
 
 - Список подключённых устройств (USB и сетевой adb `connect ip:port`)
-- Просмотр установленных приложений (пользовательские / системные), поиск
+- Просмотр установленных приложений (пользовательские / системные), поиск,
+  реальные иконки приложений (вытаскиваются из APK через вшитый `aapt2`)
 - Детали приложения: версия, target SDK, даты установки/обновления, путь к APK
 - Просмотр и управление runtime-разрешениями (выдать / забрать)
 - Установка / удаление APK
@@ -41,6 +43,12 @@ xattr -cr AdbShell.app
   устройство в один клик; доступна и без подключённого устройства
 - Shell-раннер (`adb shell <команда>`) с персистентной историей и избранным,
   скриншот экрана устройства
+- Зеркалирование экрана в реальном времени (кнопка «Зеркалировать» в Shell) —
+  через вшитый `scrcpy`, ставить отдельно не нужно
+- Вкладка «Макросы»: именованные последовательности adb-команд (например
+  порядок действий при прошивке), запускаются одной кнопкой; при создании
+  можно вставить целиком .bat-скрипт — строки, не начинающиеся с `adb`
+  (`pause`, `chcp`, `ipconfig` и т.п.), игнорируются автоматически
 - Live Logcat: стриминг `adb logcat`, фильтр по тексту/уровню, подсветка ошибок
 - Экспорт списка установленных пакетов в CSV
 - Индикатор версии/сборки Android устройства в шапке
@@ -100,9 +108,10 @@ open AdbShell.app
 ```
 
 Скрипт собирает release-бинарник, скачивает (кеширует в `.build/`) и вшивает
-`adb` из официальных Android Platform Tools, упаковывает всё в `AdbShell.app`
-с ad-hoc подписью — можно перетащить в `/Applications` и запускать двойным
-кликом.
+`adb` из официальных Android Platform Tools, `scrcpy` из официальных релизов
+Genymobile и `aapt2` из Maven-репозитория Google, упаковывает всё в
+`AdbShell.app` с ad-hoc подписью — можно перетащить в `/Applications` и
+запускать двойным кликом.
 
 ## Релиз новой версии
 
@@ -118,11 +127,12 @@ open AdbShell.app
 
 ```
 Sources/AdbShell/
-  Models/       — Device, InstalledApp, AppDetail, AppPermission, ApkFile, AppBundleManifest, RemoteFile
-  Services/     — ADBService (обёртка над CLI adb), DumpsysParser, UpdateService, ZipUtil
+  Models/       — Device, InstalledApp, AppDetail, AppPermission, ApkFile, AppBundleManifest, RemoteFile, Macro
+  Services/     — ADBService (обёртка над CLI adb), DumpsysParser, UpdateService, ZipUtil,
+                  ScreenMirrorService (запуск вшитого scrcpy), MacroStore, IconService (иконки из APK через aapt2)
   ViewModels/   — DevicesViewModel, AppsViewModel, AppDetailViewModel, ApkLibraryViewModel, FilesViewModel, LogcatViewModel
-  Views/        — ContentView, DeviceSidebarView, AppsView, AppDetailPanel, ApkLibraryView, FilesView, LogcatView, ShellRunnerView, SettingsView
-  Design/       — Theme.swift (цветовая палитра и компоненты)
+  Views/        — ContentView, DeviceSidebarView, AppsView, AppDetailPanel, ApkLibraryView, FilesView, LogcatView, ShellRunnerView, MacroView, SettingsView
+  Design/       — Theme.swift (цветовая палитра и компоненты), QRCode.swift (QR через CoreImage)
   Localization/ — L10n.swift (LocalizationManager + функция L()), ru.lproj/en.lproj Localizable.strings
 Tests/AdbShellTests/ — юнит-тесты (Swift Testing)
 ```
@@ -131,18 +141,15 @@ Tests/AdbShellTests/ — юнит-тесты (Swift Testing)
 
 ## Поддержать проект
 
-Приложение бесплатное и без рекламы. Если оно оказалось полезным — можно
-закинуть донат в USDT (BEP20, сеть BNB Smart Chain):
-
-```
-0xb4cd0e92c9deb10202d156bafe0405b204902241
-```
-
-Тот же адрес и кнопка «Копировать» есть прямо в приложении — Настройки →
-«Поддержать проект».
+**[Страница доната](https://andrei-s96s.github.io/adb-shell/)** — адрес USDT
+(BEP20) и QR-код, чтобы не вводить его вручную. То же самое — с QR прямо в
+приложении — есть в Настройках → «Поддержать проект».
 
 ## Лицензии
 
 `adb` — часть Android Platform Tools от Google, распространяется под
 Apache License 2.0; при сборке `.app` рядом кладётся `adb-NOTICE.txt` с
-атрибуцией. Исходники ADB Shell — см. лицензию репозитория.
+атрибуцией. `scrcpy` — проект Genymobile, тоже Apache License 2.0; при сборке
+рядом кладётся `scrcpy-LICENSE.txt`. `aapt2` — часть Android Gradle Plugin от
+Google, тоже Apache License 2.0; при сборке рядом кладётся
+`aapt2-NOTICE.txt`. Исходники ADB Shell — см. лицензию репозитория.

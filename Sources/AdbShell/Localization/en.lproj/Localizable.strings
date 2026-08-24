@@ -1,5 +1,6 @@
 /* Common */
 "common.cancel" = "Cancel";
+"common.save" = "Save";
 "common.choose" = "Choose";
 "common.clear" = "Clear";
 "common.close" = "Close";
@@ -12,6 +13,7 @@
 "tab.apps" = "Apps";
 "tab.library" = "APK Library";
 "tab.files" = "Files";
+"tab.macros" = "Macros";
 
 /* No device */
 "nodevice.select" = "Select a device";
@@ -164,6 +166,9 @@
 
 /* Shell */
 "shell.screenshot" = "Screenshot";
+"shell.mirror" = "Mirror screen";
+"shell.mirroring" = "Mirroring…";
+"mirror.error.notFound" = "scrcpy not found. Install: brew install scrcpy";
 "shell.reboot" = "Reboot";
 "shell.rebootRecovery" = "Reboot → Recovery";
 "shell.rebootBootloader" = "Reboot → Bootloader";
@@ -198,6 +203,18 @@
 "settings.support.hint" = "The app is free and ad-free. If you find it useful, you can send a donation in USDT (BEP20, BNB Smart Chain):";
 "settings.support.copy" = "Copy address";
 "settings.support.copied" = "Address copied to clipboard";
+"settings.support.openPage" = "Open donation page ↗";
 "settings.about" = "About";
 "settings.openRepo" = "Open repository on GitHub";
 "settings.releaseHistory" = "Release history";
+
+"macros.title" = "Macros";
+"macros.new" = "+ New macro";
+"macros.run" = "Run";
+"macros.editAction" = "Edit";
+"macros.stepsCount" = "Steps: %d";
+"macros.name.placeholder" = "Name, e.g. \"Flashing — SSH forward\"";
+"macros.steps.hint" = "One command per line. Only lines starting with adb are recognized — everything else (echo off, pause, chcp, ipconfig, etc. from .bat scripts) is ignored, so you can paste a whole batch file. The current device's serial is substituted automatically, no need for -d/-e/-s in the lines.";
+"macros.steps.example" = "Example:\nadb wait-for-device\nadb root\nadb remount\nadb shell iptables -P INPUT ACCEPT";
+"macros.empty" = "No macros yet";
+"macros.empty.hint" = "Build a sequence of adb commands (e.g. for flashing) and run it with one button — instead of typing each command by hand.";

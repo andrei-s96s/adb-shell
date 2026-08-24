@@ -114,21 +114,40 @@ struct SettingsView: View {
                     .font(CP.mono(11))
                     .foregroundColor(CP.textMuted)
 
-                HStack {
-                    Text(donateAddressBEP20)
-                        .font(CP.code(10))
-                        .foregroundColor(CP.textPrimary)
-                        .textSelection(.enabled)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                    Button(L("settings.support.copy")) {
-                        let pasteboard = NSPasteboard.general
-                        pasteboard.clearContents()
-                        pasteboard.setString(donateAddressBEP20, forType: .string)
-                        supportCopiedMessage = L("settings.support.copied")
+                HStack(alignment: .top, spacing: 12) {
+                    if let qrImage = QRCode.image(from: donateAddressBEP20) {
+                        Image(nsImage: qrImage)
+                            .resizable()
+                            .interpolation(.none)
+                            .frame(width: 76, height: 76)
+                            .padding(6)
+                            .background(Color.white)
+                            .cornerRadius(6)
                     }
-                    .buttonStyle(NeonButtonStyle(accent: CP.emerald))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(donateAddressBEP20)
+                            .font(CP.code(10))
+                            .foregroundColor(CP.textPrimary)
+                            .textSelection(.enabled)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+
+                        Button(L("settings.support.copy")) {
+                            let pasteboard = NSPasteboard.general
+                            pasteboard.clearContents()
+                            pasteboard.setString(donateAddressBEP20, forType: .string)
+                            supportCopiedMessage = L("settings.support.copied")
+                        }
+                        .buttonStyle(NeonButtonStyle(accent: CP.emerald))
+
+                        Button(L("settings.support.openPage")) {
+                            NSWorkspace.shared.open(URL(string: "https://andrei-s96s.github.io/adb-shell/")!)
+                        }
+                        .buttonStyle(.plain)
+                        .font(CP.mono(10, weight: .medium))
+                        .foregroundColor(CP.ice)
+                    }
                 }
 
                 if let supportCopiedMessage {
@@ -163,7 +182,7 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(20)
-        .frame(width: 420, height: 760)
+        .frame(width: 420, height: 830)
         .background(CP.bg)
         .id(loc.language)
     }
