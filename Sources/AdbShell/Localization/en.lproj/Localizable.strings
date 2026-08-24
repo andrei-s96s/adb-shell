@@ -88,6 +88,16 @@
 "apps.select.help" = "Multi-select for batch uninstall";
 "apps.exportCsv" = "Export to CSV";
 "apps.exportCsv.help" = "Export the list to CSV";
+"compare.title" = "Compare devices";
+"compare.otherDevice" = "With device:";
+"compare.run" = "Compare";
+"compare.noOtherDevices" = "No other ready devices to compare with";
+"compare.common" = "Common packages: %d";
+"compare.onlyHere" = "Only here";
+"compare.onlyThere" = "Only there";
+"compare.hint" = "Pick a device and press \"Compare\"";
+"apps.compareDevices" = "Compare devices";
+"apps.compareDevices.help" = "Compare the installed package list with another device";
 "apps.importBundle" = "Import bundle…";
 "apps.importBundle.help" = "Install an app bundle with permissions from a .zip";
 "apps.installApk" = "Install APK";
@@ -198,6 +208,15 @@
 "shell.sendText.placeholder" = "Text into the focused field…";
 "shell.sendText.help" = "Type text into the currently focused field on the device (adb shell input text) — not the clipboard";
 "shell.mirror.record.help" = "Mirror while recording the session to .mp4";
+"shell.intentTester" = "Intent…";
+
+"intent.title" = "Intent tester";
+"intent.hint" = "am start -a android.intent.action.VIEW -d <uri>";
+"intent.send" = "Send";
+"intent.presetName" = "Preset name";
+"intent.savePreset" = "Save";
+"intent.presets" = "Saved";
+"intent.sent" = "Sent";
 "shell.screenshot" = "Screenshot";
 "shell.mirror" = "Mirror screen";
 "shell.mirroring" = "Mirroring…";

@@ -24,6 +24,7 @@ struct ShellRunnerView: View {
     @State private var broadcastMode = false
     @State private var textToSend = ""
     @State private var isSendingText = false
+    @State private var showIntentTester = false
     @StateObject private var savedCommands = ShellHistoryStore()
     @StateObject private var mirror = ScreenMirrorService()
     @EnvironmentObject private var loc: LocalizationManager
@@ -70,6 +71,8 @@ struct ShellRunnerView: View {
                     Divider()
                     Button("adb root") { Task { await runQuick("adb root") { try await service.rootAdb(serial: serial) } } }
                     Button("adb remount") { Task { await runQuick("adb remount") { try await service.remount(serial: serial) } } }
+                    Divider()
+                    Button(L("shell.intentTester")) { showIntentTester = true }
                 } label: {
                     Text(L("shell.more"))
                 }
@@ -138,6 +141,9 @@ struct ShellRunnerView: View {
             if let screenshotData {
                 ScreenshotPreviewSheet(data: screenshotData) { showScreenshotSheet = false }
             }
+        }
+        .sheet(isPresented: $showIntentTester) {
+            IntentTesterSheet(serial: serial, service: service) { showIntentTester = false }
         }
     }
 

@@ -13,6 +13,7 @@ struct AppsView: View {
     @State private var installResults: [InstallResult] = []
     @State private var showInstallResults = false
     @State private var showBundleResults = false
+    @State private var showCompareDevices = false
     @EnvironmentObject private var loc: LocalizationManager
 
     init(serial: String, service: ADBService) {
@@ -72,6 +73,15 @@ struct AppsView: View {
                     }
                     .buttonStyle(NeonButtonStyle(accent: CP.ice))
                     .help(L("apps.exportCsv.help"))
+
+                    Button {
+                        showCompareDevices = true
+                    } label: {
+                        Label(L("apps.compareDevices"), systemImage: "square.split.2x1")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+                    .help(L("apps.compareDevices.help"))
 
                     Button {
                         showBundleImportPicker = true
@@ -226,6 +236,9 @@ struct AppsView: View {
         }
         .sheet(isPresented: $showBundleResults) {
             BundleResultsSheet(results: vm.bundleResults) { showBundleResults = false }
+        }
+        .sheet(isPresented: $showCompareDevices) {
+            DeviceCompareSheet(serial: serial, service: service) { showCompareDevices = false }
         }
     }
 

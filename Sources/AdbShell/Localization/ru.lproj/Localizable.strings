@@ -88,6 +88,16 @@
 "apps.select.help" = "Мультивыбор для пакетного удаления";
 "apps.exportCsv" = "Экспорт в CSV";
 "apps.exportCsv.help" = "Экспортировать список в CSV";
+"compare.title" = "Сравнение устройств";
+"compare.otherDevice" = "С устройством:";
+"compare.run" = "Сравнить";
+"compare.noOtherDevices" = "Нет других готовых устройств для сравнения";
+"compare.common" = "Общих пакетов: %d";
+"compare.onlyHere" = "Только здесь";
+"compare.onlyThere" = "Только там";
+"compare.hint" = "Выберите устройство и нажмите «Сравнить»";
+"apps.compareDevices" = "Сравнить устройства";
+"apps.compareDevices.help" = "Сравнить список установленных пакетов с другим устройством";
 "apps.importBundle" = "Импорт набора…";
 "apps.importBundle.help" = "Установить набор приложений с разрешениями из .zip";
 "apps.installApk" = "Установить APK";
@@ -198,6 +208,15 @@
 "shell.sendText.placeholder" = "Текст в поле на устройстве…";
 "shell.sendText.help" = "Напечатать текст в поле с фокусом на устройстве (adb shell input text) — не буфер обмена";
 "shell.mirror.record.help" = "Зеркалировать с записью сессии в .mp4";
+"shell.intentTester" = "Intent…";
+
+"intent.title" = "Тестер Intent";
+"intent.hint" = "am start -a android.intent.action.VIEW -d <uri>";
+"intent.send" = "Отправить";
+"intent.presetName" = "Название пресета";
+"intent.savePreset" = "Сохранить";
+"intent.presets" = "Сохранённые";
+"intent.sent" = "Отправлено";
 "shell.screenshot" = "Скриншот";
 "shell.mirror" = "Зеркалировать";
 "shell.mirroring" = "Зеркалирование…";
