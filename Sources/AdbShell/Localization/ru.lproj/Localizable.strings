@@ -163,6 +163,17 @@
 "library.install.allDevices.success" = "%@ установлен на %d устройств";
 "library.install.allDevices.partial" = "Установлено на %d из %d устройств, есть ошибки:";
 "library.info" = "Инфо (манифест, разрешения, diff с установленной версией)";
+"library.downloadUrl" = "Скачать по URL";
+"library.download.invalidURL" = "Некорректная ссылка";
+"library.download.httpError" = "Сервер вернул код %d";
+"library.download.success" = "Скачано: %@";
+"library.download.urlLabel" = "Ссылка на .apk";
+"library.download.filenameLabel" = "Имя файла (необязательно)";
+"library.download.filenamePlaceholder" = "по умолчанию — из ссылки";
+"library.download.start" = "Скачать";
+"library.tags.all" = "Все теги";
+"library.tags.filter" = "Фильтр по тегу";
+"library.tags.new" = "Новый тег";
 
 "apkInfo.title" = "Инфо APK";
 "apkInfo.error.aapt2NotFound" = "aapt2 не найден";

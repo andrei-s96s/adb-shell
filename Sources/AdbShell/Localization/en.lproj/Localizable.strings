@@ -163,6 +163,17 @@
 "library.install.allDevices.success" = "%@ installed on %d devices";
 "library.install.allDevices.partial" = "Installed on %d of %d devices, with errors:";
 "library.info" = "Info (manifest, permissions, diff with installed version)";
+"library.downloadUrl" = "Download from URL";
+"library.download.invalidURL" = "Invalid URL";
+"library.download.httpError" = "Server returned code %d";
+"library.download.success" = "Downloaded: %@";
+"library.download.urlLabel" = ".apk link";
+"library.download.filenameLabel" = "Filename (optional)";
+"library.download.filenamePlaceholder" = "defaults to the one from the link";
+"library.download.start" = "Download";
+"library.tags.all" = "All tags";
+"library.tags.filter" = "Filter by tag";
+"library.tags.new" = "New tag";
 
 "apkInfo.title" = "APK Info";
 "apkInfo.error.aapt2NotFound" = "aapt2 not found";

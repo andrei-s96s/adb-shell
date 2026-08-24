@@ -10,7 +10,17 @@ struct ApkLibraryView: View {
     @State private var isDropTargeted = false
     @State private var showImporter = false
     @State private var infoTarget: ApkFile?
+    @State private var showDownloadPrompt = false
+    @State private var downloadURL = ""
+    @State private var downloadFilename = ""
+    @State private var tagFilter: String?
+    @StateObject private var tagStore = ApkTagStore()
     @EnvironmentObject private var loc: LocalizationManager
+
+    private var filteredFiles: [ApkFile] {
+        guard let tagFilter else { return vm.files }
+        return vm.files.filter { tagStore.tags(for: $0.path).contains(tagFilter) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -27,6 +37,21 @@ struct ApkLibraryView: View {
                     .buttonStyle(NeonButtonStyle(accent: CP.ice))
                 Button(L("library.showInFinder")) { vm.revealInFinder() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+                if !tagStore.allTags.isEmpty {
+                    Menu {
+                        Button(L("library.tags.all")) { tagFilter = nil }
+                        Divider()
+                        ForEach(tagStore.allTags, id: \.self) { tag in
+                            Button(tag) { tagFilter = tag }
+                        }
+                    } label: {
+                        Label(tagFilter ?? L("library.tags.filter"), systemImage: "tag")
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                }
+                Button(L("library.downloadUrl")) { showDownloadPrompt = true }
+                    .buttonStyle(NeonButtonStyle(accent: CP.ice))
                 Button(L("library.addApk")) { showImporter = true }
                     .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
             }
@@ -58,11 +83,12 @@ struct ApkLibraryView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 8) {
-                        ForEach(vm.files) { file in
+                        ForEach(filteredFiles) { file in
                             ApkRow(
                                 file: file,
                                 isInstalling: vm.installingPath == file.path,
-                                canInstall: serial != nil
+                                canInstall: serial != nil,
+                                tags: tagStore.tags(for: file.path)
                             ) {
                                 guard let serial else { return }
                                 Task { await vm.install(file, to: serial, service: service) }
@@ -72,6 +98,10 @@ struct ApkLibraryView: View {
                                 infoTarget = file
                             } onDelete: {
                                 vm.delete(file)
+                            } onAddTag: { tag in
+                                tagStore.addTag(tag, to: file.path)
+                            } onRemoveTag: { tag in
+                                tagStore.removeTag(tag, from: file.path)
                             }
                         }
                     }
@@ -96,6 +126,18 @@ struct ApkLibraryView: View {
         }
         .sheet(item: $infoTarget) { file in
             ApkInfoSheet(apkPath: file.path, serial: serial, service: service)
+        }
+        .sheet(isPresented: $showDownloadPrompt) {
+            DownloadApkSheet(url: $downloadURL, filename: $downloadFilename) {
+                showDownloadPrompt = false
+                let url = downloadURL
+                let name = downloadFilename
+                downloadURL = ""
+                downloadFilename = ""
+                Task { await vm.downloadFromURL(url, filename: name) }
+            } onCancel: {
+                showDownloadPrompt = false
+            }
         }
     }
 
@@ -137,10 +179,16 @@ private struct ApkRow: View {
     let file: ApkFile
     let isInstalling: Bool
     let canInstall: Bool
+    let tags: [String]
     let onInstall: () -> Void
     let onInstallToAll: () -> Void
     let onShowInfo: () -> Void
     let onDelete: () -> Void
+    let onAddTag: (String) -> Void
+    let onRemoveTag: (String) -> Void
+
+    @State private var showAddTag = false
+    @State private var newTag = ""
 
     var body: some View {
         HStack(spacing: 10) {
@@ -153,6 +201,40 @@ private struct ApkRow: View {
                 Text("\(file.sizeString) · \(file.modified.formatted(date: .abbreviated, time: .shortened))")
                     .font(CP.mono(10))
                     .foregroundColor(CP.textMuted)
+                HStack(spacing: 4) {
+                    ForEach(tags, id: \.self) { tag in
+                        HStack(spacing: 3) {
+                            Text(tag)
+                            Button { onRemoveTag(tag) } label: {
+                                Image(systemName: "xmark").font(.system(size: 7))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .font(CP.code(9))
+                        .foregroundColor(CP.ice)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(CP.ice.opacity(0.15)))
+                    }
+                    Button { showAddTag = true } label: {
+                        Image(systemName: "plus.circle").font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(CP.textMuted)
+                    .popover(isPresented: $showAddTag) {
+                        HStack {
+                            TextField(L("library.tags.new"), text: $newTag)
+                                .textFieldStyle(.plain)
+                                .font(CP.code(11))
+                                .frame(width: 120)
+                                .onSubmit {
+                                    onAddTag(newTag)
+                                    newTag = ""
+                                    showAddTag = false
+                                }
+                        }
+                        .padding(8)
+                    }
+                }
             }
             Spacer()
 
@@ -191,5 +273,41 @@ private struct ApkRow: View {
         }
         .padding(10)
         .cpPanel()
+    }
+}
+
+private struct DownloadApkSheet: View {
+    @Binding var url: String
+    @Binding var filename: String
+    let onDownload: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionLabel(text: L("library.downloadUrl"), accent: CP.ice)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L("library.download.urlLabel")).font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
+                TextField("https://.../app-release.apk", text: $url)
+                    .textFieldStyle(.roundedBorder)
+                    .font(CP.code(12))
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L("library.download.filenameLabel")).font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
+                TextField(L("library.download.filenamePlaceholder"), text: $filename)
+                    .textFieldStyle(.roundedBorder)
+                    .font(CP.code(12))
+            }
+            HStack {
+                Spacer()
+                Button(L("common.cancel")) { onCancel() }
+                    .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+                Button(L("library.download.start")) { onDownload() }
+                    .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
+                    .disabled(url.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 420)
+        .background(CP.bg)
     }
 }

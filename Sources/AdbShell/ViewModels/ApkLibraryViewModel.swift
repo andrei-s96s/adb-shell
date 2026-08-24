@@ -150,6 +150,38 @@ final class ApkLibraryViewModel: ObservableObject {
         )
     }
 
+    /// Скачивает .apk по прямой ссылке в текущую библиотеку. Не проверяет
+    /// Content-Type (некоторые CI/artifact-серверы отдают его неправильно) —
+    /// полагается на то, что ссылка действительно отдаёт APK, и просто
+    /// сохраняет файл под именем из URL (или переданным явно).
+    func downloadFromURL(_ urlString: String, filename: String?) async {
+        guard let url = URL(string: urlString.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
+            errorMessage = L("library.download.invalidURL")
+            return
+        }
+        let name = (filename?.trimmingCharacters(in: .whitespaces)).flatMap { $0.isEmpty ? nil : $0 }
+            ?? url.lastPathComponent
+        let finalName = name.lowercased().hasSuffix(".apk") ? name : name + ".apk"
+        let destination = directoryURL.appendingPathComponent(finalName)
+
+        installingPath = "downloading:\(urlString)"
+        defer { installingPath = nil }
+        do {
+            let (tmpURL, response) = try await URLSession.shared.download(from: url)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                throw NSError(domain: "ApkDownload", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: L("library.download.httpError", http.statusCode)])
+            }
+            if FileManager.default.fileExists(atPath: destination.path) {
+                try FileManager.default.removeItem(at: destination)
+            }
+            try FileManager.default.moveItem(at: tmpURL, to: destination)
+            refresh()
+            lastInstallMessage = L("library.download.success", finalName)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func revealInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([directoryURL])
     }
