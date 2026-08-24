@@ -447,6 +447,12 @@ final class ADBService {
         return result.combined
     }
 
+    /// Открывает deep link на устройстве — `am start -a android.intent.action.VIEW -d <uri>`.
+    /// Используется тестером intent'ов (Shell → "Intent").
+    func openDeepLink(serial: String, uri: String) async throws -> String {
+        try await shell(serial: serial, command: "am start -a android.intent.action.VIEW -d \(ShellQuoting.singleQuoted(uri))")
+    }
+
     func reboot(serial: String) async throws {
         try await run(["reboot"], serial: serial)
     }
