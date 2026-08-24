@@ -24,7 +24,7 @@ struct SettingsView: View {
     private let donateAddressBEP20 = "0xb4cd0e92c9deb10202d156bafe0405b204902241"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(spacing: 0) {
             HStack {
                 SectionLabel(text: L("settings.title"), accent: CP.gold)
                 Spacer()
@@ -35,7 +35,23 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
+            .padding(20)
+            .padding(.bottom, 4)
 
+            Rectangle().fill(CP.hairline).frame(height: 1)
+
+            ScrollView {
+                settingsSections
+                    .padding(20)
+            }
+        }
+        .frame(width: 420, height: 640)
+        .background(CP.bg)
+        .id(loc.language)
+    }
+
+    private var settingsSections: some View {
+        VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: L("settings.language"), accent: CP.rose)
                 Picker("", selection: $loc.language) {
@@ -238,13 +254,7 @@ struct SettingsView: View {
             }
             .padding(12)
             .cpPanel()
-
-            Spacer()
         }
-        .padding(20)
-        .frame(width: 420, height: 830)
-        .background(CP.bg)
-        .id(loc.language)
     }
 }
 
