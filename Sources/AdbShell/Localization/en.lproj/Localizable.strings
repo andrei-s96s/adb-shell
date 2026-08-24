@@ -106,6 +106,8 @@
 
 /* App detail */
 "appDetail.info" = "Info";
+"appDetail.network" = "Network";
+"appDetail.networkTotal" = "total ↓%@ ↑%@";
 "appDetail.installed" = "Installed";
 "appDetail.updated" = "Updated";
 "appDetail.path" = "Path";
@@ -224,3 +226,12 @@
 "stats.cpu" = "CPU";
 "stats.memory" = "Memory";
 "stats.charging" = "charging";
+"stats.processes" = "Processes (%d)";
+"stats.processFilter" = "Filter by name/PID…";
+"stats.kill" = "Kill";
+"stats.killConfirm" = "Kill process %@ (PID %@)?";
+
+"crashes.button" = "ANR/Tombstones";
+"crashes.title" = "ANR / Tombstones";
+"crashes.empty" = "No files found — either there were no crashes, or /data/anr and /data/tombstones aren't accessible without root.";
+"crashes.selectHint" = "Select a file on the left";

@@ -342,6 +342,64 @@ final class ADBService {
         )
     }
 
+    /// Суммарные RX/TX байты приложения с последнего сброса счётчиков netstats
+    /// (обычно с загрузки устройства). Вызывающая сторона сама считает дельту
+    /// между двумя опросами, чтобы получить скорость.
+    func networkUsage(serial: String, uid: Int) async throws -> (rxBytes: Int64, txBytes: Int64) {
+        let result = try await run(["shell", "dumpsys", "netstats", "detail"], serial: serial)
+        return NetworkUsageParser.parse(output: result.combined, uid: uid)
+    }
+
+    func runningProcesses(serial: String) async throws -> [RunningProcess] {
+        let result = try await run(["shell", "ps", "-A", "-o", "PID,PPID,USER,RSS,NAME"], serial: serial)
+        return ProcessListParser.parse(result.combined)
+    }
+
+    /// Убивает процесс по PID. Без root работает только для процессов того же UID,
+    /// что и adb shell — на остальных вернёт permission denied, это ожидаемо.
+    func killProcess(serial: String, pid: Int) async throws {
+        let result = try await run(["shell", "kill", "-9", String(pid)], serial: serial)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
+    // MARK: - ANR / tombstones
+
+    /// Список файлов в `/data/anr/` и `/data/tombstones/`. Без root оба каталога
+    /// обычно недоступны (`Permission denied`) — в этом случае просто пропускаем
+    /// соответствующую директорию, а не считаем это ошибкой всей операции.
+    func crashTraces(serial: String) async throws -> [CrashTraceFile] {
+        async let anrResult = run(["shell", "ls", "-1", "/data/anr/"], serial: serial)
+        async let tombResult = run(["shell", "ls", "-1", "/data/tombstones/"], serial: serial)
+
+        var files: [CrashTraceFile] = []
+        if let anr = try? await anrResult, anr.exitCode == 0 {
+            files += parseListing(anr.stdout, dir: "/data/anr/", kind: .anr)
+        }
+        if let tomb = try? await tombResult, tomb.exitCode == 0 {
+            files += parseListing(tomb.stdout, dir: "/data/tombstones/", kind: .tombstone)
+        }
+        return files
+    }
+
+    private func parseListing(_ stdout: String, dir: String, kind: CrashTraceFile.Kind) -> [CrashTraceFile] {
+        stdout.split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && $0 != "." && $0 != ".." }
+            .map { CrashTraceFile(path: dir + $0, name: $0, kind: kind) }
+    }
+
+    /// Хвост файла трейса — полные tombstone-файлы могут быть большими,
+    /// показываем последние ~30000 байт, обычно там самое важное (стек, сигнал).
+    func readCrashTrace(serial: String, path: String) async throws -> String {
+        let result = try await run(["shell", "tail", "-c", "30000", path], serial: serial)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+        return result.stdout
+    }
+
     // MARK: - Logcat
 
     func makeLogcatSession(serial: String) -> LogcatSession {

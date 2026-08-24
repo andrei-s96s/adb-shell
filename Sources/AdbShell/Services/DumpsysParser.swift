@@ -15,6 +15,7 @@ enum DumpsysParser {
         var targetSdk: String?
         var apkPath: String?
         var enabled = true
+        var uid: Int?
 
         var requested: [String] = []
         var runtimeGrantedMap: [String: Bool] = [:]
@@ -33,6 +34,8 @@ enum DumpsysParser {
             if let v = value(in: trimmed, key: "firstInstallTime=") { firstInstall = v }
             if let v = value(in: trimmed, key: "lastUpdateTime=") { lastUpdate = v }
             if let v = value(in: trimmed, key: "targetSdk=") { targetSdk = v }
+            if uid == nil, let v = value(in: trimmed, key: "userId=") { uid = Int(v) }
+            if uid == nil, let v = value(in: trimmed, key: "appId=") { uid = Int(v) }
             if trimmed.hasPrefix("codePath=") {
                 apkPath = value(in: trimmed, key: "codePath=")
             }
@@ -110,7 +113,8 @@ enum DumpsysParser {
             targetSdk: targetSdk,
             apkPath: apkPath,
             isEnabled: enabled,
-            permissions: permissions
+            permissions: permissions,
+            uid: uid
         )
     }
 

@@ -9,6 +9,8 @@ struct DeviceStatsView: View {
 
     @StateObject private var vm: DeviceStatsViewModel
     @EnvironmentObject private var loc: LocalizationManager
+    @State private var processFilter = ""
+    @State private var killTarget: RunningProcess?
 
     init(serial: String, service: ADBService) {
         self.serial = serial
@@ -51,6 +53,7 @@ struct DeviceStatsView: View {
                         currentLabel: vm.latest?.memUsedPercent.map { String(format: "%.0f%%", $0) } ?? "—",
                         footnote: memFootnote
                     )
+                    processesSection
                 }
 
                 Spacer(minLength: 20)
@@ -63,6 +66,71 @@ struct DeviceStatsView: View {
             vm.startPolling(serial: serial)
         }
         .onDisappear { vm.stopPolling() }
+        .confirmationDialog(
+            killTarget.map { L("stats.killConfirm", $0.name, String($0.pid)) } ?? "",
+            isPresented: Binding(get: { killTarget != nil }, set: { if !$0 { killTarget = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button(L("stats.kill"), role: .destructive) {
+                if let target = killTarget {
+                    Task { await vm.kill(serial: serial, pid: target.pid) }
+                }
+                killTarget = nil
+            }
+            Button(L("common.cancel"), role: .cancel) { killTarget = nil }
+        }
+    }
+
+    private var filteredProcesses: [RunningProcess] {
+        guard !processFilter.isEmpty else { return vm.processes }
+        let needle = processFilter.lowercased()
+        return vm.processes.filter { $0.name.lowercased().contains(needle) || String($0.pid).contains(needle) }
+    }
+
+    private var processesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SectionLabel(text: L("stats.processes", vm.processes.count), accent: CP.rose)
+                Spacer()
+                TextField(L("stats.processFilter"), text: $processFilter)
+                    .textFieldStyle(.plain)
+                    .font(CP.code(11))
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .frame(width: 180)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(CP.bgPanelAlt))
+            }
+            VStack(spacing: 0) {
+                ForEach(filteredProcesses.prefix(60)) { process in
+                    HStack(spacing: 10) {
+                        Text(String(process.pid))
+                            .font(CP.code(10)).foregroundColor(CP.textMuted)
+                            .frame(width: 52, alignment: .leading)
+                        Text(process.name)
+                            .font(CP.code(11)).foregroundColor(CP.textPrimary)
+                            .lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                        Text(process.user)
+                            .font(CP.code(10)).foregroundColor(CP.textMuted)
+                        Text(process.rssKB.map { ByteCountFormatter.string(fromByteCount: Int64($0) * 1024, countStyle: .binary) } ?? "—")
+                            .font(CP.code(10)).foregroundColor(CP.textMuted)
+                            .frame(width: 64, alignment: .trailing)
+                        Button {
+                            killTarget = process
+                        } label: {
+                            if vm.killingPid == process.pid {
+                                ProgressView().scaleEffect(0.5)
+                            } else {
+                                Image(systemName: "xmark.circle").foregroundColor(CP.crimson)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    Rectangle().fill(CP.hairline).frame(height: 1)
+                }
+            }
+            .cpPanel()
+        }
     }
 
     private var memFootnote: String? {

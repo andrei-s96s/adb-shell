@@ -31,4 +31,7 @@ struct AppDetail {
     var apkPath: String?
     var isEnabled: Bool
     var permissions: [AppPermission]
+    /// Linux UID приложения на устройстве (`userId=` в dumpsys package) — нужен
+    /// для сопоставления с per-UID статистикой (сеть, CPU и т.п.).
+    var uid: Int? = nil
 }

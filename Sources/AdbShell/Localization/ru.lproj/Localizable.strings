@@ -106,6 +106,8 @@
 
 /* Детали приложения */
 "appDetail.info" = "Информация";
+"appDetail.network" = "Сеть";
+"appDetail.networkTotal" = "всего ↓%@ ↑%@";
 "appDetail.installed" = "Установлено";
 "appDetail.updated" = "Обновлено";
 "appDetail.path" = "Путь";
@@ -224,3 +226,12 @@
 "stats.cpu" = "CPU";
 "stats.memory" = "Память";
 "stats.charging" = "заряжается";
+"stats.processes" = "Процессы (%d)";
+"stats.processFilter" = "Поиск по имени/PID…";
+"stats.kill" = "Завершить";
+"stats.killConfirm" = "Завершить процесс %@ (PID %@)?";
+
+"crashes.button" = "ANR/Tombstones";
+"crashes.title" = "ANR / Tombstones";
+"crashes.empty" = "Файлы не найдены — либо крашей не было, либо /data/anr и /data/tombstones недоступны без root.";
+"crashes.selectHint" = "Выберите файл слева";

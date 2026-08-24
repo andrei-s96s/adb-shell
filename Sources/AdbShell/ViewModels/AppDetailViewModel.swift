@@ -12,7 +12,15 @@ final class AppDetailViewModel: ObservableObject {
     @Published var isPerformingAction = false
     @Published var lastActionMessage: String?
 
+    // Сетевой трафик приложения (best-effort, см. NetworkUsageParser).
+    @Published var netRxRatePerSec: Double = 0
+    @Published var netTxRatePerSec: Double = 0
+    @Published var netTotalRxBytes: Int64 = 0
+    @Published var netTotalTxBytes: Int64 = 0
+
     let service: ADBService
+    private var netPollTask: Task<Void, Never>?
+    private var lastNetSample: (rx: Int64, tx: Int64, at: Date)?
 
     init(service: ADBService) {
         self.service = service
@@ -113,5 +121,43 @@ final class AppDetailViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Сетевой трафик
+
+    func startNetworkPolling(serial: String) {
+        stopNetworkPolling()
+        guard let uid = detail?.uid else { return }
+        netPollTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                await self.pollNetwork(serial: serial, uid: uid)
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+        }
+    }
+
+    func stopNetworkPolling() {
+        netPollTask?.cancel()
+        netPollTask = nil
+        lastNetSample = nil
+        netRxRatePerSec = 0
+        netTxRatePerSec = 0
+    }
+
+    private func pollNetwork(serial: String, uid: Int) async {
+        // Второстепенная секция — ошибки здесь не затирают errorMessage основной панели.
+        guard let usage = try? await service.networkUsage(serial: serial, uid: uid) else { return }
+        let now = Date()
+        netTotalRxBytes = usage.rxBytes
+        netTotalTxBytes = usage.txBytes
+        if let last = lastNetSample {
+            let dt = now.timeIntervalSince(last.at)
+            if dt > 0 {
+                netRxRatePerSec = max(0, Double(usage.rxBytes - last.rx) / dt)
+                netTxRatePerSec = max(0, Double(usage.txBytes - last.tx) / dt)
+            }
+        }
+        lastNetSample = (usage.rxBytes, usage.txBytes, now)
     }
 }
