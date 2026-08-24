@@ -29,6 +29,7 @@
 "sidebar.connectByIp" = "Подключение по IP";
 "sidebar.connect" = "Connect";
 "sidebar.pairing.help" = "Сопряжение по коду (Android 11+ Wireless debugging)";
+"sidebar.qrScan.help" = "Сканировать QR с камеры Mac (host:port, не официальный QR-флоу Android)";
 "sidebar.saveProfile.help" = "Сохранить как профиль";
 "sidebar.pin.help" = "Закрепить как вкладку для быстрого переключения";
 "sidebar.unpin.help" = "Открепить вкладку";
@@ -318,6 +319,11 @@
 "hotkey.screenshot.title" = "Скриншот сохранён";
 "hotkey.screenshot.body" = "%@ на Рабочем столе";
 "hotkey.screenshot.failedTitle" = "Не удалось сделать скриншот";
+
+"qrscan.title" = "Сканировать QR";
+"qrscan.hint" = "Наведите камеру на QR с текстом вида IP:порт — распознанное значение подставится в поле подключения. Это не официальный QR-флоу сопряжения Android (тот требует mDNS-протокол, не текстовую расшифровку) — подходит для QR, которые сгенерировали сами (например, стенд с device farm).";
+"qrscan.noPermission" = "Нет доступа к камере — разрешите его в Настройки → Конфиденциальность и безопасность → Камера";
+"qrscan.noCamera" = "Камера не найдена";
 
 "stats.loading" = "Опрашиваем устройство…";
 "stats.cpu" = "CPU";

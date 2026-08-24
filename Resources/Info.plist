@@ -26,5 +26,7 @@
     <string>public.app-category.developer-tools</string>
     <key>NSHumanReadableCopyright</key>
     <string>ADB Shell</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Камера нужна только для сканирования QR-кода с IP:порт устройства при подключении по сети — видео никуда не отправляется и не сохраняется.</string>
 </dict>
 </plist>
