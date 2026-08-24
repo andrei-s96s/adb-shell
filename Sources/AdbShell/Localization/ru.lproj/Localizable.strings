@@ -230,6 +230,11 @@
 "settings.apps" = "Приложения";
 "settings.showSystemAppsDefault" = "Показывать системные приложения по умолчанию";
 "settings.data" = "Данные";
+"settings.alerts" = "Пороговые уведомления";
+"settings.alerts.enable" = "Уведомлять при превышении порога";
+"settings.alerts.cpu" = "CPU выше %d%%";
+"settings.alerts.battery" = "Батарея ниже %d%%";
+"settings.alerts.hint" = "Проверяется во вкладке «Мониторинг», пока она открыта — уведомление приходит один раз при пересечении порога.";
 "settings.clearShellHistory" = "Очистить историю shell";
 "settings.shellHistoryCleared" = "История команд очищена";
 "settings.removeProfiles" = "Удалить профили подключения";
@@ -269,11 +274,16 @@
 "notify.macro.title" = "Макрос «%@»";
 "notify.macro.done" = "Выполнен полностью";
 "notify.macro.stopped" = "Остановлен из-за ошибки";
+"notify.alert.cpu.title" = "Высокая загрузка CPU";
+"notify.alert.cpu.body" = "CPU устройства: %d%%";
+"notify.alert.battery.title" = "Низкий заряд батареи";
+"notify.alert.battery.body" = "Заряд устройства: %d%%";
 
 "stats.loading" = "Опрашиваем устройство…";
 "stats.cpu" = "CPU";
 "stats.memory" = "Память";
 "stats.charging" = "заряжается";
+"stats.exportCsv" = "Экспорт в CSV";
 "stats.processes" = "Процессы (%d)";
 "stats.processFilter" = "Поиск по имени/PID…";
 "stats.kill" = "Завершить";

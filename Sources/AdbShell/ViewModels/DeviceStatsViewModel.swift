@@ -15,6 +15,10 @@ final class DeviceStatsViewModel: ObservableObject {
 
     let service: ADBService
     private var pollTask: Task<Void, Never>?
+    // Чтобы не слать уведомление на каждом тике, пока показатель держится
+    // выше/ниже порога — только один раз при самом пересечении.
+    private var cpuAlertArmed = true
+    private var batteryAlertArmed = true
 
     init(service: ADBService) {
         self.service = service
@@ -28,6 +32,8 @@ final class DeviceStatsViewModel: ObservableObject {
         processes = []
         securityFindings = []
         errorMessage = nil
+        cpuAlertArmed = true
+        batteryAlertArmed = true
         pollTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
@@ -50,6 +56,7 @@ final class DeviceStatsViewModel: ObservableObject {
             if history.count > Self.historyLimit {
                 history.removeFirst(history.count - Self.historyLimit)
             }
+            checkThresholds(stats)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -65,6 +72,32 @@ final class DeviceStatsViewModel: ObservableObject {
     func loadSecurityInfo(serial: String) async {
         guard let info = try? await service.securityInfo(serial: serial) else { return }
         securityFindings = DeviceSecurityAnalyzer.findings(for: info)
+    }
+
+    /// Однократное уведомление при пересечении порога (не на каждом тике, пока
+    /// значение держится за порогом) — "взводится" заново, когда показатель
+    /// возвращается в норму.
+    private func checkThresholds(_ stats: DeviceStats) {
+        let settings = StatsAlertSettings.current()
+        guard settings.enabled else { return }
+
+        if let cpu = stats.cpuPercent {
+            if cpu >= settings.cpuThreshold, cpuAlertArmed {
+                cpuAlertArmed = false
+                NotificationService.notify(title: L("notify.alert.cpu.title"), body: L("notify.alert.cpu.body", Int(cpu)))
+            } else if cpu < settings.cpuThreshold {
+                cpuAlertArmed = true
+            }
+        }
+
+        if let level = stats.batteryLevel, !stats.isCharging {
+            if Double(level) <= settings.batteryThreshold, batteryAlertArmed {
+                batteryAlertArmed = false
+                NotificationService.notify(title: L("notify.alert.battery.title"), body: L("notify.alert.battery.body", level))
+            } else if Double(level) > settings.batteryThreshold {
+                batteryAlertArmed = true
+            }
+        }
     }
 
     func kill(serial: String, pid: Int) async {

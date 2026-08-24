@@ -8,6 +8,9 @@ struct SettingsView: View {
 
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
     @AppStorage("defaultShowSystemApps") private var defaultShowSystemApps = false
+    @AppStorage(StatsAlertSettings.enabledKey) private var alertsEnabled = false
+    @AppStorage(StatsAlertSettings.cpuThresholdKey) private var cpuThreshold: Double = 90
+    @AppStorage(StatsAlertSettings.batteryThresholdKey) private var batteryThreshold: Double = 15
     @EnvironmentObject private var loc: LocalizationManager
 
     @StateObject private var apkLibrary = ApkLibraryViewModel()
@@ -67,6 +70,33 @@ struct SettingsView: View {
                         .foregroundColor(CP.textPrimary)
                 }
                 .toggleStyle(NeonToggleStyle(accent: CP.gold))
+            }
+            .padding(12)
+            .cpPanel()
+
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: L("settings.alerts"), accent: CP.crimson)
+                Toggle(isOn: $alertsEnabled) {
+                    Text(L("settings.alerts.enable"))
+                        .font(CP.mono(12, weight: .medium))
+                        .foregroundColor(CP.textPrimary)
+                }
+                .toggleStyle(NeonToggleStyle(accent: CP.gold))
+                if alertsEnabled {
+                    HStack {
+                        Text(L("settings.alerts.cpu", Int(cpuThreshold)))
+                            .font(CP.mono(11)).foregroundColor(CP.textMuted)
+                        Stepper("", value: $cpuThreshold, in: 50...100, step: 5).labelsHidden()
+                    }
+                    HStack {
+                        Text(L("settings.alerts.battery", Int(batteryThreshold)))
+                            .font(CP.mono(11)).foregroundColor(CP.textMuted)
+                        Stepper("", value: $batteryThreshold, in: 5...50, step: 5).labelsHidden()
+                    }
+                    Text(L("settings.alerts.hint"))
+                        .font(CP.code(9))
+                        .foregroundColor(CP.textMuted.opacity(0.8))
+                }
             }
             .padding(12)
             .cpPanel()

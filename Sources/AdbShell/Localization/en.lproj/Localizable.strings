@@ -230,6 +230,11 @@
 "settings.apps" = "Apps";
 "settings.showSystemAppsDefault" = "Show system apps by default";
 "settings.data" = "Data";
+"settings.alerts" = "Threshold alerts";
+"settings.alerts.enable" = "Notify when a threshold is crossed";
+"settings.alerts.cpu" = "CPU above %d%%";
+"settings.alerts.battery" = "Battery below %d%%";
+"settings.alerts.hint" = "Checked in the Monitor tab while it's open — notifies once per threshold crossing.";
 "settings.clearShellHistory" = "Clear shell history";
 "settings.shellHistoryCleared" = "Command history cleared";
 "settings.removeProfiles" = "Remove connection profiles";
@@ -269,11 +274,16 @@
 "notify.macro.title" = "Macro \"%@\"";
 "notify.macro.done" = "Completed fully";
 "notify.macro.stopped" = "Stopped due to an error";
+"notify.alert.cpu.title" = "High CPU load";
+"notify.alert.cpu.body" = "Device CPU: %d%%";
+"notify.alert.battery.title" = "Low battery";
+"notify.alert.battery.body" = "Device battery: %d%%";
 
 "stats.loading" = "Polling device…";
 "stats.cpu" = "CPU";
 "stats.memory" = "Memory";
 "stats.charging" = "charging";
+"stats.exportCsv" = "Export CSV";
 "stats.processes" = "Processes (%d)";
 "stats.processFilter" = "Filter by name/PID…";
 "stats.kill" = "Kill";
