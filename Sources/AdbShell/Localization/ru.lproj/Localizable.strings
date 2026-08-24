@@ -264,6 +264,9 @@
 "settings.theme.system" = "Системная";
 "settings.theme.light" = "Светлая";
 "settings.theme.dark" = "Тёмная";
+"settings.hotkey" = "Глобальный хоткей";
+"settings.hotkey.enable" = "⌘⇧S — скриншот выбранного устройства из любого приложения";
+"settings.hotkey.hint" = "Требует разрешения «Мониторинг ввода» в Настройки → Конфиденциальность и безопасность — macOS запросит его при первом использовании. Скриншот сохраняется на Рабочий стол.";
 "settings.alerts" = "Пороговые уведомления";
 "settings.alerts.enable" = "Уведомлять при превышении порога";
 "settings.alerts.cpu" = "CPU выше %d%%";
@@ -312,6 +315,9 @@
 "notify.alert.cpu.body" = "CPU устройства: %d%%";
 "notify.alert.battery.title" = "Низкий заряд батареи";
 "notify.alert.battery.body" = "Заряд устройства: %d%%";
+"hotkey.screenshot.title" = "Скриншот сохранён";
+"hotkey.screenshot.body" = "%@ на Рабочем столе";
+"hotkey.screenshot.failedTitle" = "Не удалось сделать скриншот";
 
 "stats.loading" = "Опрашиваем устройство…";
 "stats.cpu" = "CPU";

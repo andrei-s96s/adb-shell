@@ -24,6 +24,8 @@ struct ContentView: View {
     @State private var isGlobalDropTargeted = false
     @State private var dropInstallToast: String?
     @State private var showCommandPalette = false
+    @StateObject private var hotkeys = GlobalHotkeyService()
+    @AppStorage("globalScreenshotHotkeyEnabled") private var hotkeyEnabled = false
 
     init() {
         let service = ADBService()
@@ -108,8 +110,17 @@ struct ContentView: View {
         }
         .background(CP.bg)
         .foregroundColor(CP.textPrimary)
-        .onAppear { devicesVM.startPolling() }
-        .onDisappear { devicesVM.stopPolling() }
+        .onAppear {
+            devicesVM.startPolling()
+            if hotkeyEnabled { hotkeys.start(devicesVM: devicesVM) }
+        }
+        .onDisappear {
+            devicesVM.stopPolling()
+            hotkeys.stop()
+        }
+        .onChange(of: hotkeyEnabled) { enabled in
+            if enabled { hotkeys.start(devicesVM: devicesVM) } else { hotkeys.stop() }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 0)
                 .stroke(CP.gold, lineWidth: isGlobalDropTargeted ? 3 : 0)

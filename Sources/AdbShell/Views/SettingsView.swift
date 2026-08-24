@@ -9,6 +9,7 @@ struct SettingsView: View {
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
     @AppStorage("defaultShowSystemApps") private var defaultShowSystemApps = false
     @AppStorage(ThemePreference.defaultsKey) private var themePreferenceRaw = ThemePreference.dark.rawValue
+    @AppStorage("globalScreenshotHotkeyEnabled") private var hotkeyEnabled = false
     @AppStorage(StatsAlertSettings.enabledKey) private var alertsEnabled = false
     @AppStorage(StatsAlertSettings.cpuThresholdKey) private var cpuThreshold: Double = 90
     @AppStorage(StatsAlertSettings.batteryThresholdKey) private var batteryThreshold: Double = 15
@@ -57,6 +58,21 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+            }
+            .padding(12)
+            .cpPanel()
+
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: L("settings.hotkey"), accent: CP.rose)
+                Toggle(isOn: $hotkeyEnabled) {
+                    Text(L("settings.hotkey.enable"))
+                        .font(CP.mono(12, weight: .medium))
+                        .foregroundColor(CP.textPrimary)
+                }
+                .toggleStyle(NeonToggleStyle(accent: CP.gold))
+                Text(L("settings.hotkey.hint"))
+                    .font(CP.code(9))
+                    .foregroundColor(CP.textMuted.opacity(0.8))
             }
             .padding(12)
             .cpPanel()

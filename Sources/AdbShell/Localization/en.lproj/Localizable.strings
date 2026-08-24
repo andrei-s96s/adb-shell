@@ -264,6 +264,9 @@
 "settings.theme.system" = "System";
 "settings.theme.light" = "Light";
 "settings.theme.dark" = "Dark";
+"settings.hotkey" = "Global hotkey";
+"settings.hotkey.enable" = "⌘⇧S — screenshot the selected device from any app";
+"settings.hotkey.hint" = "Requires \"Input Monitoring\" permission in System Settings → Privacy & Security — macOS will prompt for it on first use. The screenshot is saved to the Desktop.";
 "settings.alerts" = "Threshold alerts";
 "settings.alerts.enable" = "Notify when a threshold is crossed";
 "settings.alerts.cpu" = "CPU above %d%%";
@@ -312,6 +315,9 @@
 "notify.alert.cpu.body" = "Device CPU: %d%%";
 "notify.alert.battery.title" = "Low battery";
 "notify.alert.battery.body" = "Device battery: %d%%";
+"hotkey.screenshot.title" = "Screenshot saved";
+"hotkey.screenshot.body" = "%@ on the Desktop";
+"hotkey.screenshot.failedTitle" = "Screenshot failed";
 
 "stats.loading" = "Polling device…";
 "stats.cpu" = "CPU";
