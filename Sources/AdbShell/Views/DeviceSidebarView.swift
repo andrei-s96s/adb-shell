@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct DeviceSidebarView: View {
     @ObservedObject var vm: DevicesViewModel
@@ -151,6 +152,23 @@ struct DeviceSidebarView: View {
                     .disabled(vm.connectHost.trimmingCharacters(in: .whitespaces).isEmpty || vm.isConnecting)
                 }
 
+                HStack(spacing: 8) {
+                    Text(L("sidebar.profiles")).font(CP.mono(10, weight: .semibold)).foregroundColor(CP.textMuted)
+                    Spacer()
+                    Button { importProfiles() } label: {
+                        Image(systemName: "square.and.arrow.down").font(.system(size: 10)).foregroundColor(CP.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .help(L("sidebar.profiles.import"))
+                    Button { exportProfiles() } label: {
+                        Image(systemName: "square.and.arrow.up").font(.system(size: 10)).foregroundColor(CP.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(profileStore.profiles.isEmpty)
+                    .help(L("sidebar.profiles.export"))
+                }
+                .padding(.top, 4)
+
                 if !profileStore.profiles.isEmpty {
                     VStack(spacing: 4) {
                         ForEach(profileStore.profiles) { profile in
@@ -188,6 +206,23 @@ struct DeviceSidebarView: View {
         .sheet(isPresented: $showSettingsSheet) {
             SettingsView { showSettingsSheet = false }
         }
+    }
+
+    private func exportProfiles() {
+        guard let data = profileStore.exportJSON() else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "adbshell-profiles.json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? data.write(to: url)
+    }
+
+    private func importProfiles() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        try? profileStore.importJSON(data)
     }
 }
 

@@ -15,6 +15,9 @@ final class DevicesViewModel: ObservableObject {
     let service: ADBService
     private var pollTask: Task<Void, Never>?
     private var mdnsTask: Task<Void, Never>?
+    /// Готовые устройства на прошлом опросе — чтобы отличить "уже было готово"
+    /// от "только что стало готово" и не гонять автозапуск макросов на каждом тике.
+    private var lastReadySerials: Set<String> = []
 
     var selectedDevice: Device? {
         devices.first { $0.serial == selectedSerial }
@@ -96,8 +99,27 @@ final class DevicesViewModel: ObservableObject {
             if selectedSerial == nil || !list.contains(where: { $0.serial == selectedSerial }) {
                 selectedSerial = list.first(where: { $0.state.isReady })?.serial
             }
+            triggerAutorunMacros(for: list)
         } catch {
             self.errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Запускает макросы с автозапуском для устройств, которые только что стали
+    /// готовыми (появились в списке или сменили состояние на "device"). Ошибки
+    /// отдельных шагов макроса здесь не показываются пользователю — как и
+    /// остальной автозапуск, это фоновая, best-effort операция.
+    private func triggerAutorunMacros(for devices: [Device]) {
+        let readyNow = Set(devices.filter { $0.state.isReady }.map(\.serial))
+        defer { lastReadySerials = readyNow }
+        let newlyReady = readyNow.subtracting(lastReadySerials)
+        guard !newlyReady.isEmpty else { return }
+        let autorunMacros = MacroStore.loadPersisted().filter { $0.autorunOnConnect }
+        guard !autorunMacros.isEmpty else { return }
+        for serial in newlyReady {
+            for macro in autorunMacros {
+                Task { await MacroRunner.run(macro, serial: serial, service: service, variables: [:]) { _ in } }
+            }
         }
     }
 
