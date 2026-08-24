@@ -255,6 +255,15 @@
 "macros.import" = "Import";
 "macros.export" = "Export";
 
+"notify.batchDelete.title" = "Uninstall finished";
+"notify.batchDelete.body" = "Apps removed: %d";
+"notify.batchInstall.title" = "Install finished";
+"notify.batchInstall.body" = "APKs installed: %d";
+"notify.installAll.title" = "Install to all devices finished";
+"notify.macro.title" = "Macro \"%@\"";
+"notify.macro.done" = "Completed fully";
+"notify.macro.stopped" = "Stopped due to an error";
+
 "stats.loading" = "Polling device…";
 "stats.cpu" = "CPU";
 "stats.memory" = "Memory";
@@ -271,3 +280,10 @@
 
 "drop.noDevice" = "Drop an APK while a ready device is selected to install it";
 "drop.installed" = "Installed: %@";
+
+"palette.menuTitle" = "Quick Search";
+"palette.placeholder" = "Tab, device, or macro…";
+"palette.empty" = "Nothing found";
+"palette.kind.tab" = "tab";
+"palette.kind.device" = "device";
+"palette.kind.macro" = "macro";

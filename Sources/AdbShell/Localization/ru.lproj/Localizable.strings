@@ -255,6 +255,15 @@
 "macros.import" = "Импорт";
 "macros.export" = "Экспорт";
 
+"notify.batchDelete.title" = "Удаление завершено";
+"notify.batchDelete.body" = "Удалено приложений: %d";
+"notify.batchInstall.title" = "Установка завершена";
+"notify.batchInstall.body" = "Установлено APK: %d";
+"notify.installAll.title" = "Установка на все устройства завершена";
+"notify.macro.title" = "Макрос «%@»";
+"notify.macro.done" = "Выполнен полностью";
+"notify.macro.stopped" = "Остановлен из-за ошибки";
+
 "stats.loading" = "Опрашиваем устройство…";
 "stats.cpu" = "CPU";
 "stats.memory" = "Память";
@@ -271,3 +280,10 @@
 
 "drop.noDevice" = "Перетащите APK при выбранном готовом устройстве, чтобы установить";
 "drop.installed" = "Установлено: %@";
+
+"palette.menuTitle" = "Быстрый поиск";
+"palette.placeholder" = "Вкладка, устройство или макрос…";
+"palette.empty" = "Ничего не найдено";
+"palette.kind.tab" = "вкладка";
+"palette.kind.device" = "устройство";
+"palette.kind.macro" = "макрос";

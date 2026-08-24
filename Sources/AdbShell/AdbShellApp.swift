@@ -16,6 +16,12 @@ struct AdbShellApp: App {
         .defaultSize(width: 1240, height: 760)
         .commands {
             CommandGroup(replacing: .newItem) { }
+            CommandGroup(after: .toolbar) {
+                Button(L("palette.menuTitle")) {
+                    NotificationCenter.default.post(name: .openCommandPalette, object: nil)
+                }
+                .keyboardShortcut("k", modifiers: .command)
+            }
         }
     }
 }
