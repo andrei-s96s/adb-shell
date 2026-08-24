@@ -5,6 +5,7 @@ struct AppDetailPanel: View {
     let serial: String
     let service: ADBService
     let packageName: String
+    let fdroidUpdate: FDroidUpdateInfo?
     let onChanged: () -> Void
 
     @StateObject private var vm: AppDetailViewModel
@@ -12,10 +13,11 @@ struct AppDetailPanel: View {
     @State private var showClearConfirm = false
     @EnvironmentObject private var loc: LocalizationManager
 
-    init(serial: String, service: ADBService, packageName: String, onChanged: @escaping () -> Void) {
+    init(serial: String, service: ADBService, packageName: String, fdroidUpdate: FDroidUpdateInfo? = nil, onChanged: @escaping () -> Void) {
         self.serial = serial
         self.service = service
         self.packageName = packageName
+        self.fdroidUpdate = fdroidUpdate
         self.onChanged = onChanged
         _vm = StateObject(wrappedValue: AppDetailViewModel(service: service))
     }
@@ -24,6 +26,10 @@ struct AppDetailPanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+
+                if let fdroidUpdate {
+                    fdroidUpdateCard(fdroidUpdate)
+                }
 
                 if let error = vm.errorMessage {
                     Text(error)
@@ -179,6 +185,47 @@ struct AppDetailPanel: View {
                 Text(msg).font(CP.mono(11)).foregroundColor(CP.emerald)
             }
         }
+    }
+
+    /// Найденное на F-Droid обновление — предложение, не автодействие: ставится
+    /// только по клику на кнопку. См. FDroidUpdateChecker.
+    private func fdroidUpdateCard(_ update: FDroidUpdateInfo) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.up.circle.fill").foregroundColor(CP.gold)
+                Text(L("appDetail.fdroid.available", update.latestVersionName ?? "\(update.latestVersionCode)"))
+                    .font(CP.mono(12, weight: .semibold))
+                    .foregroundColor(CP.gold)
+            }
+            Text(L("appDetail.fdroid.source"))
+                .font(CP.mono(10))
+                .foregroundColor(CP.textMuted)
+            HStack(spacing: 8) {
+                // Спиннер — внутри той же кнопки, а не вместо неё: иначе она
+                // схлопывается до размера ProgressView и соседняя кнопка
+                // "прыгает" влево на время загрузки.
+                Button {
+                    Task { await vm.installFDroidUpdate(update, serial: serial) }
+                } label: {
+                    if vm.isPerformingAction {
+                        ProgressView().scaleEffect(0.6).frame(maxWidth: .infinity)
+                    } else {
+                        Text(L("appDetail.fdroid.installAction"))
+                    }
+                }
+                .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
+                .disabled(vm.isPerformingAction)
+
+                Button(L("appDetail.fdroid.openPage")) {
+                    NSWorkspace.shared.open(update.fdroidPageURL)
+                }
+                .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(CP.gold.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(CP.gold.opacity(0.35), lineWidth: 1))
     }
 
     private func permissionsSection(_ detail: AppDetail) -> some View {

@@ -149,14 +149,20 @@ struct MacroView: View {
 
                 Spacer()
 
-                if runningMacroID == macro.id {
-                    ProgressView().scaleEffect(0.6)
-                } else {
-                    Button(L("macros.run")) { requestRun(macro) }
-                        .buttonStyle(NeonButtonStyle(accent: CP.emerald, filled: true))
-                        .disabled(runningMacroID != nil || serial == nil)
-                        .help(serial == nil ? L("macros.run.needDevice") : "")
+                // Спиннер внутри кнопки, не вместо неё — иначе на время запуска
+                // она схлопывается и кнопка меню (⋯) правее прыгает влево.
+                Button {
+                    requestRun(macro)
+                } label: {
+                    if runningMacroID == macro.id {
+                        ProgressView().scaleEffect(0.6).frame(maxWidth: .infinity)
+                    } else {
+                        Text(L("macros.run"))
+                    }
                 }
+                .buttonStyle(NeonButtonStyle(accent: CP.emerald, filled: true))
+                .disabled(runningMacroID != nil || serial == nil)
+                .help(serial == nil ? L("macros.run.needDevice") : "")
 
                 Menu {
                     Button(L("macros.editAction")) {

@@ -103,4 +103,56 @@ struct DumpsysParserTests {
         #expect(detail.permissions.isEmpty)
         #expect(detail.versionName == nil)
     }
+
+    @Test func parsesVersionCodesForMultiplePackagesFromBulkDump() {
+        let output = """
+        Packages:
+          Package [com.example.app] (abcdef012345):
+            userId=10123
+            pkg=Package{...}
+            versionCode=42 minSdk=21 targetSdk=33
+            versionName=1.2.3
+
+          Package [com.other.app] (fedcba987654):
+            userId=10456
+            versionCode=7 minSdk=24 targetSdk=34
+            versionName=0.9.0
+
+        Shared users:
+        """
+        let codes = DumpsysParser.parseVersionCodes(from: output)
+        #expect(codes["com.example.app"] == 42)
+        #expect(codes["com.other.app"] == 7)
+        #expect(codes.count == 2)
+    }
+
+    @Test func parseVersionCodesIgnoresSecondaryVersionCodeLinesInSameBlock() {
+        // Иногда внутри блока пакета встречается ещё одна строка с versionCode=
+        // (например в info о конкретном install-сессии) — должна использоваться
+        // первая, т.к. именно она соответствует установленной версии.
+        let output = """
+        Package [com.example.app] (abcdef):
+          versionCode=42 minSdk=21 targetSdk=33
+          someOtherSection:
+            versionCode=999
+        """
+        let codes = DumpsysParser.parseVersionCodes(from: output)
+        #expect(codes["com.example.app"] == 42)
+    }
+
+    @Test func parseVersionCodesEmptyOutputProducesEmptyMap() {
+        #expect(DumpsysParser.parseVersionCodes(from: "").isEmpty)
+    }
+
+    @Test func parseVersionCodesSkipsPackageWithoutVersionCode() {
+        let output = """
+        Package [com.broken.app] (abcdef):
+          someField=1
+        Package [com.good.app] (fedcba):
+          versionCode=5
+        """
+        let codes = DumpsysParser.parseVersionCodes(from: output)
+        #expect(codes["com.broken.app"] == nil)
+        #expect(codes["com.good.app"] == 5)
+    }
 }

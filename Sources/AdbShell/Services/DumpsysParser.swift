@@ -118,6 +118,41 @@ enum DumpsysParser {
         )
     }
 
+    /// Разбирает вывод `dumpsys package` БЕЗ имени пакета (дамп сразу всех
+    /// установленных приложений) в package name → versionCode. Один такой вызов
+    /// вместо dumpsys на каждое приложение — используется проверкой обновлений
+    /// через F-Droid по всему списку сразу. Берёт первую строку `versionCode=`
+    /// после заголовка `Package [pkg] (...):` — секции разрешений/пользователей
+    /// внутри блока пакета игнорируются, они нам тут не нужны.
+    static func parseVersionCodes(from output: String) -> [String: Int] {
+        var result: [String: Int] = [:]
+        var currentPackage: String?
+        var recordedForCurrent = false
+
+        for rawLine in output.components(separatedBy: "\n") {
+            let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+
+            if trimmed.hasPrefix("Package ["),
+               let openBracket = trimmed.firstIndex(of: "["),
+               let closeBracket = trimmed.firstIndex(of: "]"),
+               openBracket < closeBracket {
+                currentPackage = String(trimmed[trimmed.index(after: openBracket)..<closeBracket])
+                recordedForCurrent = false
+                continue
+            }
+
+            guard let pkg = currentPackage, !recordedForCurrent else { continue }
+            if let v = value(in: trimmed, key: "versionCode=") {
+                let codeToken = v.split(separator: " ").first.map(String.init) ?? v
+                if let code = Int(codeToken) {
+                    result[pkg] = code
+                    recordedForCurrent = true
+                }
+            }
+        }
+        return result
+    }
+
     private enum Section: Equatable {
         case none, requested, runtime, install
     }

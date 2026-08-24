@@ -45,7 +45,7 @@ struct SettingsView: View {
                     .padding(20)
             }
         }
-        .frame(width: 420, height: 640)
+        .frame(width: 560, height: 680)
         .background(CP.bg)
         .id(loc.language)
     }

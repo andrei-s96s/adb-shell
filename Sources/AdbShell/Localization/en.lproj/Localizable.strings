@@ -109,6 +109,9 @@
 "apps.deleteConfirm.title" = "Delete %d apps?";
 "apps.markOnLeft" = "Mark apps on the left";
 "apps.selectApp" = "Select an app";
+"apps.selectApp.hint" = "Click to select one, ⌘-click to add, ⇧-click for a range";
+"apps.clearSelection" = "Clear selection";
+"apps.updateAvailable.help" = "Update available on F-Droid";
 "apps.installResults.title" = "Install results";
 "apps.bundleResults.title" = "Operation results";
 "apps.installing.progress" = "Installing %1$d/%2$d: %3$@";
@@ -137,6 +140,12 @@
 "appDetail.disable" = "Disable";
 "appDetail.clearData" = "Clear data";
 "appDetail.exportApk" = "Export APK";
+"appDetail.fdroid.available" = "Update available on F-Droid: v%@";
+"appDetail.fdroid.source" = "Source — the official F-Droid catalog (f-droid.org), not a third-party site";
+"appDetail.fdroid.installAction" = "Download and install";
+"appDetail.fdroid.openPage" = "F-Droid page";
+"appDetail.fdroid.downloadFailed" = "Couldn't download the APK from F-Droid";
+"appDetail.fdroid.installed" = "Installed F-Droid update v%@";
 "appDetail.permissions" = "Permissions (%d)";
 "appDetail.noPermissions" = "No requested permissions";
 "appDetail.grant" = "Grant";

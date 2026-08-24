@@ -34,12 +34,19 @@ struct ShellRunnerView: View {
             HStack {
                 SectionLabel(text: "Shell", accent: CP.rose)
                 Spacer()
-                if isCapturingScreenshot {
-                    ProgressView().scaleEffect(0.6)
-                } else {
-                    Button(L("shell.screenshot")) { Task { await takeScreenshot() } }
-                        .buttonStyle(NeonButtonStyle(accent: CP.ice))
+                // Спиннер внутри кнопки, не вместо неё — иначе на время съёмки
+                // она схлопывается и соседние кнопки (Reboot, Ещё...) прыгают влево.
+                Button {
+                    Task { await takeScreenshot() }
+                } label: {
+                    if isCapturingScreenshot {
+                        ProgressView().scaleEffect(0.6).frame(maxWidth: .infinity)
+                    } else {
+                        Text(L("shell.screenshot"))
+                    }
                 }
+                .buttonStyle(NeonButtonStyle(accent: CP.ice))
+                .disabled(isCapturingScreenshot)
 
                 if mirror.isRunning(serial) {
                     Label(L("shell.mirroring"), systemImage: "airplayvideo.fill")
