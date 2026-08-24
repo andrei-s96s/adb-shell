@@ -7,7 +7,7 @@ import Foundation
 final class MacroStore: ObservableObject {
     @Published private(set) var macros: [Macro] = []
 
-    static let key = "shellMacros"
+    nonisolated static let key = "shellMacros"
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
