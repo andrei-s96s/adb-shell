@@ -33,6 +33,9 @@
 "sidebar.pin.help" = "Pin as a tab for quick switching";
 "sidebar.unpin.help" = "Unpin tab";
 "sidebar.profile.autoConnect.help" = "Auto-connect on launch";
+"sidebar.rename" = "Rename…";
+"sidebar.rename.title" = "Device name";
+"sidebar.rename.placeholder" = "Leave empty to reset";
 "sidebar.profiles" = "Profiles";
 "sidebar.profiles.import" = "Import profiles from JSON";
 "sidebar.profiles.export" = "Export profiles to JSON";
@@ -192,6 +195,9 @@
 "shell.broadcast" = "All devices";
 "shell.broadcast.help" = "Run this command on every connected, ready device instead of just the current one";
 "shell.broadcast.noDevices" = "No ready devices to broadcast to";
+"shell.sendText.placeholder" = "Text into the focused field…";
+"shell.sendText.help" = "Type text into the currently focused field on the device (adb shell input text) — not the clipboard";
+"shell.mirror.record.help" = "Mirror while recording the session to .mp4";
 "shell.screenshot" = "Screenshot";
 "shell.mirror" = "Mirror screen";
 "shell.mirroring" = "Mirroring…";

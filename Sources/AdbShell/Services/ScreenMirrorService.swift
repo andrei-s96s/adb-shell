@@ -69,7 +69,7 @@ final class ScreenMirrorService: ObservableObject {
     /// `ADB`) и вшитый `scrcpy-server` (`SCRCPY_SERVER_PATH`), чтобы не тянуть
     /// системные копии. Если для этого serial уже есть запущенный процесс — не
     /// открывает второе окно поверх него.
-    func launch(serial: String, adbPath: String, windowFrame: (x: Int, y: Int, width: Int, height: Int)? = nil) throws {
+    func launch(serial: String, adbPath: String, windowFrame: (x: Int, y: Int, width: Int, height: Int)? = nil, recordPath: String? = nil) throws {
         guard let scrcpyPath = Self.locateScrcpy() else {
             throw MirrorError.scrcpyNotFound
         }
@@ -78,6 +78,9 @@ final class ScreenMirrorService: ObservableObject {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: scrcpyPath)
         var args = ["-s", serial, "--window-title", serial]
+        if let recordPath {
+            args += ["--record", recordPath]
+        }
         if let windowFrame {
             args += [
                 "--window-x", String(windowFrame.x),

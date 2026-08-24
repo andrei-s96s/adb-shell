@@ -22,6 +22,8 @@ struct ShellRunnerView: View {
     @State private var showScreenshotSheet = false
     @State private var mirrorMessage: String?
     @State private var broadcastMode = false
+    @State private var textToSend = ""
+    @State private var isSendingText = false
     @StateObject private var savedCommands = ShellHistoryStore()
     @StateObject private var mirror = ScreenMirrorService()
     @EnvironmentObject private var loc: LocalizationManager
@@ -45,6 +47,14 @@ struct ShellRunnerView: View {
                 } else {
                     Button(L("shell.mirror")) { launchMirror() }
                         .buttonStyle(NeonButtonStyle(accent: CP.ice))
+                    Button {
+                        launchMirrorWithRecording()
+                    } label: {
+                        Image(systemName: "record.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(CP.crimson)
+                    .help(L("shell.mirror.record.help"))
                 }
 
                 Button(L("shell.mirrorAll")) { Task { await launchMirrorGrid() } }
@@ -163,6 +173,29 @@ struct ShellRunnerView: View {
                 }
                 .toggleStyle(NeonToggleStyle(accent: CP.rose))
                 .help(L("shell.broadcast.help"))
+
+                Spacer()
+
+                TextField(L("shell.sendText.placeholder"), text: $textToSend)
+                    .textFieldStyle(.plain)
+                    .font(CP.code(11))
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .frame(width: 200)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(CP.bgPanelAlt))
+                    .onSubmit { Task { await sendText() } }
+                if isSendingText {
+                    ProgressView().scaleEffect(0.5)
+                } else {
+                    Button {
+                        Task { await sendText() }
+                    } label: {
+                        Image(systemName: "keyboard")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(CP.textMuted)
+                    .disabled(textToSend.isEmpty)
+                    .help(L("shell.sendText.help"))
+                }
             }
             .padding(.horizontal, 12).padding(.top, 8)
 
@@ -263,9 +296,45 @@ struct ShellRunnerView: View {
         }
     }
 
+    /// `input text` печатает в поле, у которого сейчас фокус на устройстве — это
+    /// не буфер обмена (полноценно читать/писать системный clipboard устройства
+    /// без root через adb нельзя), но для "напечатать пароль/URL в открытое поле"
+    /// достаточно и куда надёжнее самодельного парсинга бинарного clipboard-парсела.
+    private func sendText() async {
+        let text = textToSend
+        guard !text.isEmpty else { return }
+        isSendingText = true
+        defer { isSendingText = false }
+        do {
+            let output = try await service.shell(serial: serial, command: "input text \(ShellQuoting.singleQuoted(text))")
+            history.append(HistoryEntry(command: "input text \(text)", output: output, isError: false))
+            textToSend = ""
+        } catch {
+            history.append(HistoryEntry(command: "input text \(text)", output: error.localizedDescription, isError: true))
+        }
+    }
+
     private func launchMirror() {
         do {
             try mirror.launch(serial: serial, adbPath: service.adbPath)
+            mirrorMessage = nil
+        } catch {
+            mirrorMessage = error.localizedDescription
+        }
+    }
+
+    /// Зеркалирование с одновременной записью в .mp4 — scrcpy сам пишет файл
+    /// по мере трансляции (--record), отдельного этапа "остановить и сохранить" нет,
+    /// файл готов, как только окно scrcpy закрывается.
+    private func launchMirrorWithRecording() {
+        let panel = NSSavePanel()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        panel.nameFieldStringValue = "adbshell-\(formatter.string(from: Date())).mp4"
+        panel.allowedContentTypes = [UTType(filenameExtension: "mp4") ?? .data]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try mirror.launch(serial: serial, adbPath: service.adbPath, recordPath: url.path)
             mirrorMessage = nil
         } catch {
             mirrorMessage = error.localizedDescription

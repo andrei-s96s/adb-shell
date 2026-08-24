@@ -30,6 +30,7 @@ struct Device: Identifiable, Hashable {
     var isNetwork: Bool { serial.contains(":") }
 
     var displayName: String {
-        model?.replacingOccurrences(of: "_", with: " ") ?? serial
+        if let nickname = DeviceNicknameStore.nickname(for: serial) { return nickname }
+        return model?.replacingOccurrences(of: "_", with: " ") ?? serial
     }
 }
