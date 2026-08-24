@@ -33,6 +33,9 @@
 "sidebar.pin.help" = "Закрепить как вкладку для быстрого переключения";
 "sidebar.unpin.help" = "Открепить вкладку";
 "sidebar.profile.autoConnect.help" = "Автоподключение при запуске";
+"sidebar.rename" = "Переименовать…";
+"sidebar.rename.title" = "Имя устройства";
+"sidebar.rename.placeholder" = "Оставьте пустым, чтобы сбросить";
 "sidebar.profiles" = "Профили";
 "sidebar.profiles.import" = "Импортировать профили из JSON";
 "sidebar.profiles.export" = "Экспортировать профили в JSON";
@@ -192,6 +195,9 @@
 "shell.broadcast" = "На все устройства";
 "shell.broadcast.help" = "Выполнить эту команду на всех подключённых и готовых устройствах, а не только на текущем";
 "shell.broadcast.noDevices" = "Нет готовых устройств для broadcast-выполнения";
+"shell.sendText.placeholder" = "Текст в поле на устройстве…";
+"shell.sendText.help" = "Напечатать текст в поле с фокусом на устройстве (adb shell input text) — не буфер обмена";
+"shell.mirror.record.help" = "Зеркалировать с записью сессии в .mp4";
 "shell.screenshot" = "Скриншот";
 "shell.mirror" = "Зеркалировать";
 "shell.mirroring" = "Зеркалирование…";

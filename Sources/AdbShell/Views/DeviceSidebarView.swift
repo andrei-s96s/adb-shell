@@ -6,6 +6,9 @@ struct DeviceSidebarView: View {
     @ObservedObject var vm: DevicesViewModel
     @StateObject private var updateVM = UpdateService()
     @StateObject private var profileStore = ConnectionProfileStore()
+    @StateObject private var nicknameStore = DeviceNicknameStore()
+    @State private var renamingDevice: Device?
+    @State private var renameText = ""
     @State private var showPairingSheet = false
     @State private var pairingPrefillHost = ""
     @State private var showSettingsSheet = false
@@ -74,7 +77,11 @@ struct DeviceSidebarView: View {
                                 Task { await vm.disconnect(device) }
                             } togglePin: {
                                 vm.togglePin(device.serial)
+                            } rename: {
+                                renameText = device.displayName
+                                renamingDevice = device
                             }
+                            .id("\(device.serial)-\(nicknameStore.nicknames[device.serial] ?? "")")
                         }
                     }
                     .padding(.horizontal, 12)
@@ -205,6 +212,19 @@ struct DeviceSidebarView: View {
         }
         .sheet(isPresented: $showSettingsSheet) {
             SettingsView { showSettingsSheet = false }
+        }
+        .alert(
+            L("sidebar.rename.title"),
+            isPresented: Binding(get: { renamingDevice != nil }, set: { if !$0 { renamingDevice = nil } })
+        ) {
+            TextField(L("sidebar.rename.placeholder"), text: $renameText)
+            Button(L("common.save")) {
+                if let device = renamingDevice {
+                    nicknameStore.setNickname(renameText, for: device.serial)
+                }
+                renamingDevice = nil
+            }
+            Button(L("common.cancel"), role: .cancel) { renamingDevice = nil }
         }
     }
 
@@ -476,6 +496,7 @@ private struct DeviceRow: View {
     let select: () -> Void
     let disconnect: () -> Void
     let togglePin: () -> Void
+    let rename: () -> Void
 
     private var stateColor: Color {
         switch device.state {
@@ -530,6 +551,7 @@ private struct DeviceRow: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
+            Button(L("sidebar.rename")) { rename() }
             Button(L("sidebar.copySerial")) {
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
