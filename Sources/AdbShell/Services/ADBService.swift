@@ -364,6 +364,40 @@ final class ADBService {
         }
     }
 
+    // MARK: - Безопасность устройства
+
+    /// Локальные признаки целостности устройства (root/разлочка/debuggable) —
+    /// полноценный SafetyNet/Play Integrity с устройства через adb не выполнить,
+    /// это удалённая проверка на серверах Google, см. DeviceSecurityInfo.
+    func securityInfo(serial: String) async throws -> DeviceSecurityInfo {
+        async let verifiedBoot = run(["shell", "getprop", "ro.boot.verifiedbootstate"], serial: serial)
+        async let flashLocked = run(["shell", "getprop", "ro.boot.flash.locked"], serial: serial)
+        async let debuggable = run(["shell", "getprop", "ro.debuggable"], serial: serial)
+        async let secure = run(["shell", "getprop", "ro.secure"], serial: serial)
+        async let suCheck = run(["shell", "which", "su"], serial: serial)
+        async let playProtect = run(["shell", "settings", "get", "global", "package_verifier_user_consent"], serial: serial)
+
+        func trimmed(_ result: ProcessResult) -> String {
+            result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let verifiedBootValue = trimmed(try await verifiedBoot)
+        let flashLockedValue = trimmed(try await flashLocked)
+        let debuggableValue = trimmed(try await debuggable)
+        let secureValue = trimmed(try await secure)
+        let suValue = trimmed(try await suCheck)
+        let playProtectValue = trimmed(try await playProtect)
+
+        return DeviceSecurityInfo(
+            verifiedBootState: verifiedBootValue.isEmpty ? nil : verifiedBootValue,
+            bootloaderLocked: flashLockedValue.isEmpty ? nil : (flashLockedValue == "1"),
+            isDebuggable: debuggableValue == "1",
+            isSecure: secureValue != "0",
+            suBinaryPresent: !suValue.isEmpty && !suValue.lowercased().contains("not found"),
+            playProtectConsent: playProtectValue.isEmpty || playProtectValue.lowercased() == "null" ? nil : playProtectValue
+        )
+    }
+
     // MARK: - ANR / tombstones
 
     /// Список файлов в `/data/anr/` и `/data/tombstones/`. Без root оба каталога

@@ -54,6 +54,7 @@ struct DeviceStatsView: View {
                         footnote: memFootnote
                     )
                     processesSection
+                    securitySection
                 }
 
                 Spacer(minLength: 20)
@@ -64,6 +65,7 @@ struct DeviceStatsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task(id: serial) {
             vm.startPolling(serial: serial)
+            await vm.loadSecurityInfo(serial: serial)
         }
         .onDisappear { vm.stopPolling() }
         .confirmationDialog(
@@ -78,6 +80,51 @@ struct DeviceStatsView: View {
                 killTarget = nil
             }
             Button(L("common.cancel"), role: .cancel) { killTarget = nil }
+        }
+    }
+
+    private var securitySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(text: L("security.title"), accent: CP.rose)
+            if vm.securityFindings.isEmpty {
+                HStack(spacing: 8) {
+                    ProgressView().scaleEffect(0.6).tint(CP.gold)
+                    Text(L("stats.loading")).font(CP.mono(11)).foregroundColor(CP.textMuted)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(vm.securityFindings) { finding in
+                        HStack(spacing: 8) {
+                            Image(systemName: icon(for: finding.level))
+                                .foregroundColor(color(for: finding.level))
+                                .font(.system(size: 12))
+                            Text(L(finding.messageKey))
+                                .font(CP.mono(11))
+                                .foregroundColor(CP.textPrimary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        Rectangle().fill(CP.hairline).frame(height: 1)
+                    }
+                }
+                .cpPanel()
+            }
+        }
+    }
+
+    private func icon(for level: SecurityFinding.Level) -> String {
+        switch level {
+        case .ok: return "checkmark.shield"
+        case .warning: return "exclamationmark.triangle"
+        case .critical: return "xmark.shield"
+        }
+    }
+
+    private func color(for level: SecurityFinding.Level) -> Color {
+        switch level {
+        case .ok: return CP.emerald
+        case .warning: return CP.gold
+        case .critical: return CP.crimson
         }
     }
 

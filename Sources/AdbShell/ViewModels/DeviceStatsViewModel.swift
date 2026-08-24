@@ -8,6 +8,7 @@ final class DeviceStatsViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var processes: [RunningProcess] = []
     @Published var killingPid: Int?
+    @Published var securityFindings: [SecurityFinding] = []
 
     /// Сколько точек держим в истории — при интервале 2с это ~4 минуты графика.
     static let historyLimit = 120
@@ -25,6 +26,7 @@ final class DeviceStatsViewModel: ObservableObject {
         stopPolling()
         history = []
         processes = []
+        securityFindings = []
         errorMessage = nil
         pollTask = Task { [weak self] in
             guard let self else { return }
@@ -56,6 +58,13 @@ final class DeviceStatsViewModel: ObservableObject {
         if let list = try? await service.runningProcesses(serial: serial) {
             processes = list.sorted { ($0.rssKB ?? 0) > ($1.rssKB ?? 0) }
         }
+    }
+
+    /// Разовая проверка целостности устройства — свойства не меняются на лету,
+    /// в отличие от CPU/памяти, поэтому не входит в общий poll-тик.
+    func loadSecurityInfo(serial: String) async {
+        guard let info = try? await service.securityInfo(serial: serial) else { return }
+        securityFindings = DeviceSecurityAnalyzer.findings(for: info)
     }
 
     func kill(serial: String, pid: Int) async {

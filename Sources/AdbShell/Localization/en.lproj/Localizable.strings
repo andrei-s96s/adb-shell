@@ -273,6 +273,19 @@
 "stats.kill" = "Kill";
 "stats.killConfirm" = "Kill process %@ (PID %@)?";
 
+"security.title" = "Security";
+"security.verifiedBoot.green" = "Verified Boot: stock firmware, fully verified";
+"security.verifiedBoot.orange" = "Verified Boot: bootloader unlocked, custom firmware possible";
+"security.verifiedBoot.yellow" = "Verified Boot: firmware signed with a custom key";
+"security.verifiedBoot.red" = "Verified Boot: integrity check failed";
+"security.bootloader.locked" = "Bootloader is locked";
+"security.bootloader.unlocked" = "Bootloader is unlocked";
+"security.su.present" = "su binary found — root access likely";
+"security.debuggable" = "Debuggable build (ro.debuggable=1)";
+"security.insecure" = "Insecure build (ro.secure=0)";
+"security.playProtect.disabled" = "Google Play Protect disabled by user";
+"security.allClear" = "No clear signs of root/unlock found";
+
 "crashes.button" = "ANR/Tombstones";
 "crashes.title" = "ANR / Tombstones";
 "crashes.empty" = "No files found — either there were no crashes, or /data/anr and /data/tombstones aren't accessible without root.";
