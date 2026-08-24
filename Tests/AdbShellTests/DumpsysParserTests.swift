@@ -23,6 +23,7 @@ struct DumpsysParserTests {
         #expect(detail.apkPath == "/data/app/~~xyz==/com.example.app-abc==")
         #expect(detail.firstInstallTime == "2024-01-10 10:00:00")
         #expect(detail.lastUpdateTime == "2024-05-01 12:33:04")
+        #expect(detail.uid == 10123)
         #expect(detail.isEnabled, "по умолчанию, если строка enabled= не встретилась, считаем включённым")
     }
 

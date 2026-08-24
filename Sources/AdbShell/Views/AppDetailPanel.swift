@@ -44,6 +44,9 @@ struct AppDetailPanel: View {
                 } else if let detail = vm.detail {
                     infoGrid(detail)
                     actionButtons(detail)
+                    if detail.uid != nil {
+                        networkSection
+                    }
                     permissionsSection(detail)
                 }
 
@@ -54,7 +57,9 @@ struct AppDetailPanel: View {
         .id(loc.language)
         .task(id: packageName) {
             await vm.load(serial: serial, packageName: packageName)
+            vm.startNetworkPolling(serial: serial)
         }
+        .onDisappear { vm.stopNetworkPolling() }
         .confirmationDialog(L("appDetail.uninstallConfirm", packageName), isPresented: $showUninstallConfirm, titleVisibility: .visible) {
             Button(L("common.delete"), role: .destructive) {
                 Task {
@@ -110,6 +115,34 @@ struct AppDetailPanel: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cpPanel()
+    }
+
+    private var networkSection: some View {
+        HStack(spacing: 20) {
+            SectionLabel(text: L("appDetail.network"), accent: CP.ice)
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold)).foregroundColor(CP.emerald)
+                Text(formatRate(vm.netRxRatePerSec)).font(CP.code(11)).foregroundColor(CP.textPrimary)
+            }
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.up").font(.system(size: 10, weight: .bold)).foregroundColor(CP.rose)
+                Text(formatRate(vm.netTxRatePerSec)).font(CP.code(11)).foregroundColor(CP.textPrimary)
+            }
+            Spacer()
+            Text(L("appDetail.networkTotal", formatBytes(vm.netTotalRxBytes), formatBytes(vm.netTotalTxBytes)))
+                .font(CP.code(10)).foregroundColor(CP.textMuted)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cpPanel()
+    }
+
+    private func formatRate(_ bytesPerSecond: Double) -> String {
+        formatBytes(Int64(bytesPerSecond)) + "/s"
+    }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .binary)
     }
 
     private func shortDate(_ raw: String?) -> String {

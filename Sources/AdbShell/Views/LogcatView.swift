@@ -5,6 +5,7 @@ struct LogcatView: View {
     let service: ADBService
     @StateObject private var vm: LogcatViewModel
     @EnvironmentObject private var loc: LocalizationManager
+    @State private var showCrashTraces = false
 
     init(serial: String, service: ADBService) {
         self.serial = serial
@@ -41,6 +42,9 @@ struct LogcatView: View {
             vm.start(serial: serial)
         }
         .onDisappear { vm.stop() }
+        .sheet(isPresented: $showCrashTraces) {
+            CrashTracesSheet(serial: serial, service: service)
+        }
     }
 
     private var toolbar: some View {
@@ -68,6 +72,9 @@ struct LogcatView: View {
 
                 Button(L("common.clear")) { vm.clearDeviceBufferAndScreen() }
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+
+                Button(L("crashes.button")) { showCrashTraces = true }
+                    .buttonStyle(NeonButtonStyle(accent: CP.crimson))
             }
 
             HStack(spacing: 8) {
