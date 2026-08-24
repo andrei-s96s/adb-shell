@@ -146,6 +146,20 @@
 "library.install.noDevices" = "No ready devices";
 "library.install.allDevices.success" = "%@ installed on %d devices";
 "library.install.allDevices.partial" = "Installed on %d of %d devices, with errors:";
+"library.info" = "Info (manifest, permissions, diff with installed version)";
+
+"apkInfo.title" = "APK Info";
+"apkInfo.error.aapt2NotFound" = "aapt2 not found";
+"apkInfo.diff" = "Diff with installed version";
+"apkInfo.diff.installed" = "Installed";
+"apkInfo.diff.new" = "In this APK";
+"apkInfo.diff.addedPermissions" = "New permissions (%d):";
+"apkInfo.diff.removedPermissions" = "Removed permissions (%d):";
+"apkInfo.diff.samePermissions" = "Permissions unchanged";
+"apkInfo.permissions" = "All APK permissions (%d)";
+"apkInfo.label" = "Label";
+"apkInfo.version" = "Version";
+"apkInfo.sdk" = "Min/Target SDK";
 
 /* Device files */
 "files.title" = "Device Files";
@@ -244,3 +258,6 @@
 "crashes.title" = "ANR / Tombstones";
 "crashes.empty" = "No files found — either there were no crashes, or /data/anr and /data/tombstones aren't accessible without root.";
 "crashes.selectHint" = "Select a file on the left";
+
+"drop.noDevice" = "Drop an APK while a ready device is selected to install it";
+"drop.installed" = "Installed: %@";

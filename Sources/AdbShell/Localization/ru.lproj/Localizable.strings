@@ -146,6 +146,20 @@
 "library.install.noDevices" = "Нет готовых устройств";
 "library.install.allDevices.success" = "%@ установлен на %d устройств";
 "library.install.allDevices.partial" = "Установлено на %d из %d устройств, есть ошибки:";
+"library.info" = "Инфо (манифест, разрешения, diff с установленной версией)";
+
+"apkInfo.title" = "Инфо APK";
+"apkInfo.error.aapt2NotFound" = "aapt2 не найден";
+"apkInfo.diff" = "Сравнение с установленной версией";
+"apkInfo.diff.installed" = "Установлена";
+"apkInfo.diff.new" = "В этом APK";
+"apkInfo.diff.addedPermissions" = "Новые разрешения (%d):";
+"apkInfo.diff.removedPermissions" = "Удалённые разрешения (%d):";
+"apkInfo.diff.samePermissions" = "Разрешения не изменились";
+"apkInfo.permissions" = "Все разрешения APK (%d)";
+"apkInfo.label" = "Название";
+"apkInfo.version" = "Версия";
+"apkInfo.sdk" = "Min/Target SDK";
 
 /* Файлы устройства */
 "files.title" = "Файлы устройства";
@@ -244,3 +258,6 @@
 "crashes.title" = "ANR / Tombstones";
 "crashes.empty" = "Файлы не найдены — либо крашей не было, либо /data/anr и /data/tombstones недоступны без root.";
 "crashes.selectHint" = "Выберите файл слева";
+
+"drop.noDevice" = "Перетащите APK при выбранном готовом устройстве, чтобы установить";
+"drop.installed" = "Установлено: %@";

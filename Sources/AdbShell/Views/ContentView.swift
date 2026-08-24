@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum MainTab: String, CaseIterable, Identifiable {
     case apps, library, files, logcat, shell, macros, stats
@@ -20,6 +21,8 @@ enum MainTab: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @StateObject private var devicesVM: DevicesViewModel
     @State private var tab: MainTab = .apps
+    @State private var isGlobalDropTargeted = false
+    @State private var dropInstallToast: String?
 
     init() {
         let service = ADBService()
@@ -32,6 +35,7 @@ struct ContentView: View {
     }
 
     var body: some View {
+        ZStack(alignment: .bottom) {
         HStack(spacing: 0) {
             DeviceSidebarView(vm: devicesVM)
                 .frame(width: 260)
@@ -105,6 +109,67 @@ struct ContentView: View {
         .foregroundColor(CP.textPrimary)
         .onAppear { devicesVM.startPolling() }
         .onDisappear { devicesVM.stopPolling() }
+        .overlay(
+            RoundedRectangle(cornerRadius: 0)
+                .stroke(CP.gold, lineWidth: isGlobalDropTargeted ? 3 : 0)
+                .allowsHitTesting(false)
+        )
+        .onDrop(of: [.fileURL], isTargeted: $isGlobalDropTargeted) { providers in
+            handleGlobalApkDrop(providers)
+            return true
+        }
+
+        if let toast = dropInstallToast {
+            Text(toast)
+                .font(CP.mono(12, weight: .medium))
+                .foregroundColor(CP.textPrimary)
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(CP.bgPanelAlt))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(CP.gold.opacity(0.4), lineWidth: 1))
+                .padding(.bottom, 20)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+        }
+        .animation(.easeOut(duration: 0.2), value: dropInstallToast)
+    }
+
+    /// Drag&drop APK в любое место окна — мгновенная установка на текущее
+    /// выбранное устройство, без похода во вкладку "APK библиотека".
+    private func handleGlobalApkDrop(_ providers: [NSItemProvider]) {
+        guard let device = readyDevice else {
+            showToast(L("drop.noDevice"))
+            return
+        }
+        let group = DispatchGroup()
+        var urls: [URL] = []
+        for provider in providers {
+            group.enter()
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                if let url, url.pathExtension.lowercased() == "apk" { urls.append(url) }
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) {
+            guard !urls.isEmpty else { return }
+            Task {
+                for url in urls {
+                    do {
+                        _ = try await devicesVM.service.install(serial: device.serial, apkPath: url.path)
+                        showToast(L("drop.installed", url.lastPathComponent))
+                    } catch {
+                        showToast(error.localizedDescription)
+                    }
+                }
+            }
+        }
+    }
+
+    private func showToast(_ text: String) {
+        dropInstallToast = text
+        Task {
+            try? await Task.sleep(nanoseconds: 3_500_000_000)
+            if dropInstallToast == text { dropInstallToast = nil }
+        }
     }
 }
 
