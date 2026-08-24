@@ -260,6 +260,10 @@
 "settings.apps" = "Apps";
 "settings.showSystemAppsDefault" = "Show system apps by default";
 "settings.data" = "Data";
+"settings.theme" = "Theme";
+"settings.theme.system" = "System";
+"settings.theme.light" = "Light";
+"settings.theme.dark" = "Dark";
 "settings.alerts" = "Threshold alerts";
 "settings.alerts.enable" = "Notify when a threshold is crossed";
 "settings.alerts.cpu" = "CPU above %d%%";
