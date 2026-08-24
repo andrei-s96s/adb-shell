@@ -14,6 +14,7 @@
 "tab.library" = "APK библиотека";
 "tab.files" = "Файлы";
 "tab.macros" = "Макросы";
+"tab.stats" = "Мониторинг";
 
 /* Нет устройства */
 "nodevice.select" = "Выберите устройство";
@@ -218,3 +219,8 @@
 "macros.steps.example" = "Например:\nadb wait-for-device\nadb root\nadb remount\nadb shell iptables -P INPUT ACCEPT";
 "macros.empty" = "Пока нет ни одного макроса";
 "macros.empty.hint" = "Соберите последовательность adb-команд (например для прошивки) и запускайте её одной кнопкой — вместо ручного ввода каждой команды по отдельности.";
+
+"stats.loading" = "Опрашиваем устройство…";
+"stats.cpu" = "CPU";
+"stats.memory" = "Память";
+"stats.charging" = "заряжается";
