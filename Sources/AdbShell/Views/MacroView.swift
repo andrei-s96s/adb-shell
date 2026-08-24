@@ -18,8 +18,13 @@ struct MacroView: View {
     @State private var expandedMacroID: UUID?
     @State private var runningMacroID: UUID?
     @State private var results: [UUID: [MacroRunResult]] = [:]
-    @State private var editingMacro: Macro?
-    @State private var showEditor = false
+    /// Один optional-Identifiable вместо пары (editingMacro + showEditor):
+    /// с `.sheet(isPresented:)` + отдельным @State для данных на macOS бывает
+    /// гонка — действие внутри Menu иногда доходит до .sheet на кадр позже,
+    /// чем второе состояние, и лист открывается с прошлым/пустым значением
+    /// (снаружи это выглядит как «не могу отредактировать макрос»). `.sheet(item:)`
+    /// получает значение прямо в замыкании — рассинхронизироваться нечему.
+    @State private var editorTarget: MacroEditorTarget?
     @State private var pendingVariablesMacro: Macro?
     @State private var variableValues: [String: String] = [:]
     @EnvironmentObject private var loc: LocalizationManager
@@ -35,8 +40,7 @@ struct MacroView: View {
                     .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
                     .disabled(store.macros.isEmpty)
                 Button(L("macros.new")) {
-                    editingMacro = nil
-                    showEditor = true
+                    editorTarget = .new
                 }
                 .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
             }
@@ -69,16 +73,16 @@ struct MacroView: View {
             }
         }
         .id(loc.language)
-        .sheet(isPresented: $showEditor) {
-            MacroEditorSheet(editing: editingMacro) { name, rawText, autorun, abortOnFailure in
-                if let editingMacro {
-                    store.update(editingMacro.id, name: name, rawText: rawText, autorunOnConnect: autorun, abortOnFirstFailure: abortOnFailure)
+        .sheet(item: $editorTarget) { target in
+            MacroEditorSheet(editing: target.macro) { name, rawText, autorun, abortOnFailure in
+                if let macro = target.macro {
+                    store.update(macro.id, name: name, rawText: rawText, autorunOnConnect: autorun, abortOnFirstFailure: abortOnFailure)
                 } else {
                     store.add(name: name, rawText: rawText, autorunOnConnect: autorun, abortOnFirstFailure: abortOnFailure)
                 }
-                showEditor = false
+                editorTarget = nil
             } onCancel: {
-                showEditor = false
+                editorTarget = nil
             }
         }
         .sheet(item: $pendingVariablesMacro) { macro in
@@ -156,8 +160,7 @@ struct MacroView: View {
 
                 Menu {
                     Button(L("macros.editAction")) {
-                        editingMacro = macro
-                        showEditor = true
+                        editorTarget = .editing(macro)
                     }
                     Button(L("common.delete"), role: .destructive) { store.remove(macro.id) }
                 } label: {
@@ -252,6 +255,27 @@ struct MacroView: View {
                 body: completedFully ? L("notify.macro.done") : L("notify.macro.stopped")
             )
         }
+    }
+}
+
+/// Что должен показать `.sheet(item:)` редактора: новый макрос или
+/// редактирование существующего. Identifiable по id макроса/константе "new" —
+/// открытие второго "Изменить" подряд для другого макроса меняет id и
+/// пересоздаёт лист с правильными данными, а не переиспользует старый.
+private enum MacroEditorTarget: Identifiable {
+    case new
+    case editing(Macro)
+
+    var id: String {
+        switch self {
+        case .new: return "new"
+        case .editing(let macro): return macro.id.uuidString
+        }
+    }
+
+    var macro: Macro? {
+        if case .editing(let macro) = self { return macro }
+        return nil
     }
 }
 

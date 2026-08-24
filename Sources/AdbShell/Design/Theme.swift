@@ -95,21 +95,27 @@ struct NeonButtonStyle: ButtonStyle {
     var accent: Color = CP.gold
     var filled: Bool = false
 
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
+        let effectiveAccent = isEnabled ? accent : CP.textMuted
         configuration.label
             .font(CP.mono(12, weight: .semibold))
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .foregroundColor(filled ? Color.black.opacity(0.85) : accent)
+            .foregroundColor(filled ? Color.black.opacity(isEnabled ? 0.85 : 0.5) : effectiveAccent)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(filled ? accent : CP.bgPanelAlt)
+                    .fill(filled ? effectiveAccent : CP.bgPanelAlt)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(filled ? Color.clear : accent.opacity(0.45), lineWidth: 1)
+                    .stroke(filled ? Color.clear : effectiveAccent.opacity(0.45), lineWidth: 1)
             )
-            .opacity(configuration.isPressed ? 0.7 : 1)
+            // Disabled — тускнеет независимо от filled/accent, иначе задизейбленная
+            // кнопка (например "Сохранить" без заполненных полей) выглядит как
+            // обычная активная, и непонятно, почему она не реагирует на клик.
+            .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
