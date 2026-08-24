@@ -194,6 +194,10 @@
 "settings.shellHistoryCleared" = "История команд очищена";
 "settings.removeProfiles" = "Удалить профили подключения";
 "settings.profilesRemoved" = "Профили подключения удалены";
+"settings.support" = "Поддержать проект";
+"settings.support.hint" = "Приложение бесплатное и без рекламы. Если оно полезно — можно закинуть донат в USDT (BEP20, сеть BNB Smart Chain):";
+"settings.support.copy" = "Копировать адрес";
+"settings.support.copied" = "Адрес скопирован в буфер обмена";
 "settings.about" = "О программе";
 "settings.openRepo" = "Открыть репозиторий на GitHub";
 "settings.releaseHistory" = "История версий (Releases)";

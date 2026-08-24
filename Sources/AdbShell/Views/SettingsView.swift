@@ -14,6 +14,9 @@ struct SettingsView: View {
     @StateObject private var shellHistory = ShellHistoryStore()
     @StateObject private var profiles = ConnectionProfileStore()
     @State private var clearedMessage: String?
+    @State private var supportCopiedMessage: String?
+
+    private let donateAddressBEP20 = "0xb4cd0e92c9deb10202d156bafe0405b204902241"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -105,6 +108,36 @@ struct SettingsView: View {
             .padding(12)
             .cpPanel()
 
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: L("settings.support"), accent: CP.emerald)
+                Text(L("settings.support.hint"))
+                    .font(CP.mono(11))
+                    .foregroundColor(CP.textMuted)
+
+                HStack {
+                    Text(donateAddressBEP20)
+                        .font(CP.code(10))
+                        .foregroundColor(CP.textPrimary)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer()
+                    Button(L("settings.support.copy")) {
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(donateAddressBEP20, forType: .string)
+                        supportCopiedMessage = L("settings.support.copied")
+                    }
+                    .buttonStyle(NeonButtonStyle(accent: CP.emerald))
+                }
+
+                if let supportCopiedMessage {
+                    Text(supportCopiedMessage).font(CP.mono(10)).foregroundColor(CP.emerald)
+                }
+            }
+            .padding(12)
+            .cpPanel()
+
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(text: L("settings.about"), accent: CP.gold)
                 Text("ADB Shell v\(AppVersion.current)")
@@ -130,7 +163,7 @@ struct SettingsView: View {
             Spacer()
         }
         .padding(20)
-        .frame(width: 420, height: 660)
+        .frame(width: 420, height: 760)
         .background(CP.bg)
         .id(loc.language)
     }
