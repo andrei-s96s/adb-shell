@@ -194,6 +194,10 @@
 "settings.shellHistoryCleared" = "Command history cleared";
 "settings.removeProfiles" = "Remove connection profiles";
 "settings.profilesRemoved" = "Connection profiles removed";
+"settings.support" = "Support the project";
+"settings.support.hint" = "The app is free and ad-free. If you find it useful, you can send a donation in USDT (BEP20, BNB Smart Chain):";
+"settings.support.copy" = "Copy address";
+"settings.support.copied" = "Address copied to clipboard";
 "settings.about" = "About";
 "settings.openRepo" = "Open repository on GitHub";
 "settings.releaseHistory" = "Release history";
