@@ -29,6 +29,7 @@
 "sidebar.connectByIp" = "Connect by IP";
 "sidebar.connect" = "Connect";
 "sidebar.pairing.help" = "Pair by code (Android 11+ Wireless debugging)";
+"sidebar.qrScan.help" = "Scan a QR with the Mac's camera (host:port, not Android's official QR pairing flow)";
 "sidebar.saveProfile.help" = "Save as profile";
 "sidebar.pin.help" = "Pin as a tab for quick switching";
 "sidebar.unpin.help" = "Unpin tab";
@@ -318,6 +319,11 @@
 "hotkey.screenshot.title" = "Screenshot saved";
 "hotkey.screenshot.body" = "%@ on the Desktop";
 "hotkey.screenshot.failedTitle" = "Screenshot failed";
+
+"qrscan.title" = "Scan QR";
+"qrscan.hint" = "Point the camera at a QR containing text like IP:port — the decoded value fills the connect field. This is not Android's official QR pairing flow (that requires an mDNS protocol handshake, not just text decoding) — it's for QR codes you generated yourself (e.g. a device farm label).";
+"qrscan.noPermission" = "No camera access — allow it in System Settings → Privacy & Security → Camera";
+"qrscan.noCamera" = "No camera found";
 
 "stats.loading" = "Polling device…";
 "stats.cpu" = "CPU";
