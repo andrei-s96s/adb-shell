@@ -65,6 +65,8 @@ struct ApkLibraryView: View {
                             ) {
                                 guard let serial else { return }
                                 Task { await vm.install(file, to: serial, service: service) }
+                            } onInstallToAll: {
+                                Task { await vm.installToAllDevices(file, service: service) }
                             } onDelete: {
                                 vm.delete(file)
                             }
@@ -130,6 +132,7 @@ private struct ApkRow: View {
     let isInstalling: Bool
     let canInstall: Bool
     let onInstall: () -> Void
+    let onInstallToAll: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -153,6 +156,15 @@ private struct ApkRow: View {
                     .buttonStyle(NeonButtonStyle(accent: canInstall ? CP.emerald : CP.textMuted))
                     .disabled(!canInstall)
                     .help(canInstall ? "" : L("library.install.needDevice"))
+                Button {
+                    onInstallToAll()
+                } label: {
+                    Image(systemName: "square.stack.3d.up")
+                        .foregroundColor(canInstall ? CP.ice : CP.textMuted)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canInstall)
+                .help(L("library.install.allDevices"))
             }
             Button {
                 onDelete()

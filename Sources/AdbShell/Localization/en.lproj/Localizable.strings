@@ -142,6 +142,10 @@
 "library.install" = "Install";
 "library.install.needDevice" = "Connect a device to install";
 "library.installed" = "Installed: %@";
+"library.install.allDevices" = "Install to all devices";
+"library.install.noDevices" = "No ready devices";
+"library.install.allDevices.success" = "%@ installed on %d devices";
+"library.install.allDevices.partial" = "Installed on %d of %d devices, with errors:";
 
 /* Device files */
 "files.title" = "Device Files";
@@ -168,9 +172,14 @@
 "logcat.autoScroll" = "Auto-scroll";
 
 /* Shell */
+"shell.broadcast" = "All devices";
+"shell.broadcast.help" = "Run this command on every connected, ready device instead of just the current one";
+"shell.broadcast.noDevices" = "No ready devices to broadcast to";
 "shell.screenshot" = "Screenshot";
 "shell.mirror" = "Mirror screen";
 "shell.mirroring" = "Mirroring…";
+"shell.mirrorAll" = "Mirror all";
+"shell.mirrorAll.help" = "Open a mirror for every connected device, scrcpy windows are tiled across the screen";
 "mirror.error.notFound" = "scrcpy not found. Install: brew install scrcpy";
 "shell.reboot" = "Reboot";
 "shell.rebootRecovery" = "Reboot → Recovery";
