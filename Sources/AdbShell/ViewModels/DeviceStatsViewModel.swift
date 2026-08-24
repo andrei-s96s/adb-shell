@@ -9,6 +9,7 @@ final class DeviceStatsViewModel: ObservableObject {
     @Published var processes: [RunningProcess] = []
     @Published var killingPid: Int?
     @Published var securityFindings: [SecurityFinding] = []
+    @Published var usageStats: [AppUsageStat] = []
 
     /// Сколько точек держим в истории — при интервале 2с это ~4 минуты графика.
     static let historyLimit = 120
@@ -31,6 +32,7 @@ final class DeviceStatsViewModel: ObservableObject {
         history = []
         processes = []
         securityFindings = []
+        usageStats = []
         errorMessage = nil
         cpuAlertArmed = true
         batteryAlertArmed = true
@@ -98,6 +100,13 @@ final class DeviceStatsViewModel: ObservableObject {
                 batteryAlertArmed = true
             }
         }
+    }
+
+    /// Разовая загрузка экранного времени — как и security-info, не входит
+    /// в частый poll-тик.
+    func loadUsageStats(serial: String) async {
+        guard let stats = try? await service.usageStats(serial: serial) else { return }
+        usageStats = stats.sorted { $0.totalSeconds > $1.totalSeconds }
     }
 
     func kill(serial: String, pid: Int) async {

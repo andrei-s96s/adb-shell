@@ -303,6 +303,8 @@
 "stats.memory" = "Memory";
 "stats.charging" = "charging";
 "stats.exportCsv" = "Export CSV";
+"stats.usage" = "Screen time";
+"stats.usage.empty" = "No data — dumpsys usagestats format may differ on this Android version";
 "stats.processes" = "Processes (%d)";
 "stats.processFilter" = "Filter by name/PID…";
 "stats.kill" = "Kill";
