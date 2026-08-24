@@ -6,6 +6,7 @@ struct AppsView: View {
     let serial: String
     let service: ADBService
     @StateObject private var vm: AppsViewModel
+    @StateObject private var iconService = IconService()
     @State private var showInstallPicker = false
     @State private var showBundleImportPicker = false
     @State private var showBatchDeleteConfirm = false
@@ -143,13 +144,17 @@ struct AppsView: View {
                                     app: app,
                                     isSelected: app.packageName == vm.selectedPackage,
                                     isSelectionMode: vm.isSelectionMode,
-                                    isChecked: vm.selectedForBatch.contains(app.packageName)
+                                    isChecked: vm.selectedForBatch.contains(app.packageName),
+                                    icon: iconService.icon(for: app.packageName)
                                 ) {
                                     if vm.isSelectionMode {
                                         vm.toggleSelection(app.packageName)
                                     } else {
                                         vm.selectedPackage = app.packageName
                                     }
+                                }
+                                .task(id: app.packageName) {
+                                    iconService.loadIfNeeded(serial: serial, packageName: app.packageName, service: service)
                                 }
                                 Rectangle().fill(CP.hairline).frame(height: 1).padding(.leading, 12)
                             }
@@ -317,6 +322,7 @@ private struct AppRow: View {
     let isSelected: Bool
     let isSelectionMode: Bool
     let isChecked: Bool
+    let icon: NSImage?
     let action: () -> Void
 
     var body: some View {
@@ -328,6 +334,7 @@ private struct AppRow: View {
                 } else {
                     StatusDot(color: app.isEnabled ? CP.emerald : CP.textMuted)
                 }
+                appIcon
                 Text(app.packageName)
                     .font(CP.code(12))
                     .foregroundColor(CP.textPrimary)
@@ -350,5 +357,26 @@ private struct AppRow: View {
             .background(isSelected ? CP.bgPanelAlt : Color.clear)
         }
         .buttonStyle(.plain)
+    }
+
+    /// Реальная иконка приложения, если её удалось вытащить из APK
+    /// (IconService), иначе — нейтральная заглушка.
+    @ViewBuilder
+    private var appIcon: some View {
+        Group {
+            if let icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                Image(systemName: "app.dashed")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .foregroundColor(CP.textMuted.opacity(0.5))
+                    .padding(3)
+            }
+        }
+        .frame(width: 20, height: 20)
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 }

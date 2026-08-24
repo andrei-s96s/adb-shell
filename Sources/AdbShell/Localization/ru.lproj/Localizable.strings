@@ -1,5 +1,6 @@
 /* Общие */
 "common.cancel" = "Отмена";
+"common.save" = "Сохранить";
 "common.choose" = "Выбрать";
 "common.clear" = "Очистить";
 "common.close" = "Закрыть";
@@ -12,6 +13,7 @@
 "tab.apps" = "Приложения";
 "tab.library" = "APK библиотека";
 "tab.files" = "Файлы";
+"tab.macros" = "Макросы";
 
 /* Нет устройства */
 "nodevice.select" = "Выберите устройство";
@@ -164,6 +166,9 @@
 
 /* Shell */
 "shell.screenshot" = "Скриншот";
+"shell.mirror" = "Зеркалировать";
+"shell.mirroring" = "Зеркалирование…";
+"mirror.error.notFound" = "scrcpy не найден. Установите: brew install scrcpy";
 "shell.reboot" = "Reboot";
 "shell.rebootRecovery" = "Reboot → Recovery";
 "shell.rebootBootloader" = "Reboot → Bootloader";
@@ -198,6 +203,18 @@
 "settings.support.hint" = "Приложение бесплатное и без рекламы. Если оно полезно — можно закинуть донат в USDT (BEP20, сеть BNB Smart Chain):";
 "settings.support.copy" = "Копировать адрес";
 "settings.support.copied" = "Адрес скопирован в буфер обмена";
+"settings.support.openPage" = "Открыть страницу доната ↗";
 "settings.about" = "О программе";
 "settings.openRepo" = "Открыть репозиторий на GitHub";
 "settings.releaseHistory" = "История версий (Releases)";
+
+"macros.title" = "Макросы";
+"macros.new" = "+ Новый макрос";
+"macros.run" = "Запустить";
+"macros.editAction" = "Изменить";
+"macros.stepsCount" = "Шагов: %d";
+"macros.name.placeholder" = "Название, например «Прошивка — проброс SSH»";
+"macros.steps.hint" = "По одной команде на строку. Распознаются только строки, начинающиеся с adb — остальное (echo off, pause, chcp, ipconfig и т.п. из .bat-скриптов) игнорируется, можно вставлять батник целиком. Serial текущего устройства подставляется автоматически, -d/-e/-s из строк не нужны.";
+"macros.steps.example" = "Например:\nadb wait-for-device\nadb root\nadb remount\nadb shell iptables -P INPUT ACCEPT";
+"macros.empty" = "Пока нет ни одного макроса";
+"macros.empty.hint" = "Соберите последовательность adb-команд (например для прошивки) и запускайте её одной кнопкой — вместо ручного ввода каждой команды по отдельности.";
