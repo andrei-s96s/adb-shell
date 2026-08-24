@@ -123,6 +123,32 @@ final class AppDetailViewModel: ObservableObject {
         }
     }
 
+    /// Качает APK по прямой ссылке F-Droid и ставит — по клику, не сама:
+    /// вызывается только из кнопки «Скачать и установить» в UI.
+    func installFDroidUpdate(_ update: FDroidUpdateInfo, serial: String) async {
+        isPerformingAction = true
+        defer { isPerformingAction = false }
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("fdroid-\(update.packageName)-\(update.latestVersionCode).apk")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        do {
+            let (downloaded, response) = try await URLSession.shared.download(from: update.downloadURL)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                errorMessage = L("appDetail.fdroid.downloadFailed")
+                return
+            }
+            if FileManager.default.fileExists(atPath: tmp.path) {
+                try FileManager.default.removeItem(at: tmp)
+            }
+            try FileManager.default.moveItem(at: downloaded, to: tmp)
+            _ = try await service.install(serial: serial, apkPath: tmp.path)
+            lastActionMessage = L("appDetail.fdroid.installed", update.latestVersionName ?? "\(update.latestVersionCode)")
+            await load(serial: serial, packageName: update.packageName)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     // MARK: - Сетевой трафик
 
     func startNetworkPolling(serial: String) {

@@ -57,15 +57,6 @@ struct AppsView: View {
                         .foregroundColor(CP.textMuted)
 
                     Button {
-                        vm.toggleSelectionMode()
-                    } label: {
-                        Label(L("apps.select"), systemImage: "checkmark.circle")
-                            .labelStyle(.iconOnly)
-                    }
-                    .buttonStyle(NeonButtonStyle(accent: vm.isSelectionMode ? CP.rose : CP.textMuted))
-                    .help(L("apps.select.help"))
-
-                    Button {
                         exportCSV()
                     } label: {
                         Label(L("apps.exportCsv"), systemImage: "square.and.arrow.up")
@@ -104,12 +95,21 @@ struct AppsView: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
 
-                if vm.isSelectionMode {
+                // Появляется сама, как только что-то выбрано (⌘/⇧-клик по строкам) —
+                // отдельный режим "Выбрать" не нужен, ничего не нужно включать заранее.
+                if !vm.selectedForBatch.isEmpty {
                     HStack {
                         Text(L("apps.selectedCount", vm.selectedForBatch.count))
                             .font(CP.mono(11, weight: .medium))
                             .foregroundColor(CP.textMuted)
+
+                        Button(L("apps.clearSelection")) { vm.clearSelection() }
+                            .buttonStyle(.plain)
+                            .font(CP.mono(10, weight: .medium))
+                            .foregroundColor(CP.ice)
+
                         Spacer()
+
                         Button(L("apps.exportSelected")) {
                             Task {
                                 await vm.exportSelected(serial: serial)
@@ -117,11 +117,9 @@ struct AppsView: View {
                             }
                         }
                         .buttonStyle(NeonButtonStyle(accent: CP.ice))
-                        .disabled(vm.selectedForBatch.isEmpty)
 
                         Button(L("apps.deleteSelected")) { showBatchDeleteConfirm = true }
                             .buttonStyle(NeonButtonStyle(accent: CP.crimson, filled: true))
-                            .disabled(vm.selectedForBatch.isEmpty)
                     }
                     .padding(.horizontal, 12)
                     .padding(.bottom, 8)
@@ -152,16 +150,11 @@ struct AppsView: View {
                             ForEach(vm.filteredApps) { app in
                                 AppRow(
                                     app: app,
-                                    isSelected: app.packageName == vm.selectedPackage,
-                                    isSelectionMode: vm.isSelectionMode,
-                                    isChecked: vm.selectedForBatch.contains(app.packageName),
-                                    icon: iconService.icon(for: app.packageName)
-                                ) {
-                                    if vm.isSelectionMode {
-                                        vm.toggleSelection(app.packageName)
-                                    } else {
-                                        vm.selectedPackage = app.packageName
-                                    }
+                                    isSelected: vm.selectedForBatch.contains(app.packageName),
+                                    icon: iconService.icon(for: app.packageName),
+                                    hasUpdate: vm.fdroidUpdates[app.packageName] != nil
+                                ) { modifiers in
+                                    vm.handleRowClick(app.packageName, modifiers: modifiers)
                                 }
                                 .task(id: app.packageName) {
                                     iconService.loadIfNeeded(serial: serial, packageName: app.packageName, service: service)
@@ -177,29 +170,13 @@ struct AppsView: View {
 
             Rectangle().fill(CP.hairline).frame(width: 1)
 
-            if let pkg = vm.selectedPackage, !vm.isSelectionMode {
-                AppDetailPanel(serial: serial, service: service, packageName: pkg) {
-                    Task { await vm.load(serial: serial) }
-                }
-                .id(pkg)
-            } else {
-                VStack(spacing: 10) {
-                    Spacer()
-                    Image(systemName: vm.isSelectionMode ? "checkmark.circle" : "square.stack.3d.up")
-                        .font(.system(size: 28, weight: .light))
-                        .foregroundColor(CP.textMuted)
-                    Text(vm.isSelectionMode ? L("apps.markOnLeft") : L("apps.selectApp"))
-                        .font(CP.mono(13, weight: .medium))
-                        .foregroundColor(CP.textMuted)
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-            }
+            detailPane
         }
         .id(loc.language)
         .task(id: serial) {
             vm.reset()
             await vm.load(serial: serial)
+            await vm.checkFDroidUpdatesInBackground(serial: serial)
         }
         .fileImporter(isPresented: $showInstallPicker, allowedContentTypes: [UTType(filenameExtension: "apk") ?? .data], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result {
@@ -239,6 +216,43 @@ struct AppsView: View {
         }
         .sheet(isPresented: $showCompareDevices) {
             DeviceCompareSheet(serial: serial, service: service) { showCompareDevices = false }
+        }
+    }
+
+    @ViewBuilder
+    private var detailPane: some View {
+        if let pkg = vm.focusedPackage {
+            AppDetailPanel(serial: serial, service: service, packageName: pkg, fdroidUpdate: vm.fdroidUpdates[pkg]) {
+                Task { await vm.load(serial: serial) }
+            }
+            .id(pkg)
+        } else if vm.selectedForBatch.count > 1 {
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundColor(CP.textMuted)
+                Text(L("apps.selectedCount", vm.selectedForBatch.count))
+                    .font(CP.mono(13, weight: .medium))
+                    .foregroundColor(CP.textMuted)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+        } else {
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: "square.stack.3d.up")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundColor(CP.textMuted)
+                Text(L("apps.selectApp"))
+                    .font(CP.mono(13, weight: .medium))
+                    .foregroundColor(CP.textMuted)
+                Text(L("apps.selectApp.hint"))
+                    .font(CP.mono(10))
+                    .foregroundColor(CP.textMuted.opacity(0.7))
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -333,26 +347,28 @@ private struct BundleResultsSheet: View {
 private struct AppRow: View {
     let app: InstalledApp
     let isSelected: Bool
-    let isSelectionMode: Bool
-    let isChecked: Bool
     let icon: NSImage?
-    let action: () -> Void
+    let hasUpdate: Bool
+    let action: (NSEvent.ModifierFlags) -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            action(NSEvent.modifierFlags)
+        } label: {
             HStack(spacing: 8) {
-                if isSelectionMode {
-                    Image(systemName: isChecked ? "checkmark.square.fill" : "square")
-                        .foregroundColor(isChecked ? CP.gold : CP.textMuted)
-                } else {
-                    StatusDot(color: app.isEnabled ? CP.emerald : CP.textMuted)
-                }
+                StatusDot(color: app.isEnabled ? CP.emerald : CP.textMuted)
                 appIcon
                 Text(app.packageName)
                     .font(CP.code(12))
                     .foregroundColor(CP.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if hasUpdate {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(CP.gold)
+                        .help(L("apps.updateAvailable.help"))
+                }
                 Spacer()
                 if app.isSystem {
                     Text("SYS")
@@ -367,9 +383,13 @@ private struct AppRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(isSelected ? CP.bgPanelAlt : Color.clear)
+            .background(isSelected ? CP.gold.opacity(0.14) : Color.clear)
+            .overlay(
+                Rectangle().fill(isSelected ? CP.gold : Color.clear).frame(width: 2), alignment: .leading
+            )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(app.packageName + (hasUpdate ? ", " + L("apps.updateAvailable.help") : ""))
     }
 
     /// Реальная иконка приложения, если её удалось вытащить из APK

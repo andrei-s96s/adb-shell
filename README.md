@@ -7,6 +7,11 @@ shell и скриншоты — по USB или по сети.
 Бесплатно и без рекламы. Если приложение полезно — [поддержите проект
 донатом](https://andrei-s96s.github.io/adb-shell/) в USDT (BEP20).
 
+<p align="center">
+  <img src="docs/screenshots/apps-light.png" width="49%" alt="ADB Shell — светлая тема">
+  <img src="docs/screenshots/apps-dark.png" width="49%" alt="ADB Shell — тёмная тема">
+</p>
+
 ## Скачать готовое приложение
 
 Собранная `.app` публикуется автоматически на каждый релиз:

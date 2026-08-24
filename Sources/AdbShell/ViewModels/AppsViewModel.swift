@@ -10,13 +10,21 @@ final class AppsViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var searchText: String = ""
     @Published var showSystemApps: Bool = false
-    @Published var selectedPackage: String?
 
-    @Published var isSelectionMode = false
+    /// Мультивыбор в духе Finder: обычный клик выбирает одну строку, ⌘-клик
+    /// добавляет/убирает, ⇧-клик выделяет диапазон от последнего клика — без
+    /// отдельного режима "Выбрать", который раньше приходилось включать вручную.
     @Published var selectedForBatch: Set<String> = []
+    var lastClickedPackage: String?
+
     @Published var isBatchWorking = false
     @Published var batchProgressText: String?
     @Published var bundleResults: [BundleOperationResult] = []
+
+    /// Обновления, найденные в каталоге F-Droid для установленных пакетов —
+    /// считается в фоне после загрузки списка, ничего не скачивает сама.
+    @Published var fdroidUpdates: [String: FDroidUpdateInfo] = [:]
+    @Published var isCheckingFDroidUpdates = false
 
     let service: ADBService
 
@@ -29,6 +37,11 @@ final class AppsViewModel: ObservableObject {
         apps
             .filter { showSystemApps || !$0.isSystem }
             .filter { searchText.isEmpty || $0.packageName.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    /// Пакет, чьи детали показывать справа — только когда выбран ровно один.
+    var focusedPackage: String? {
+        selectedForBatch.count == 1 ? selectedForBatch.first : nil
     }
 
     func load(serial: String) async {
@@ -44,36 +57,52 @@ final class AppsViewModel: ObservableObject {
 
     func reset() {
         apps = []
-        selectedPackage = nil
-        errorMessage = nil
-        isSelectionMode = false
         selectedForBatch.removeAll()
+        lastClickedPackage = nil
+        errorMessage = nil
+        fdroidUpdates.removeAll()
     }
 
-    func toggleSelectionMode() {
-        isSelectionMode.toggle()
-        if !isSelectionMode { selectedForBatch.removeAll() }
-    }
+    // MARK: - Выбор строк (⌘/⇧, как в Finder)
 
-    func toggleSelection(_ packageName: String) {
-        if selectedForBatch.contains(packageName) {
-            selectedForBatch.remove(packageName)
+    func handleRowClick(_ packageName: String, modifiers: NSEvent.ModifierFlags) {
+        if modifiers.contains(.command) {
+            if selectedForBatch.contains(packageName) {
+                selectedForBatch.remove(packageName)
+            } else {
+                selectedForBatch.insert(packageName)
+            }
+            lastClickedPackage = packageName
+        } else if modifiers.contains(.shift), let anchor = lastClickedPackage {
+            let order = filteredApps.map(\.packageName)
+            if let anchorIdx = order.firstIndex(of: anchor), let clickedIdx = order.firstIndex(of: packageName) {
+                let range = order[min(anchorIdx, clickedIdx)...max(anchorIdx, clickedIdx)]
+                selectedForBatch.formUnion(range)
+            } else {
+                selectedForBatch = [packageName]
+                lastClickedPackage = packageName
+            }
         } else {
-            selectedForBatch.insert(packageName)
+            selectedForBatch = [packageName]
+            lastClickedPackage = packageName
         }
+    }
+
+    func clearSelection() {
+        selectedForBatch.removeAll()
+        lastClickedPackage = nil
     }
 
     func deleteSelected(serial: String) async {
         guard !selectedForBatch.isEmpty else { return }
         isBatchWorking = true
         defer { isBatchWorking = false; batchProgressText = nil }
-        let packages = Array(selectedForBatch)
+        let packages = Array(selectedForBatch).sorted()
         for (idx, pkg) in packages.enumerated() {
             batchProgressText = L("apps.deleting.progress", idx + 1, packages.count, pkg)
             try? await service.uninstall(serial: serial, packageName: pkg)
         }
-        selectedForBatch.removeAll()
-        isSelectionMode = false
+        clearSelection()
         await load(serial: serial)
         if packages.count > 1 {
             NotificationService.notify(title: L("notify.batchDelete.title"), body: L("notify.batchDelete.body", packages.count))
@@ -97,6 +126,42 @@ final class AppsViewModel: ObservableObject {
         await load(serial: serial)
         if urls.count > 1 {
             NotificationService.notify(title: L("notify.batchInstall.title"), body: L("notify.batchInstall.body", urls.count))
+        }
+    }
+
+    // MARK: - Обновления через F-Droid
+
+    /// Сверяет установленные пользовательские приложения с каталогом F-Droid в
+    /// фоне: один bulk-запрос versionCode со всего устройства, дальше — сетевые
+    /// запросы к F-Droid с ограничением параллелизма, чтобы не заваливать сеть.
+    /// Ничего не скачивает и не ставит — только заполняет fdroidUpdates.
+    func checkFDroidUpdatesInBackground(serial: String) async {
+        guard !isCheckingFDroidUpdates else { return }
+        isCheckingFDroidUpdates = true
+        defer { isCheckingFDroidUpdates = false }
+
+        guard let versionCodes = try? await service.installedVersionCodes(serial: serial) else { return }
+        let candidates = apps.filter { !$0.isSystem }.compactMap { app -> (String, Int)? in
+            guard let code = versionCodes[app.packageName] else { return nil }
+            return (app.packageName, code)
+        }
+
+        let maxConcurrent = 4
+        await withTaskGroup(of: (String, FDroidUpdateInfo?).self) { group in
+            var iterator = candidates.makeIterator()
+
+            func addNext() {
+                guard let (pkg, code) = iterator.next() else { return }
+                group.addTask {
+                    (pkg, await FDroidUpdateChecker.checkUpdate(packageName: pkg, installedVersionCode: code))
+                }
+            }
+            for _ in 0..<maxConcurrent { addNext() }
+
+            while let (pkg, info) = await group.next() {
+                if let info { fdroidUpdates[pkg] = info }
+                addNext()
+            }
         }
     }
 
@@ -181,8 +246,7 @@ final class AppsViewModel: ObservableObject {
         }
 
         try? FileManager.default.removeItem(at: workDir)
-        isSelectionMode = false
-        selectedForBatch.removeAll()
+        clearSelection()
     }
 
     /// Устанавливает набор из .zip (см. exportSelected): каждый apk + выдача

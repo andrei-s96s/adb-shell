@@ -109,6 +109,9 @@
 "apps.deleteConfirm.title" = "Удалить %d приложений?";
 "apps.markOnLeft" = "Отметьте приложения слева";
 "apps.selectApp" = "Выберите приложение";
+"apps.selectApp.hint" = "Клик — выбрать одно, ⌘-клик — добавить к выбору, ⇧-клик — диапазон";
+"apps.clearSelection" = "Снять выделение";
+"apps.updateAvailable.help" = "Доступно обновление на F-Droid";
 "apps.installResults.title" = "Результат установки";
 "apps.bundleResults.title" = "Результат операции";
 "apps.installing.progress" = "Установка %1$d/%2$d: %3$@";
@@ -137,6 +140,12 @@
 "appDetail.disable" = "Отключить";
 "appDetail.clearData" = "Очистить данные";
 "appDetail.exportApk" = "Экспортировать APK";
+"appDetail.fdroid.available" = "Доступно обновление на F-Droid: v%@";
+"appDetail.fdroid.source" = "Источник — официальный каталог F-Droid (f-droid.org), не сторонний сайт";
+"appDetail.fdroid.installAction" = "Скачать и установить";
+"appDetail.fdroid.openPage" = "Страница на F-Droid";
+"appDetail.fdroid.downloadFailed" = "Не удалось скачать APK с F-Droid";
+"appDetail.fdroid.installed" = "Установлено обновление F-Droid v%@";
 "appDetail.permissions" = "Разрешения (%d)";
 "appDetail.noPermissions" = "Нет запрошенных разрешений";
 "appDetail.grant" = "Выдать";

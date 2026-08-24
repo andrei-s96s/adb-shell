@@ -206,6 +206,14 @@ final class ADBService {
         return DumpsysParser.parseAppDetail(packageName: packageName, output: result.stdout)
     }
 
+    /// versionCode всех установленных пакетов одним запросом (`dumpsys package`
+    /// без аргумента дампит все сразу) — для проверки обновлений по всему списку
+    /// приложений один такой вызов дешевле, чем dumpsys на каждый пакет отдельно.
+    func installedVersionCodes(serial: String) async throws -> [String: Int] {
+        let result = try await run(["shell", "dumpsys", "package"], serial: serial, timeout: 60)
+        return DumpsysParser.parseVersionCodes(from: result.stdout)
+    }
+
     func install(serial: String, apkPath: String) async throws -> String {
         let result = try await run(["install", "-r", "-g", apkPath], serial: serial, timeout: 120)
         let combined = result.combined
