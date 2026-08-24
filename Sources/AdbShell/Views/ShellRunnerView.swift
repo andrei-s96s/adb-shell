@@ -21,6 +21,7 @@ struct ShellRunnerView: View {
     @State private var screenshotData: Data?
     @State private var showScreenshotSheet = false
     @State private var mirrorMessage: String?
+    @State private var broadcastMode = false
     @StateObject private var savedCommands = ShellHistoryStore()
     @StateObject private var mirror = ScreenMirrorService()
     @EnvironmentObject private var loc: LocalizationManager
@@ -45,6 +46,10 @@ struct ShellRunnerView: View {
                     Button(L("shell.mirror")) { launchMirror() }
                         .buttonStyle(NeonButtonStyle(accent: CP.ice))
                 }
+
+                Button(L("shell.mirrorAll")) { Task { await launchMirrorGrid() } }
+                    .buttonStyle(NeonButtonStyle(accent: CP.rose))
+                    .help(L("shell.mirrorAll.help"))
 
                 Button(L("shell.reboot")) { Task { try? await service.reboot(serial: serial) } }
                     .buttonStyle(NeonButtonStyle(accent: CP.crimson))
@@ -153,6 +158,15 @@ struct ShellRunnerView: View {
     private var inputBar: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
+                Toggle(isOn: $broadcastMode) {
+                    Text(L("shell.broadcast")).font(CP.mono(10, weight: .medium)).foregroundColor(CP.textMuted)
+                }
+                .toggleStyle(NeonToggleStyle(accent: CP.rose))
+                .help(L("shell.broadcast.help"))
+            }
+            .padding(.horizontal, 12).padding(.top, 8)
+
+            HStack(spacing: 8) {
                 Text("adb shell")
                     .font(CP.mono(11, weight: .semibold))
                     .foregroundColor(CP.textMuted)
@@ -209,11 +223,33 @@ struct ShellRunnerView: View {
         command = ""
         defer { isRunning = false }
         savedCommands.record(cmd)
-        do {
-            let output = try await service.shell(serial: serial, command: cmd)
-            history.append(HistoryEntry(command: cmd, output: output, isError: false))
-        } catch {
-            history.append(HistoryEntry(command: cmd, output: error.localizedDescription, isError: true))
+        if broadcastMode {
+            await runBroadcast(cmd)
+        } else {
+            do {
+                let output = try await service.shell(serial: serial, command: cmd)
+                history.append(HistoryEntry(command: cmd, output: output, isError: false))
+            } catch {
+                history.append(HistoryEntry(command: cmd, output: error.localizedDescription, isError: true))
+            }
+        }
+    }
+
+    /// Прогоняет команду по очереди на всех подключённых и готовых устройствах,
+    /// собирая результат каждого в отдельную запись истории с префиксом serial.
+    private func runBroadcast(_ cmd: String) async {
+        let devices = (try? await service.listDevices())?.filter { $0.state.isReady } ?? []
+        guard !devices.isEmpty else {
+            history.append(HistoryEntry(command: cmd, output: L("shell.broadcast.noDevices"), isError: true))
+            return
+        }
+        for device in devices {
+            do {
+                let output = try await service.shell(serial: device.serial, command: cmd)
+                history.append(HistoryEntry(command: "[\(device.displayName)] \(cmd)", output: output, isError: false))
+            } catch {
+                history.append(HistoryEntry(command: "[\(device.displayName)] \(cmd)", output: error.localizedDescription, isError: true))
+            }
         }
     }
 
@@ -234,6 +270,17 @@ struct ShellRunnerView: View {
         } catch {
             mirrorMessage = error.localizedDescription
         }
+    }
+
+    /// Зеркалирует все подключённые и готовые устройства разом, раскладывая
+    /// окна scrcpy плиткой по экрану (см. ScreenMirrorService.launchGrid).
+    private func launchMirrorGrid() async {
+        let serials = (try? await service.listDevices())?.filter { $0.state.isReady }.map(\.serial) ?? []
+        guard !serials.isEmpty else {
+            mirrorMessage = L("shell.broadcast.noDevices")
+            return
+        }
+        mirror.launchGrid(serials: serials, adbPath: service.adbPath)
     }
 
     private func takeScreenshot() async {

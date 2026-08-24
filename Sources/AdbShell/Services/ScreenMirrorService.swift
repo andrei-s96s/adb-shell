@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 enum MirrorError: LocalizedError {
     case scrcpyNotFound
@@ -68,7 +69,7 @@ final class ScreenMirrorService: ObservableObject {
     /// `ADB`) и вшитый `scrcpy-server` (`SCRCPY_SERVER_PATH`), чтобы не тянуть
     /// системные копии. Если для этого serial уже есть запущенный процесс — не
     /// открывает второе окно поверх него.
-    func launch(serial: String, adbPath: String) throws {
+    func launch(serial: String, adbPath: String, windowFrame: (x: Int, y: Int, width: Int, height: Int)? = nil) throws {
         guard let scrcpyPath = Self.locateScrcpy() else {
             throw MirrorError.scrcpyNotFound
         }
@@ -76,7 +77,16 @@ final class ScreenMirrorService: ObservableObject {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: scrcpyPath)
-        process.arguments = ["-s", serial]
+        var args = ["-s", serial, "--window-title", serial]
+        if let windowFrame {
+            args += [
+                "--window-x", String(windowFrame.x),
+                "--window-y", String(windowFrame.y),
+                "--window-width", String(windowFrame.width),
+                "--window-height", String(windowFrame.height)
+            ]
+        }
+        process.arguments = args
 
         var environment = ProcessInfo.processInfo.environment
         environment["ADB"] = adbPath
@@ -100,5 +110,27 @@ final class ScreenMirrorService: ObservableObject {
 
         processes[serial] = process
         runningSerials.insert(serial)
+    }
+
+    /// Запускает scrcpy для каждого устройства и раскладывает их окна плиткой
+    /// по видимой области главного экрана — так несколько зеркал не открываются
+    /// друг поверх друга. Устройства, для которых зеркалирование уже идёт, пропускаются.
+    func launchGrid(serials: [String], adbPath: String) {
+        let targets = serials.filter { !isRunning($0) }
+        guard !targets.isEmpty else { return }
+
+        let screen = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let cols = max(1, Int(ceil(sqrt(Double(targets.count)))))
+        let rows = max(1, Int(ceil(Double(targets.count) / Double(cols))))
+        let tileWidth = Int(screen.width) / cols
+        let tileHeight = Int(screen.height) / rows
+
+        for (index, serial) in targets.enumerated() {
+            let col = index % cols
+            let row = index / cols
+            let x = Int(screen.minX) + col * tileWidth
+            let y = Int(screen.minY) + row * tileHeight
+            try? launch(serial: serial, adbPath: adbPath, windowFrame: (x, y, tileWidth, tileHeight))
+        }
     }
 }

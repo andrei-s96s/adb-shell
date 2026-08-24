@@ -117,6 +117,33 @@ final class ApkLibraryViewModel: ObservableObject {
         }
     }
 
+    /// Ставит один APK сразу на все подключённые и готовые устройства,
+    /// последовательно, чтобы прогресс/сообщения об ошибках были по одному устройству за раз.
+    func installToAllDevices(_ file: ApkFile, service: ADBService) async {
+        installingPath = file.path
+        defer { installingPath = nil }
+        let devices = (try? await service.listDevices())?.filter { $0.state.isReady } ?? []
+        guard !devices.isEmpty else {
+            errorMessage = L("library.install.noDevices")
+            return
+        }
+        var successCount = 0
+        var failures: [String] = []
+        for device in devices {
+            do {
+                _ = try await service.install(serial: device.serial, apkPath: file.path)
+                successCount += 1
+            } catch {
+                failures.append("\(device.displayName): \(error.localizedDescription)")
+            }
+        }
+        if failures.isEmpty {
+            lastInstallMessage = L("library.install.allDevices.success", file.name, successCount)
+        } else {
+            errorMessage = L("library.install.allDevices.partial", successCount, devices.count) + "\n" + failures.joined(separator: "\n")
+        }
+    }
+
     func revealInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([directoryURL])
     }

@@ -142,6 +142,10 @@
 "library.install" = "Установить";
 "library.install.needDevice" = "Подключите устройство, чтобы установить";
 "library.installed" = "Установлено: %@";
+"library.install.allDevices" = "Установить на все устройства";
+"library.install.noDevices" = "Нет готовых устройств";
+"library.install.allDevices.success" = "%@ установлен на %d устройств";
+"library.install.allDevices.partial" = "Установлено на %d из %d устройств, есть ошибки:";
 
 /* Файлы устройства */
 "files.title" = "Файлы устройства";
@@ -168,9 +172,14 @@
 "logcat.autoScroll" = "Автоскролл";
 
 /* Shell */
+"shell.broadcast" = "На все устройства";
+"shell.broadcast.help" = "Выполнить эту команду на всех подключённых и готовых устройствах, а не только на текущем";
+"shell.broadcast.noDevices" = "Нет готовых устройств для broadcast-выполнения";
 "shell.screenshot" = "Скриншот";
 "shell.mirror" = "Зеркалировать";
 "shell.mirroring" = "Зеркалирование…";
+"shell.mirrorAll" = "Зеркалировать все";
+"shell.mirrorAll.help" = "Открыть зеркало каждого подключённого устройства, окна scrcpy раскладываются плиткой по экрану";
 "mirror.error.notFound" = "scrcpy не найден. Установите: brew install scrcpy";
 "shell.reboot" = "Reboot";
 "shell.rebootRecovery" = "Reboot → Recovery";
