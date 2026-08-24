@@ -8,11 +8,14 @@ struct DeviceStatsParserTests {
         Load: 3.5 / 3.2 / 2.9
         CPU usage from 10000ms to 5000ms ago:
           9.9% 1234/system_server: 5% user + 4.8% kernel
-          400% TOTAL: 30% user + 20% kernel + 0.1% iowait
+          45% TOTAL: 30% user + 15% kernel
         """
-        #expect(DeviceStatsParser.parseCpuPercent(output) == 400)
+        #expect(DeviceStatsParser.parseCpuPercent(output) == 45)
     }
 
+    /// На многоядерных устройствах TOTAL в dumpsys cpuinfo может быть больше
+    /// 100% (сумма по ядрам, например 400% на полностью загруженной "четвёрке") —
+    /// парсер намеренно ужимает это в 0...100 для отображения на одном графике.
     @Test func cpuPercentIsClampedTo100() {
         let output = "150% TOTAL: 100% user + 50% kernel"
         #expect(DeviceStatsParser.parseCpuPercent(output) == 100)
