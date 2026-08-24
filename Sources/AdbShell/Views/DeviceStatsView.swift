@@ -1,5 +1,7 @@
 import SwiftUI
 import Charts
+import AppKit
+import UniformTypeIdentifiers
 
 /// Вкладка "Мониторинг": живые графики CPU/памяти устройства и текущее
 /// состояние батареи, опрашиваются через ADBService.deviceStats раз в 2с.
@@ -37,6 +39,11 @@ struct DeviceStatsView: View {
                     }
                     .padding(.top, 20)
                 } else {
+                    HStack {
+                        Spacer()
+                        Button(L("stats.exportCsv")) { exportCSV() }
+                            .buttonStyle(NeonButtonStyle(accent: CP.textMuted))
+                    }
                     batteryStrip
                     metricChart(
                         title: L("stats.cpu"),
@@ -178,6 +185,27 @@ struct DeviceStatsView: View {
             }
             .cpPanel()
         }
+    }
+
+    private func exportCSV() {
+        let panel = NSSavePanel()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        panel.nameFieldStringValue = "adbshell-stats-\(serial)-\(formatter.string(from: Date())).csv"
+        panel.allowedContentTypes = [.commaSeparatedText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let iso = ISO8601DateFormatter()
+        var csv = "timestamp,cpu_percent,mem_used_percent,mem_used_kb,mem_total_kb,battery_level,battery_temperature_c,charging\n"
+        for point in vm.history {
+            let cpu = point.cpuPercent.map { String($0) } ?? ""
+            let memPercent = point.memUsedPercent.map { String($0) } ?? ""
+            let level = point.batteryLevel.map { String($0) } ?? ""
+            let temp = point.batteryTemperature.map { String($0) } ?? ""
+            csv += "\(iso.string(from: point.timestamp)),\(cpu),\(memPercent),\(point.memUsedKB),\(point.memTotalKB),\(level),\(temp),\(point.isCharging)\n"
+        }
+        try? csv.write(to: url, atomically: true, encoding: .utf8)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     private var memFootnote: String? {
