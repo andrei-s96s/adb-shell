@@ -326,6 +326,22 @@ final class ADBService {
         return parts.joined(separator: " · ")
     }
 
+    // MARK: - Мониторинг
+
+    /// Снимок CPU/памяти/батареи устройства для вкладки "Мониторинг".
+    /// Три независимые shell-команды запускаются параллельно, чтобы не растягивать
+    /// интервал опроса — каждая по отдельности быстрая, но последовательно давали бы заметный лаг.
+    func deviceStats(serial: String) async throws -> DeviceStats {
+        async let cpuResult = run(["shell", "dumpsys", "cpuinfo"], serial: serial)
+        async let memResult = run(["shell", "cat", "/proc/meminfo"], serial: serial)
+        async let batteryResult = run(["shell", "dumpsys", "battery"], serial: serial)
+        return DeviceStatsParser.parse(
+            cpuOutput: try await cpuResult.combined,
+            memOutput: try await memResult.combined,
+            batteryOutput: try await batteryResult.combined
+        )
+    }
+
     // MARK: - Logcat
 
     func makeLogcatSession(serial: String) -> LogcatSession {

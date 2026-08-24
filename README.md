@@ -69,6 +69,8 @@ xattr -cr AdbShell.app
 - mDNS-автообнаружение устройств с беспроводной отладкой в локальной сети
 - Превью скриншота в окне приложения (копировать / сохранить как)
 - Поиск в файловом браузере устройства
+- Вкладка «Мониторинг»: живые графики загрузки CPU и памяти устройства,
+  уровень и температура батареи — опрос каждые 2 секунды
 
 ## Требования
 
@@ -112,16 +114,6 @@ open AdbShell.app
 Genymobile и `aapt2` из Maven-репозитория Google, упаковывает всё в
 `AdbShell.app` с ad-hoc подписью — можно перетащить в `/Applications` и
 запускать двойным кликом.
-
-## Релиз новой версии
-
-1. Обновить `AppVersion.current` в
-   [UpdateService.swift](Sources/AdbShell/Services/UpdateService.swift) и
-   `CFBundleShortVersionString`/`CFBundleVersion` в
-   [Resources/Info.plist](Resources/Info.plist).
-2. Запушить тег `vX.Y.Z` — workflow
-   [release.yml](.github/workflows/release.yml) соберёт `.app`, упакует в
-   `AdbShell-macOS.zip` и опубликует на GitHub Releases.
 
 ## Структура проекта
 

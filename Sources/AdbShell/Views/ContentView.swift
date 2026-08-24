@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case apps, library, files, logcat, shell, macros
+    case apps, library, files, logcat, shell, macros, stats
     var id: String { rawValue }
 
     var title: String {
@@ -12,6 +12,7 @@ enum MainTab: String, CaseIterable, Identifiable {
         case .logcat: return "Logcat"
         case .shell: return "Shell"
         case .macros: return L("tab.macros")
+        case .stats: return L("tab.stats")
         }
     }
 }
@@ -85,6 +86,12 @@ struct ContentView: View {
                     case .macros:
                         if let device = readyDevice {
                             MacroView(serial: device.serial, service: devicesVM.service)
+                        } else {
+                            NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
+                        }
+                    case .stats:
+                        if let device = readyDevice {
+                            DeviceStatsView(serial: device.serial, service: devicesVM.service)
                         } else {
                             NoDeviceView(hasAny: !devicesVM.devices.isEmpty)
                         }
