@@ -227,10 +227,14 @@ struct MacroView: View {
         expandedMacroID = macro.id
         results[macro.id] = []
         Task {
-            await MacroRunner.run(macro, serial: serial, service: service, variables: variables) { stepResult in
+            let completedFully = await MacroRunner.run(macro, serial: serial, service: service, variables: variables) { stepResult in
                 results[macro.id, default: []].append(stepResult)
             }
             runningMacroID = nil
+            NotificationService.notify(
+                title: L("notify.macro.title", macro.name),
+                body: completedFully ? L("notify.macro.done") : L("notify.macro.stopped")
+            )
         }
     }
 }

@@ -75,6 +75,9 @@ final class AppsViewModel: ObservableObject {
         selectedForBatch.removeAll()
         isSelectionMode = false
         await load(serial: serial)
+        if packages.count > 1 {
+            NotificationService.notify(title: L("notify.batchDelete.title"), body: L("notify.batchDelete.body", packages.count))
+        }
     }
 
     /// Устанавливает несколько APK по очереди, публикуя прогресс через callback
@@ -92,6 +95,9 @@ final class AppsViewModel: ObservableObject {
             }
         }
         await load(serial: serial)
+        if urls.count > 1 {
+            NotificationService.notify(title: L("notify.batchInstall.title"), body: L("notify.batchInstall.body", urls.count))
+        }
     }
 
     // MARK: - Наборы приложений (экспорт/импорт с разрешениями)

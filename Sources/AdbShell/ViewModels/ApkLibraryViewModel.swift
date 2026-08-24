@@ -142,6 +142,12 @@ final class ApkLibraryViewModel: ObservableObject {
         } else {
             errorMessage = L("library.install.allDevices.partial", successCount, devices.count) + "\n" + failures.joined(separator: "\n")
         }
+        NotificationService.notify(
+            title: L("notify.installAll.title"),
+            body: failures.isEmpty
+                ? L("library.install.allDevices.success", file.name, successCount)
+                : L("library.install.allDevices.partial", successCount, devices.count)
+        )
     }
 
     func revealInFinder() {

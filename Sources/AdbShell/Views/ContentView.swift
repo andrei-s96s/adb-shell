@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var tab: MainTab = .apps
     @State private var isGlobalDropTargeted = false
     @State private var dropInstallToast: String?
+    @State private var showCommandPalette = false
 
     init() {
         let service = ADBService()
@@ -117,6 +118,22 @@ struct ContentView: View {
         .onDrop(of: [.fileURL], isTargeted: $isGlobalDropTargeted) { providers in
             handleGlobalApkDrop(providers)
             return true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openCommandPalette)) { _ in
+            showCommandPalette = true
+        }
+        .overlay {
+            if showCommandPalette {
+                ZStack {
+                    Color.black.opacity(0.35)
+                        .ignoresSafeArea()
+                        .onTapGesture { showCommandPalette = false }
+                    CommandPaletteView(tab: $tab, devicesVM: devicesVM) {
+                        showCommandPalette = false
+                    }
+                }
+                .onExitCommand { showCommandPalette = false }
+            }
         }
 
         if let toast = dropInstallToast {
