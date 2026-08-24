@@ -8,7 +8,10 @@ import UniformTypeIdentifiers
 /// Шаги могут содержать переменные `${NAME}` (запрашиваются перед запуском)
 /// и остановку на первой ошибке — см. MacroRunner.
 struct MacroView: View {
-    let serial: String
+    /// nil, если нет подключённого и авторизованного устройства — список
+    /// макросов (создание/редактирование/удаление/импорт/экспорт) от этого
+    /// не зависит, это локальные данные на Mac; недоступен только запуск.
+    let serial: String?
     let service: ADBService
 
     @StateObject private var store = MacroStore()
@@ -40,6 +43,17 @@ struct MacroView: View {
             .padding(16)
 
             Rectangle().fill(CP.hairline).frame(height: 1)
+
+            if serial == nil {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                    Text(L("macros.noDevice"))
+                }
+                .font(CP.mono(11))
+                .foregroundColor(CP.textMuted)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+            }
 
             if store.macros.isEmpty {
                 emptyState
@@ -136,7 +150,8 @@ struct MacroView: View {
                 } else {
                     Button(L("macros.run")) { requestRun(macro) }
                         .buttonStyle(NeonButtonStyle(accent: CP.emerald, filled: true))
-                        .disabled(runningMacroID != nil)
+                        .disabled(runningMacroID != nil || serial == nil)
+                        .help(serial == nil ? L("macros.run.needDevice") : "")
                 }
 
                 Menu {
@@ -195,6 +210,7 @@ struct MacroView: View {
     /// Если в макросе есть переменные — сначала спрашивает их значения,
     /// иначе запускает сразу.
     private func requestRun(_ macro: Macro) {
+        guard serial != nil else { return }
         let names = MacroRunner.variableNames(in: macro)
         guard !names.isEmpty else {
             startRun(macro, variables: [:])
@@ -222,7 +238,7 @@ struct MacroView: View {
     }
 
     private func startRun(_ macro: Macro, variables: [String: String]) {
-        guard runningMacroID == nil else { return }
+        guard runningMacroID == nil, let serial else { return }
         runningMacroID = macro.id
         expandedMacroID = macro.id
         results[macro.id] = []
