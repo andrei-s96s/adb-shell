@@ -172,7 +172,7 @@ final class IconService: ObservableObject {
     // новой версии приложения на устройстве картинка обновится не раньше,
     // чем очистится кеш Mac.
 
-    private static var cacheDir: URL {
+    nonisolated private static var cacheDir: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         return base.appendingPathComponent("AdbShell/icons", isDirectory: true)
