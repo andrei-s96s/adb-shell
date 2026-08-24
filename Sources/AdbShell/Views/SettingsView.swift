@@ -8,6 +8,7 @@ struct SettingsView: View {
 
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
     @AppStorage("defaultShowSystemApps") private var defaultShowSystemApps = false
+    @AppStorage(ThemePreference.defaultsKey) private var themePreferenceRaw = ThemePreference.dark.rawValue
     @AppStorage(StatsAlertSettings.enabledKey) private var alertsEnabled = false
     @AppStorage(StatsAlertSettings.cpuThresholdKey) private var cpuThreshold: Double = 90
     @AppStorage(StatsAlertSettings.batteryThresholdKey) private var batteryThreshold: Double = 15
@@ -39,6 +40,19 @@ struct SettingsView: View {
                 Picker("", selection: $loc.language) {
                     ForEach(LocalizationManager.Language.allCases) { lang in
                         Text(lang.label).tag(lang)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            .padding(12)
+            .cpPanel()
+
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: L("settings.theme"), accent: CP.gold)
+                Picker("", selection: $themePreferenceRaw) {
+                    ForEach(ThemePreference.allCases) { theme in
+                        Text(theme.label).tag(theme.rawValue)
                     }
                 }
                 .pickerStyle(.segmented)

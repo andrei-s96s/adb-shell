@@ -3,12 +3,13 @@ import SwiftUI
 @main
 struct AdbShellApp: App {
     @StateObject private var loc = LocalizationManager.shared
+    @AppStorage(ThemePreference.defaultsKey) private var themePreferenceRaw = ThemePreference.dark.rawValue
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(loc)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme((ThemePreference(rawValue: themePreferenceRaw) ?? .dark).colorScheme)
                 .frame(minWidth: 1080, minHeight: 680)
         }
         .windowStyle(.hiddenTitleBar)

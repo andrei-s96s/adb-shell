@@ -260,6 +260,10 @@
 "settings.apps" = "Приложения";
 "settings.showSystemAppsDefault" = "Показывать системные приложения по умолчанию";
 "settings.data" = "Данные";
+"settings.theme" = "Тема";
+"settings.theme.system" = "Системная";
+"settings.theme.light" = "Светлая";
+"settings.theme.dark" = "Тёмная";
 "settings.alerts" = "Пороговые уведомления";
 "settings.alerts.enable" = "Уведомлять при превышении порога";
 "settings.alerts.cpu" = "CPU выше %d%%";
