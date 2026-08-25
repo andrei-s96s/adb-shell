@@ -88,7 +88,9 @@ struct ApkLibraryView: View {
                                 file: file,
                                 isInstalling: vm.installingPath == file.path,
                                 canInstall: serial != nil,
-                                tags: tagStore.tags(for: file.path)
+                                tags: tagStore.tags(for: file.path),
+                                fdroidUpdate: vm.fdroidUpdates[file.path],
+                                isUpdatingFromFDroid: vm.updatingPath == file.path
                             ) {
                                 guard let serial else { return }
                                 Task { await vm.install(file, to: serial, service: service) }
@@ -102,6 +104,8 @@ struct ApkLibraryView: View {
                                 tagStore.addTag(tag, to: file.path)
                             } onRemoveTag: { tag in
                                 tagStore.removeTag(tag, from: file.path)
+                            } onFDroidUpdate: {
+                                Task { await vm.downloadFDroidUpdate(for: file) }
                             }
                         }
                     }
@@ -115,6 +119,9 @@ struct ApkLibraryView: View {
         }
         .id(loc.language)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .task(id: vm.directoryURL) {
+            await vm.checkFDroidUpdatesInBackground()
+        }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             handleDrop(providers)
             return true
@@ -180,12 +187,15 @@ private struct ApkRow: View {
     let isInstalling: Bool
     let canInstall: Bool
     let tags: [String]
+    let fdroidUpdate: FDroidUpdateInfo?
+    let isUpdatingFromFDroid: Bool
     let onInstall: () -> Void
     let onInstallToAll: () -> Void
     let onShowInfo: () -> Void
     let onDelete: () -> Void
     let onAddTag: (String) -> Void
     let onRemoveTag: (String) -> Void
+    let onFDroidUpdate: () -> Void
 
     @State private var showAddTag = false
     @State private var newTag = ""
@@ -201,6 +211,15 @@ private struct ApkRow: View {
                 Text("\(file.sizeString) · \(file.modified.formatted(date: .abbreviated, time: .shortened))")
                     .font(CP.mono(10))
                     .foregroundColor(CP.textMuted)
+                if let fdroidUpdate {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.up.circle.fill").font(.system(size: 9))
+                        Text(L("library.fdroid.badge", fdroidUpdate.latestVersionName ?? "\(fdroidUpdate.latestVersionCode)"))
+                    }
+                    .font(CP.code(9, weight: .semibold))
+                    .foregroundColor(CP.gold)
+                    .help(L("library.fdroid.source"))
+                }
                 HStack(spacing: 4) {
                     ForEach(tags, id: \.self) { tag in
                         HStack(spacing: 3) {
@@ -237,6 +256,21 @@ private struct ApkRow: View {
                 }
             }
             Spacer()
+
+            if let fdroidUpdate {
+                Button {
+                    onFDroidUpdate()
+                } label: {
+                    if isUpdatingFromFDroid {
+                        ProgressView().scaleEffect(0.6).frame(maxWidth: .infinity)
+                    } else {
+                        Text(L("library.fdroid.updateAction"))
+                    }
+                }
+                .buttonStyle(NeonButtonStyle(accent: CP.gold, filled: true))
+                .disabled(isUpdatingFromFDroid)
+                .help(L("library.fdroid.updateAction.help", fdroidUpdate.latestVersionName ?? "\(fdroidUpdate.latestVersionCode)"))
+            }
 
             if isInstalling {
                 ProgressView().scaleEffect(0.6).tint(CP.gold)
