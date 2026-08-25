@@ -146,6 +146,12 @@
 "appDetail.fdroid.openPage" = "F-Droid page";
 "appDetail.fdroid.downloadFailed" = "Couldn't download the APK from F-Droid";
 "appDetail.fdroid.installed" = "Installed F-Droid update v%@";
+"library.fdroid.badge" = "On F-Droid: v%@";
+"library.fdroid.source" = "Source — the official F-Droid catalog (f-droid.org), not a third-party site";
+"library.fdroid.updateAction" = "Update";
+"library.fdroid.updateAction.help" = "Download v%@ from F-Droid and replace the file in the library";
+"library.fdroid.downloadFailed" = "Couldn't download the APK from F-Droid";
+"library.fdroid.updated" = "Library updated to v%@ (F-Droid)";
 "appDetail.permissions" = "Permissions (%d)";
 "appDetail.noPermissions" = "No requested permissions";
 "appDetail.grant" = "Grant";

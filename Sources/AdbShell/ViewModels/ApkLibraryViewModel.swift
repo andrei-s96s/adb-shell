@@ -15,6 +15,12 @@ final class ApkLibraryViewModel: ObservableObject {
     @Published var installingPath: String?
     @Published var lastInstallMessage: String?
     @Published private(set) var directoryURL: URL
+    /// Обновления с F-Droid для файлов библиотеки, ключ — ApkFile.path.
+    /// Только для пользовательских решений: ничего не скачивается и не
+    /// подменяется без явного нажатия кнопки.
+    @Published var fdroidUpdates: [String: FDroidUpdateInfo] = [:]
+    @Published var isCheckingFDroidUpdates = false
+    @Published var updatingPath: String?
 
     private static let defaultsKey = "apkLibraryPath"
 
@@ -48,6 +54,7 @@ final class ApkLibraryViewModel: ObservableObject {
         directoryURL = url
         UserDefaults.standard.set(url.path, forKey: Self.defaultsKey)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        fdroidUpdates.removeAll()
         refresh()
     }
 
@@ -100,6 +107,7 @@ final class ApkLibraryViewModel: ObservableObject {
     func delete(_ file: ApkFile) {
         do {
             try FileManager.default.removeItem(at: file.url)
+            fdroidUpdates.removeValue(forKey: file.path)
             refresh()
         } catch {
             errorMessage = error.localizedDescription
@@ -184,5 +192,69 @@ final class ApkLibraryViewModel: ObservableObject {
 
     func revealInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([directoryURL])
+    }
+
+    /// Читает манифест каждого .apk в библиотеке через вшитый aapt2 (без
+    /// устройства) и сверяет versionCode с каталогом F-Droid. Только
+    /// обнаруживает доступные обновления — ничего не скачивает сама.
+    func checkFDroidUpdatesInBackground() async {
+        guard !isCheckingFDroidUpdates else { return }
+        isCheckingFDroidUpdates = true
+        defer { isCheckingFDroidUpdates = false }
+
+        let currentFiles = files
+        let maxConcurrent = 4
+        await withTaskGroup(of: (String, FDroidUpdateInfo?).self) { group in
+            var iterator = currentFiles.makeIterator()
+            func addNext() {
+                guard let file = iterator.next() else { return }
+                group.addTask {
+                    guard let info = try? await ApkInspectorService.inspect(apkPath: file.path),
+                          let packageName = info.packageName,
+                          let versionCodeString = info.versionCode,
+                          let versionCode = Int(versionCodeString) else {
+                        return (file.path, nil)
+                    }
+                    return (file.path, await FDroidUpdateChecker.checkUpdate(packageName: packageName, installedVersionCode: versionCode))
+                }
+            }
+            for _ in 0..<maxConcurrent { addNext() }
+            while let (path, info) = await group.next() {
+                if let info {
+                    fdroidUpdates[path] = info
+                }
+                addNext()
+            }
+        }
+    }
+
+    /// Скачивает более новую версию с F-Droid в библиотеку и удаляет старый
+    /// файл. Выполняется только по явному нажатию кнопки пользователем —
+    /// никогда автоматически.
+    func downloadFDroidUpdate(for file: ApkFile) async {
+        guard let update = fdroidUpdates[file.path] else { return }
+        updatingPath = file.path
+        defer { updatingPath = nil }
+        do {
+            let (tmpURL, response) = try await URLSession.shared.download(from: update.downloadURL)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                errorMessage = L("library.fdroid.downloadFailed")
+                return
+            }
+            let destName = "\(update.packageName)_\(update.latestVersionCode).apk"
+            let destination = directoryURL.appendingPathComponent(destName)
+            if FileManager.default.fileExists(atPath: destination.path) {
+                try FileManager.default.removeItem(at: destination)
+            }
+            try FileManager.default.moveItem(at: tmpURL, to: destination)
+            if destination.path != file.path {
+                try? FileManager.default.removeItem(at: file.url)
+            }
+            fdroidUpdates.removeValue(forKey: file.path)
+            refresh()
+            lastInstallMessage = L("library.fdroid.updated", update.latestVersionName ?? "\(update.latestVersionCode)")
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
