@@ -101,6 +101,17 @@
 "apps.compareDevices.help" = "Compare the installed package list with another device";
 "apps.importBundle" = "Import bundle…";
 "apps.importBundle.help" = "Install an app bundle with permissions from a .zip";
+"apps.snapshot" = "Snapshot";
+"apps.snapshot.help" = "Snapshot of all apps on the device with permissions — stored locally, move to another device in one click";
+"apps.snapshot.nothingToSnapshot" = "No user apps to snapshot";
+"apps.snapshot.title" = "Device Snapshots";
+"apps.snapshot.explain" = "Captures every user app with its granted permissions at once and saves a .zip locally on this Mac (Application Support/AdbShell/Snapshots) — nothing is ever sent anywhere. Later you can install a snapshot onto any device in one click.";
+"apps.snapshot.takeAction" = "Snapshot all apps";
+"apps.snapshot.empty" = "No snapshots yet";
+"apps.snapshot.rowSubtitle" = "%d apps · %@";
+"apps.snapshot.restoreAction" = "Restore";
+"apps.snapshot.restoreConfirm.title" = "Install %d apps from this snapshot onto this device?";
+"apps.snapshot.deleteConfirm.title" = "Delete this snapshot?";
 "apps.installApk" = "Install APK";
 "apps.installApk.help" = "Install an APK from a file (multiple allowed)";
 "apps.selectedCount" = "Selected: %d";

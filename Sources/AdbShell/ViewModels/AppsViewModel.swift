@@ -181,6 +181,22 @@ final class AppsViewModel: ObservableObject {
         panel.allowedContentTypes = [.zip]
         guard panel.runModal() == .OK, let destinationZip = panel.url else { return }
 
+        let packages = Array(selectedForBatch).sorted()
+        let entryCount = await exportBundle(packages: packages, serial: serial, sourceDeviceModel: nil, destinationZip: destinationZip)
+        if entryCount > 0 {
+            NSWorkspace.shared.activateFileViewerSelecting([destinationZip])
+        }
+        clearSelection()
+    }
+
+    /// Общий движок экспорта: тянет apk + выданные runtime-разрешения для
+    /// каждого пакета из `packages`, пишет manifest.json и zip'ует всё в
+    /// `destinationZip`. Используется и "экспортом выбранных" (диалог
+    /// сохранения, вручную отмеченные пакеты), и снапшотом устройства (без
+    /// диалога, сразу все пользовательские приложения). Возвращает число
+    /// успешно вошедших в архив приложений (0 — ничего не экспортировано).
+    @discardableResult
+    private func exportBundle(packages: [String], serial: String, sourceDeviceModel: String?, destinationZip: URL) async -> Int {
         isBatchWorking = true
         bundleResults = []
         defer { isBatchWorking = false; batchProgressText = nil }
@@ -190,7 +206,6 @@ final class AppsViewModel: ObservableObject {
         try? FileManager.default.createDirectory(at: apksDir, withIntermediateDirectories: true)
 
         var entries: [AppBundleManifest.Entry] = []
-        let packages = Array(selectedForBatch).sorted()
 
         for (idx, pkg) in packages.enumerated() {
             batchProgressText = L("apps.export.progress", idx + 1, packages.count, pkg)
@@ -225,11 +240,11 @@ final class AppsViewModel: ObservableObject {
         guard !entries.isEmpty else {
             errorMessage = L("apps.export.nothingExported")
             try? FileManager.default.removeItem(at: workDir)
-            return
+            return 0
         }
 
         do {
-            let manifest = AppBundleManifest(exportedAt: Date(), sourceDeviceModel: nil, entries: entries)
+            let manifest = AppBundleManifest(exportedAt: Date(), sourceDeviceModel: sourceDeviceModel, entries: entries)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             encoder.dateEncodingStrategy = .iso8601
@@ -240,13 +255,84 @@ final class AppsViewModel: ObservableObject {
                 try FileManager.default.removeItem(at: destinationZip)
             }
             try await ZipUtil.zipContents(of: workDir, to: destinationZip)
-            NSWorkspace.shared.activateFileViewerSelecting([destinationZip])
         } catch {
             errorMessage = error.localizedDescription
+            try? FileManager.default.removeItem(at: workDir)
+            return 0
         }
 
         try? FileManager.default.removeItem(at: workDir)
-        clearSelection()
+        return entries.count
+    }
+
+    // MARK: - Снапшоты устройства (все приложения + разрешения, кэш приложения)
+
+    @Published var snapshots: [DeviceSnapshot] = []
+    @Published var isSnapshotting = false
+
+    /// `~/Library/Application Support/AdbShell/Snapshots` — не Caches, чтобы
+    /// macOS не могла тихо удалить снапшоты под нехватку места: пользователь
+    /// специально их создаёт, потеря должна быть только по его действию.
+    static var snapshotsDirectory: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("AdbShell/Snapshots", isDirectory: true)
+    }
+
+    func loadSnapshots() {
+        let dir = Self.snapshotsDirectory
+        guard let items = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]
+        ) else {
+            snapshots = []
+            return
+        }
+        snapshots = items
+            .filter { $0.pathExtension.lowercased() == "zip" }
+            .compactMap { url -> DeviceSnapshot? in
+                let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                return DeviceSnapshot.parse(url: url, createdAt: modified)
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Снимает снапшот ВСЕХ пользовательских (не системных) приложений
+    /// текущего устройства вместе с выданными runtime-разрешениями и
+    /// сохраняет .zip в локальный кэш приложения сам — без диалога
+    /// сохранения. Восстановить на любом устройстве — restoreSnapshot(_:serial:).
+    func takeSnapshot(serial: String) async {
+        guard !isSnapshotting, !isBatchWorking else { return }
+        let packages = apps.filter { !$0.isSystem }.map(\.packageName)
+        guard !packages.isEmpty else {
+            errorMessage = L("apps.snapshot.nothingToSnapshot")
+            return
+        }
+        isSnapshotting = true
+        defer { isSnapshotting = false }
+
+        let deviceLabel = (try? await service.listDevices())?.first(where: { $0.serial == serial })?.displayName ?? serial
+        let dir = Self.snapshotsDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let destination = dir.appendingPathComponent(DeviceSnapshot.makeFilename(deviceLabel: deviceLabel, appCount: packages.count))
+
+        await exportBundle(packages: packages, serial: serial, sourceDeviceModel: deviceLabel, destinationZip: destination)
+        loadSnapshots()
+    }
+
+    /// Ставит снапшот на устройство: тот же движок, что и importBundle,
+    /// просто источник — файл из локального хранилища снапшотов, а не
+    /// выбранный пользователем через диалог .zip.
+    func restoreSnapshot(_ snapshot: DeviceSnapshot, serial: String) async {
+        await importBundle(from: snapshot.url, serial: serial)
+    }
+
+    func deleteSnapshot(_ snapshot: DeviceSnapshot) {
+        try? FileManager.default.removeItem(at: snapshot.url)
+        loadSnapshots()
+    }
+
+    func revealSnapshotInFinder(_ snapshot: DeviceSnapshot) {
+        NSWorkspace.shared.activateFileViewerSelecting([snapshot.url])
     }
 
     /// Устанавливает набор из .zip (см. exportSelected): каждый apk + выдача
