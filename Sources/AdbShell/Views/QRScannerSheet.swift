@@ -51,10 +51,16 @@ struct QRScannerSheet: View {
             }
 
             if let error = controller.errorMessage {
-                Text(error)
-                    .font(CP.mono(12))
-                    .foregroundColor(CP.crimson)
-                    .frame(width: 360, height: 200)
+                VStack(spacing: 12) {
+                    Text(error)
+                        .font(CP.mono(12))
+                        .foregroundColor(CP.crimson)
+                    if controller.isPermissionDenied {
+                        Button(L("qrscan.openSettings")) { controller.openSystemSettings() }
+                            .buttonStyle(NeonButtonStyle(accent: CP.ice, filled: true))
+                    }
+                }
+                .frame(width: 360, height: 200)
             } else {
                 CameraPreview(session: controller.session)
                     .frame(width: 360, height: 360)

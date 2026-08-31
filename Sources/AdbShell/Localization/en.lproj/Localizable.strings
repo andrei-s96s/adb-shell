@@ -351,7 +351,13 @@
 "qrscan.title" = "Scan QR";
 "qrscan.hint" = "Point the camera at a QR containing text like IP:port — the decoded value fills the connect field. This is not Android's official QR pairing flow (that requires an mDNS protocol handshake, not just text decoding) — it's for QR codes you generated yourself (e.g. a device farm label).";
 "qrscan.noPermission" = "No camera access — allow it in System Settings → Privacy & Security → Camera";
+"qrscan.openSettings" = "Open Camera Settings";
 "qrscan.noCamera" = "No camera found";
+"qrscan.inputError" = "Couldn't connect the camera: %@";
+"qrscan.inputRejected" = "The capture session rejected the camera";
+"qrscan.outputRejected" = "Couldn't set up QR recognition";
+"qrscan.runtimeError" = "Camera error while capturing: %@";
+"qrscan.interrupted" = "Capture was interrupted by the system — e.g. the camera is in use by another app";
 
 "stats.loading" = "Polling device…";
 "stats.cpu" = "CPU";
