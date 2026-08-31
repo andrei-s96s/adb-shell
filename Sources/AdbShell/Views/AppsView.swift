@@ -10,6 +10,9 @@ struct AppsView: View {
     @State private var showInstallPicker = false
     @State private var showBundleImportPicker = false
     @State private var showBatchDeleteConfirm = false
+    @State private var showSnapshotSheet = false
+    @State private var snapshotToDelete: DeviceSnapshot?
+    @State private var snapshotToRestore: DeviceSnapshot?
     @State private var installResults: [InstallResult] = []
     @State private var showInstallResults = false
     @State private var showBundleResults = false
@@ -82,6 +85,16 @@ struct AppsView: View {
                     }
                     .buttonStyle(NeonButtonStyle(accent: CP.rose))
                     .help(L("apps.importBundle.help"))
+
+                    Button {
+                        vm.loadSnapshots()
+                        showSnapshotSheet = true
+                    } label: {
+                        Label(L("apps.snapshot"), systemImage: "camera.aperture")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(NeonButtonStyle(accent: CP.emerald))
+                    .help(L("apps.snapshot.help"))
 
                     Button {
                         showInstallPicker = true
@@ -217,6 +230,49 @@ struct AppsView: View {
         .sheet(isPresented: $showCompareDevices) {
             DeviceCompareSheet(serial: serial, service: service) { showCompareDevices = false }
         }
+        .sheet(isPresented: $showSnapshotSheet) {
+            SnapshotSheet(
+                snapshots: vm.snapshots,
+                isSnapshotting: vm.isSnapshotting,
+                onTakeSnapshot: {
+                    Task {
+                        await vm.takeSnapshot(serial: serial)
+                        if !vm.bundleResults.isEmpty { showBundleResults = true }
+                    }
+                },
+                onRestore: { snapshotToRestore = $0 },
+                onReveal: { vm.revealSnapshotInFinder($0) },
+                onDelete: { snapshotToDelete = $0 },
+                onClose: { showSnapshotSheet = false }
+            )
+        }
+        .confirmationDialog(
+            snapshotToRestore.map { L("apps.snapshot.restoreConfirm.title", $0.appCount) } ?? "",
+            isPresented: Binding(get: { snapshotToRestore != nil }, set: { if !$0 { snapshotToRestore = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button(L("apps.snapshot.restoreAction")) {
+                if let snapshot = snapshotToRestore {
+                    Task {
+                        await vm.restoreSnapshot(snapshot, serial: serial)
+                        if !vm.bundleResults.isEmpty { showBundleResults = true }
+                    }
+                }
+                snapshotToRestore = nil
+            }
+            Button(L("common.cancel"), role: .cancel) { snapshotToRestore = nil }
+        }
+        .confirmationDialog(
+            L("apps.snapshot.deleteConfirm.title"),
+            isPresented: Binding(get: { snapshotToDelete != nil }, set: { if !$0 { snapshotToDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button(L("common.delete"), role: .destructive) {
+                if let snapshot = snapshotToDelete { vm.deleteSnapshot(snapshot) }
+                snapshotToDelete = nil
+            }
+            Button(L("common.cancel"), role: .cancel) { snapshotToDelete = nil }
+        }
     }
 
     @ViewBuilder
@@ -340,6 +396,90 @@ private struct BundleResultsSheet: View {
         }
         .padding(20)
         .frame(width: 380)
+        .background(CP.bg)
+    }
+}
+
+/// Снапшот устройства — снимает сразу ВСЕ пользовательские приложения с
+/// выданными runtime-разрешениями и хранит .zip локально (Application
+/// Support/AdbShell/Snapshots), без диалога сохранения каждый раз. Никуда не
+/// отправляется — только на этом Mac, пока не удалишь сам.
+private struct SnapshotSheet: View {
+    let snapshots: [DeviceSnapshot]
+    let isSnapshotting: Bool
+    let onTakeSnapshot: () -> Void
+    let onRestore: (DeviceSnapshot) -> Void
+    let onReveal: (DeviceSnapshot) -> Void
+    let onDelete: (DeviceSnapshot) -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel(text: L("apps.snapshot.title"), accent: CP.emerald)
+            Text(L("apps.snapshot.explain"))
+                .font(CP.mono(10))
+                .foregroundColor(CP.textMuted)
+
+            Button {
+                onTakeSnapshot()
+            } label: {
+                if isSnapshotting {
+                    ProgressView().scaleEffect(0.6).frame(maxWidth: .infinity)
+                } else {
+                    Text(L("apps.snapshot.takeAction"))
+                }
+            }
+            .buttonStyle(NeonButtonStyle(accent: CP.emerald, filled: true))
+            .disabled(isSnapshotting)
+
+            Rectangle().fill(CP.hairline).frame(height: 1)
+
+            if snapshots.isEmpty {
+                Text(L("apps.snapshot.empty"))
+                    .font(CP.mono(11))
+                    .foregroundColor(CP.textMuted)
+                    .padding(.vertical, 12)
+            } else {
+                ScrollView {
+                    VStack(spacing: 6) {
+                        ForEach(snapshots) { snapshot in
+                            HStack(spacing: 8) {
+                                Image(systemName: "camera.aperture").foregroundColor(CP.emerald)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(snapshot.deviceLabel).font(CP.code(11, weight: .medium)).foregroundColor(CP.textPrimary)
+                                    Text(L("apps.snapshot.rowSubtitle", snapshot.appCount, snapshot.createdAt.formatted(date: .abbreviated, time: .shortened)))
+                                        .font(CP.mono(9)).foregroundColor(CP.textMuted)
+                                }
+                                Spacer()
+                                Button(L("apps.snapshot.restoreAction")) { onRestore(snapshot) }
+                                    .buttonStyle(NeonButtonStyle(accent: CP.ice))
+                                Button {
+                                    onReveal(snapshot)
+                                } label: {
+                                    Image(systemName: "folder").foregroundColor(CP.textMuted)
+                                }
+                                .buttonStyle(.plain)
+                                Button {
+                                    onDelete(snapshot)
+                                } label: {
+                                    Image(systemName: "trash").foregroundColor(CP.crimson)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 260)
+            }
+
+            HStack {
+                Spacer()
+                Button(L("common.close")) { onClose() }
+                    .buttonStyle(NeonButtonStyle(accent: CP.emerald, filled: true))
+            }
+        }
+        .padding(20)
+        .frame(width: 440)
         .background(CP.bg)
     }
 }

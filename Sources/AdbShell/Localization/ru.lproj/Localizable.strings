@@ -101,6 +101,17 @@
 "apps.compareDevices.help" = "Сравнить список установленных пакетов с другим устройством";
 "apps.importBundle" = "Импорт набора…";
 "apps.importBundle.help" = "Установить набор приложений с разрешениями из .zip";
+"apps.snapshot" = "Снапшот";
+"apps.snapshot.help" = "Снимок всех приложений устройства с разрешениями — хранится локально, перенос на другое устройство в один клик";
+"apps.snapshot.nothingToSnapshot" = "Нет ни одного пользовательского приложения для снапшота";
+"apps.snapshot.title" = "Снапшоты устройства";
+"apps.snapshot.explain" = "Снимает сразу все пользовательские приложения с выданными разрешениями и сохраняет .zip локально на этом Mac (Application Support/AdbShell/Snapshots) — никуда не отправляется. Позже можно поставить снапшот на любое устройство одним кликом.";
+"apps.snapshot.takeAction" = "Снять снапшот всех приложений";
+"apps.snapshot.empty" = "Снапшотов пока нет";
+"apps.snapshot.rowSubtitle" = "%d приложений · %@";
+"apps.snapshot.restoreAction" = "Восстановить";
+"apps.snapshot.restoreConfirm.title" = "Поставить %d приложений из снапшота на это устройство?";
+"apps.snapshot.deleteConfirm.title" = "Удалить этот снапшот?";
 "apps.installApk" = "Установить APK";
 "apps.installApk.help" = "Установить APK из файла (можно несколько)";
 "apps.selectedCount" = "Выбрано: %d";
