@@ -13,10 +13,32 @@ final class QRScannerController: NSObject, ObservableObject {
     @Published var scannedText: String?
     @Published var errorMessage: String?
 
-    let session = AVCaptureSession()
+    // lazy — AVCaptureSession() must never be touched as a side effect of
+    // merely constructing this controller. SwiftUI allocates a sheet's
+    // @StateObject synchronously while presenting it, which can still be
+    // nested inside the triggering button's own click-dispatch call stack;
+    // see the comment in start() below for why that matters here.
+    lazy var session = AVCaptureSession()
     private var isConfigured = false
 
+    /// Открытие этого экрана стабильно крашило приложение глубоко внутри
+    /// SwiftUI/Swift Concurrency рантайма (MainActor.assumeIsolated при
+    /// диспетчеризации клика по кнопке) — именно на кнопке, открывающей это
+    /// окно, и только на ней; это единственное место во всём приложении,
+    /// трогающее AVFoundation. SwiftUI, судя по всему, успевает создать
+    /// @StateObject этого шита (а значит и AVCaptureSession) ещё внутри
+    /// того же call stack, что обрабатывает исходный клик — первое
+    /// обращение к камере, вложенное так глубоко, похоже и было триггером.
+    /// DispatchQueue.main.async здесь отдаёт control run loop'у и гарантирует,
+    /// что AVFoundation трогается только из уже завершённого, свежего прохода
+    /// — не как побочный эффект обработки самого клика.
     func start() {
+        DispatchQueue.main.async { [weak self] in
+            self?.startNow()
+        }
+    }
+
+    private func startNow() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             configureIfNeeded()
