@@ -10,7 +10,6 @@ struct DeviceSidebarView: View {
     @State private var renamingDevice: Device?
     @State private var renameText = ""
     @State private var showPairingSheet = false
-    @State private var showQRScanner = false
     @State private var pairingPrefillHost = ""
     @State private var showSettingsSheet = false
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
@@ -117,15 +116,6 @@ struct DeviceSidebarView: View {
                     SectionLabel(text: L("sidebar.connectByIp"), accent: CP.rose)
                     Spacer()
                     Button {
-                        showQRScanner = true
-                    } label: {
-                        Image(systemName: "camera.viewfinder")
-                            .font(.system(size: 11))
-                            .foregroundColor(CP.textMuted)
-                    }
-                    .buttonStyle(.plain)
-                    .help(L("sidebar.qrScan.help"))
-                    Button {
                         showPairingSheet = true
                     } label: {
                         Image(systemName: "qrcode")
@@ -222,13 +212,6 @@ struct DeviceSidebarView: View {
         }
         .sheet(isPresented: $showSettingsSheet) {
             SettingsView { showSettingsSheet = false }
-        }
-        .sheet(isPresented: $showQRScanner) {
-            QRScannerSheet { text in
-                vm.connectHost = text
-            } onClose: {
-                showQRScanner = false
-            }
         }
         .alert(
             L("sidebar.rename.title"),

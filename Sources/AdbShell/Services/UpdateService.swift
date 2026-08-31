@@ -5,7 +5,7 @@ import AppKit
 
 /// Текущая версия приложения — держать в паре с CFBundleShortVersionString в Resources/Info.plist.
 enum AppVersion {
-    static let current = "2.4.2"
+    static let current = "2.5.0"
 }
 
 private struct GitHubRelease: Decodable {
