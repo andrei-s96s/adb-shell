@@ -33,14 +33,12 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
-      # Build+test in one shell invocation (not separate steps) — CI hit a
-      # spurious "Cannot find module dist/test" on macos-latest when the
-      # build and the test run were separate steps, immediately after a
-      # Build step that had already printed its success output. Could not
-      # reproduce locally (fresh clone, repeated runs) even matching the
-      # exact commit — looked like a step-boundary/filesystem-timing quirk
-      # on the hosted runner rather than a real build bug. `npm test` does
-      # the same "build && node --test dist/test" as a single process, so
-      # there is no step boundary left for that race to occur across.
+      # `npm test` runs build+test as one shell invocation (see
+      # package.json) — it also passes node --test an explicit
+      # dist/test/*.test.js glob rather than the bare dist/test directory,
+      # after CI hit "Cannot find module dist/test" on macos-latest with
+      # Node 22 that never reproduced locally on Node 26. Passing an
+      # explicit file list sidesteps whatever Node-version difference in
+      # directory-argument resolution caused that.
       - name: Build and test
         run: npm test
