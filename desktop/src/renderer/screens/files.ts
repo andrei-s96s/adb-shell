@@ -35,7 +35,11 @@ export function initFilesScreen(): void {
 
   onDeviceChanged((serial) => {
     listEl.innerHTML = '';
-    if (serial) void refresh();
+    if (serial) {
+      void refresh();
+    } else {
+      statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    }
   });
 }
 

@@ -154,10 +154,6 @@ button:hover {
   min-height: 0;
 }
 
-#no-device-hint.placeholder {
-  margin: 24px;
-}
-
 .placeholder {
   color: var(--cp-text-muted);
 }
@@ -231,6 +227,16 @@ button:hover {
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
+}
+
+/* Специфичность (.toolbar input.input-narrow) намеренно выше, чем у
+   ".toolbar input" выше — иначе flex:1 оттуда растянет поле снова. Раньше
+   это делалось через inline style="width: 80px" в разметке — CSP style-src
+   без 'unsafe-inline' тихо блокирует такие статичные атрибуты (проверено
+   вживую: getComputedStyle возвращал "auto" вместо заданной ширины). */
+.toolbar input.input-narrow {
+  flex: none;
+  width: 80px;
 }
 
 .checkbox-label {

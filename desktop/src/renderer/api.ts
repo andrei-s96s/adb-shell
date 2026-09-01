@@ -107,6 +107,7 @@ export interface AdbApi {
   setEnabled(serial: string, packageName: string, enabled: boolean): Promise<void>;
   grantPermission(serial: string, packageName: string, permission: string): Promise<void>;
   revokePermission(serial: string, packageName: string, permission: string): Promise<void>;
+  selectApkFile(): Promise<string | undefined>;
 
   listDirectory(serial: string, dirPath: string): Promise<RemoteFile[]>;
   makeDirectory(serial: string, dirPath: string): Promise<void>;

@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('adb:grantPermission', serial, packageName, permission),
   revokePermission: (serial: string, packageName: string, permission: string) =>
     ipcRenderer.invoke('adb:revokePermission', serial, packageName, permission),
+  selectApkFile: (): Promise<string | undefined> => ipcRenderer.invoke('dialog:selectApk'),
 
   // Файлы устройства
   listDirectory: (serial: string, dirPath: string) => ipcRenderer.invoke('adb:listDirectory', serial, dirPath),

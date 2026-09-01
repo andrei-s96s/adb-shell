@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, dialog } from 'electron';
 import * as path from 'node:path';
 import { AdbService } from './adb/AdbService';
 import { LogcatSession } from './adb/LogcatSession';
@@ -45,6 +45,22 @@ function registerIpcHandlers(): void {
   ipcMain.handle('adb:revokePermission', (_e, serial: string, packageName: string, permission: string) =>
     adb.revokePermission(serial, packageName, permission)
   );
+  // AdbService.install() существовал и был проброшен через IPC, но нигде в
+  // renderer не было способа выбрать локальный файл для установки — кнопка
+  // без диалога выбора файла бесполезна. Диалог обязан открываться из main
+  // (renderer в sandboxed contextIsolation-режиме доступа к нативным
+  // диалогам не имеет).
+  ipcMain.handle('dialog:selectApk', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Выберите APK',
+      properties: ['openFile' as const],
+      filters: [{ name: 'Android package', extensions: ['apk'] }],
+    };
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) return undefined;
+    return result.filePaths[0];
+  });
 
   // Файлы устройства
   ipcMain.handle('adb:listDirectory', (_e, serial: string, dirPath: string) => adb.listDirectory(serial, dirPath));

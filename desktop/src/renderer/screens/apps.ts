@@ -19,14 +19,37 @@ export function initAppsScreen(): void {
 
   searchEl.addEventListener('input', renderList);
   showSystemEl.addEventListener('change', renderList);
+  el<HTMLButtonElement>('apps-install').addEventListener('click', () => void installApk());
 
   onDeviceChanged((serial) => {
     selectedPackage = undefined;
     apps = [];
     renderList();
     renderDetail();
-    if (serial) void loadApps(serial);
+    if (serial) {
+      void loadApps(serial);
+    } else {
+      statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    }
   });
+}
+
+async function installApk(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial) {
+    statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    return;
+  }
+  const apkPath = await adbApi.selectApkFile();
+  if (!apkPath) return;
+  statusEl.textContent = `Установка ${apkPath}…`;
+  try {
+    await adbApi.install(serial, apkPath);
+    statusEl.textContent = 'Установлено';
+    await loadApps(serial);
+  } catch (error) {
+    statusEl.textContent = `Ошибка установки: ${errorMessage(error)}`;
+  }
 }
 
 async function loadApps(serial: string): Promise<void> {
@@ -66,7 +89,11 @@ async function loadDetail(serial: string, packageName: string): Promise<void> {
     const detail = await adbApi.appDetail(serial, packageName);
     renderDetail(detail, serial);
   } catch (error) {
-    detailEl.innerHTML = `<p class="error">Ошибка: ${errorMessage(error)}</p>`;
+    detailEl.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'error';
+    p.textContent = `Ошибка: ${errorMessage(error)}`;
+    detailEl.appendChild(p);
   }
 }
 
@@ -80,12 +107,26 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
 
   const header = document.createElement('div');
   header.className = 'detail-header';
-  header.innerHTML = `
-    <h2>${detail.packageName}</h2>
-    <div class="hint">версия ${detail.versionName ?? '—'} (${detail.versionCode ?? '—'}) · target SDK ${detail.targetSdk ?? '—'}</div>
-    <div class="hint">путь: ${detail.apkPath ?? '—'}</div>
-    <div class="hint">установлено: ${detail.firstInstallTime ?? '—'} · обновлено: ${detail.lastUpdateTime ?? '—'}</div>
-  `;
+
+  const title = document.createElement('h2');
+  title.textContent = detail.packageName;
+  header.appendChild(title);
+
+  const versionLine = document.createElement('div');
+  versionLine.className = 'hint';
+  versionLine.textContent = `версия ${detail.versionName ?? '—'} (${detail.versionCode ?? '—'}) · target SDK ${detail.targetSdk ?? '—'}`;
+  header.appendChild(versionLine);
+
+  const pathLine = document.createElement('div');
+  pathLine.className = 'hint';
+  pathLine.textContent = `путь: ${detail.apkPath ?? '—'}`;
+  header.appendChild(pathLine);
+
+  const datesLine = document.createElement('div');
+  datesLine.className = 'hint';
+  datesLine.textContent = `установлено: ${detail.firstInstallTime ?? '—'} · обновлено: ${detail.lastUpdateTime ?? '—'}`;
+  header.appendChild(datesLine);
+
   detailEl.appendChild(header);
 
   const actions = document.createElement('div');

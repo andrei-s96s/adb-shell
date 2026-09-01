@@ -15,8 +15,11 @@ export function initShellScreen(): void {
     if (event.key === 'Enter') void runCommand();
   });
 
-  onDeviceChanged(() => {
+  onDeviceChanged((serial) => {
     logEl.innerHTML = '';
+    if (!serial) {
+      appendLine('Нет подключённого устройства — выберите устройство слева', 'shell-out');
+    }
   });
 }
 

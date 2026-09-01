@@ -44,10 +44,12 @@ export function initLogcatScreen(): void {
     renderLog();
   });
 
-  onDeviceChanged(() => {
+  onDeviceChanged((serial) => {
     void stop();
     allLines = [];
     renderLog();
+    statusEl.textContent = serial ? '' : 'Нет подключённого устройства — выберите устройство слева';
+    updateButtons();
   });
 
   updateButtons();
@@ -93,7 +95,7 @@ async function clearBuffer(): Promise<void> {
 }
 
 function updateButtons(): void {
-  startBtn.disabled = isRunning;
+  startBtn.disabled = isRunning || !getCurrentSerial();
   stopBtn.disabled = !isRunning;
 }
 

@@ -17,10 +17,18 @@
           <input id="connect-host" placeholder="192.168.1.50:5555" />
           <button id="connect-btn" type="button">Подключить</button>
         </div>
+        <div class="hint section-title">Сопряжение по коду (Android 11+)</div>
+        <div class="connect-row">
+          <input id="pair-host" placeholder="192.168.1.50:37831" />
+        </div>
+        <div class="connect-row">
+          <input id="pair-code" placeholder="123456" />
+          <button id="pair-btn" type="button">Сопрячь</button>
+        </div>
         <div id="status"></div>
       </aside>
 
-      <main id="content" style="display: none">
+      <main id="content">
         <div id="tabs">
           <button data-tab="apps" type="button">Приложения</button>
           <button data-tab="files" type="button">Файлы</button>
@@ -36,6 +44,7 @@
               <div class="toolbar">
                 <input id="apps-search" placeholder="Поиск по package name…" />
                 <label class="checkbox-label"><input id="apps-show-system" type="checkbox" /> системные</label>
+                <button id="apps-install" type="button">Установить APK…</button>
               </div>
               <div id="apps-status" class="hint"></div>
               <ul id="apps-list" class="scroll-list"></ul>
@@ -71,7 +80,7 @@
               <h3>Wi-Fi отладка</h3>
               <p class="hint">Переключает устройство в сетевой режим (adb tcpip) — после этого можно отключить USB.</p>
               <div class="toolbar">
-                <input id="wireless-port" value="5555" style="width: 80px" />
+                <input id="wireless-port" value="5555" class="input-narrow" />
                 <button id="wireless-enable" type="button">Включить</button>
               </div>
               <div id="wireless-status" class="hint"></div>
@@ -151,8 +160,6 @@
           <div id="logcat-log" class="logcat-log"></div>
         </section>
       </main>
-
-      <p id="no-device-hint" class="placeholder">Выберите устройство слева</p>
     </div>
     <script src="error-handler.js"></script>
     <script type="module" src="renderer.js"></script>

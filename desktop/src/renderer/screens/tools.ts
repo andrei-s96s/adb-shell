@@ -80,7 +80,9 @@ async function refreshPortForwarding(serial: string): Promise<void> {
   for (const rule of forwards) {
     const li = document.createElement('li');
     li.className = 'row';
-    li.innerHTML = `<span>${rule.hostSpec} → ${rule.deviceSpec}</span>`;
+    const label = document.createElement('span');
+    label.textContent = `${rule.hostSpec} → ${rule.deviceSpec}`;
+    li.appendChild(label);
     const del = document.createElement('button');
     del.textContent = '✕';
     del.addEventListener('click', () =>
@@ -97,7 +99,9 @@ async function refreshPortForwarding(serial: string): Promise<void> {
   for (const rule of reverses) {
     const li = document.createElement('li');
     li.className = 'row';
-    li.innerHTML = `<span>${rule.deviceSpec} → ${rule.hostSpec}</span>`;
+    const label = document.createElement('span');
+    label.textContent = `${rule.deviceSpec} → ${rule.hostSpec}`;
+    li.appendChild(label);
     const del = document.createElement('button');
     del.textContent = '✕';
     del.addEventListener('click', () =>
@@ -136,7 +140,14 @@ function renderProps(): void {
   for (const prop of filtered) {
     const row = document.createElement('div');
     row.className = 'prop-row';
-    row.innerHTML = `<span class="prop-key">${prop.key}</span><span class="prop-value">${prop.value || '—'}</span>`;
+    const keyEl = document.createElement('span');
+    keyEl.className = 'prop-key';
+    keyEl.textContent = prop.key;
+    const valueEl = document.createElement('span');
+    valueEl.className = 'prop-value';
+    valueEl.textContent = prop.value || '—';
+    row.appendChild(keyEl);
+    row.appendChild(valueEl);
     propsListEl.appendChild(row);
   }
 }
@@ -149,8 +160,9 @@ export function initToolsScreen(): void {
   initDeviceProperties();
 
   onDeviceChanged((serial) => {
-    wirelessStatusEl.textContent = '';
-    portForwardStatusEl.textContent = '';
+    const hint = serial ? '' : 'Нет подключённого устройства';
+    wirelessStatusEl.textContent = hint;
+    portForwardStatusEl.textContent = hint;
     forwardListEl.innerHTML = '';
     reverseListEl.innerHTML = '';
     allProps = [];

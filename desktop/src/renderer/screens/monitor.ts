@@ -31,7 +31,11 @@ export function initMonitorScreen(): void {
     memValueEl.textContent = '—';
     batteryValueEl.textContent = '—';
     processListEl.innerHTML = '';
-    if (serial) startPolling(serial);
+    if (serial) {
+      startPolling(serial);
+    } else {
+      statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    }
   });
 }
 
@@ -103,7 +107,9 @@ function renderProcesses(processes: RunningProcess[], serial: string): void {
     const li = document.createElement('li');
     li.className = 'row';
     const rssLabel = proc.rssKB !== undefined ? `${(proc.rssKB / 1024).toFixed(1)} MB` : '—';
-    li.innerHTML = `<span>${proc.pid} · ${proc.user} · ${rssLabel} · ${proc.name}</span>`;
+    const label = document.createElement('span');
+    label.textContent = `${proc.pid} · ${proc.user} · ${rssLabel} · ${proc.name}`;
+    li.appendChild(label);
     const killBtn = document.createElement('button');
     killBtn.textContent = 'Kill';
     killBtn.addEventListener('click', () => {
