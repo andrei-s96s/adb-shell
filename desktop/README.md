@@ -5,9 +5,12 @@ TypeScript/Electron проект внутри этого же репозитор
 Swift-кодом в `../Sources/`. См. **[PLAN.md](PLAN.md)** — статус по фазам и
 обоснование решений.
 
-Сейчас (Фаза 1, начало): рабочий каркас — реальное Electron-окно, список
-устройств через `adb devices -l`, подключение по IP. Остальные экраны ещё
-не перенесены.
+Сейчас: устройства (список, подключение по IP), приложения (список,
+детали, runtime-разрешения, force-stop/очистка данных/enable-disable/
+удаление), файловый браузер устройства, Shell-раннер, Wi-Fi ADB, проброс
+портов, свойства устройства с поиском. Ещё не перенесено: макросы,
+мониторинг, Logcat, зеркалирование экрана, снапшоты, F-Droid обновления,
+упаковка под Windows/автообновление — см. **[PLAN.md](PLAN.md)**.
 
 ## Запуск в разработке
 
@@ -40,10 +43,29 @@ desktop/
         types/
     renderer/
       index.html
-      renderer.ts     — рендерер, без фреймворка пока (см. PLAN.md)
+      error-handler.js — classic-скрипт, ловит ошибки загрузки модулей
+                          в DOM (CSP не пускает инлайн-скрипты в index.html)
+      api.ts          — типизированная обёртка над window.adbApi + свои
+                          копии типов (не импортируются из main/ — иначе
+                          отдельный tsconfig.renderer.json с ES-модулями
+                          пере-эмитит файл main/commonjs поверх самого себя)
+      state.ts        — текущее выбранное устройство + подписка на смену
+      tabs.ts         — переключение вкладок
+      renderer.ts     — точка входа, список устройств, без фреймворка
+                          пока (см. PLAN.md)
+      screens/        — apps.ts, files.ts, shellScreen.ts, tools.ts —
+                          по одному модулю на вкладку
       styles/theme.css — палитра портирована из Design/Theme.swift (CP.*)
     test/             — юнит-тесты (node --test)
 ```
+
+Два tsconfig — `tsconfig.json` (main, CommonJS) и `tsconfig.renderer.json`
+(renderer, ES-модули, т.к. renderer.js грузится как `<script type="module">`
+— без этого повторная загрузка скрипта кидала "Identifier already
+declared"). Относительные импорты внутри renderer обязаны писаться с
+явным `.js` (`from './api.js'`, не `from './api'`) — нативный ESM в
+браузере не резолвит расширения сам, а `moduleResolution: "bundler"` в
+tsconfig их и не добавляет.
 
 ## Почему Electron
 

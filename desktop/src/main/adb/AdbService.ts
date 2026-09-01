@@ -14,6 +14,11 @@ import { DeviceProperty, parseGetprop } from './parsers/GetpropParser';
 import { PortForwardRule } from './types/PortForwardRule';
 import { parseForwardList, parseReverseList } from './parsers/PortForwardParser';
 import { parseDeviceIP } from './parsers/IpRouteParser';
+import { AppDetail, InstalledApp } from './types/AppInfo';
+import { mergeApps } from './parsers/AppListParser';
+import { parseAppDetail } from './parsers/DumpsysParser';
+import { RemoteFile } from './types/RemoteFile';
+import { parseRemoteFiles } from './parsers/RemoteFileParser';
 
 export class AdbCommandError extends Error {}
 
@@ -149,5 +154,103 @@ export class AdbService {
   async allProperties(serial: string): Promise<DeviceProperty[]> {
     const result = await this.run(['shell', 'getprop'], { serial });
     return parseGetprop(result.stdout);
+  }
+
+  // MARK: Приложения
+
+  async listApps(serial: string): Promise<InstalledApp[]> {
+    const [all, user, disabled] = await Promise.all([
+      this.run(['shell', 'pm', 'list', 'packages'], { serial }),
+      this.run(['shell', 'pm', 'list', 'packages', '-3'], { serial }),
+      this.run(['shell', 'pm', 'list', 'packages', '-d'], { serial }),
+    ]);
+    return mergeApps(all.stdout, user.stdout, disabled.stdout);
+  }
+
+  async appDetail(serial: string, packageName: string): Promise<AppDetail> {
+    const result = await this.run(['shell', 'dumpsys', 'package', packageName], { serial });
+    return parseAppDetail(packageName, result.stdout);
+  }
+
+  async install(serial: string, apkPath: string): Promise<string> {
+    const result = await this.run(['install', '-r', '-g', apkPath], { serial, timeoutMs: 120_000 });
+    const combined = combinedOutput(result);
+    if (result.exitCode !== 0 || combined.includes('Failure')) {
+      throw new AdbCommandError(combined);
+    }
+    return combined;
+  }
+
+  async uninstall(serial: string, packageName: string): Promise<void> {
+    const result = await this.run(['uninstall', packageName], { serial });
+    const combined = combinedOutput(result);
+    if (result.exitCode !== 0 || combined.includes('Failure')) {
+      throw new AdbCommandError(combined);
+    }
+  }
+
+  async forceStop(serial: string, packageName: string): Promise<void> {
+    await this.run(['shell', 'am', 'force-stop', packageName], { serial });
+  }
+
+  async clearData(serial: string, packageName: string): Promise<void> {
+    const result = await this.run(['shell', 'pm', 'clear', packageName], { serial });
+    if (result.stdout.includes('Failed')) {
+      throw new AdbCommandError(combinedOutput(result));
+    }
+  }
+
+  async setEnabled(serial: string, packageName: string, enabled: boolean): Promise<void> {
+    const subcommand = enabled ? 'enable' : 'disable-user';
+    const args = ['shell', 'pm', subcommand];
+    if (!enabled) args.push('--user', '0');
+    args.push(packageName);
+    const result = await this.run(args, { serial });
+    if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
+  }
+
+  async grantPermission(serial: string, packageName: string, permission: string): Promise<void> {
+    const result = await this.run(['shell', 'pm', 'grant', packageName, permission], { serial });
+    if (result.exitCode !== 0 || result.stderr.length > 0) {
+      throw new AdbCommandError(combinedOutput(result));
+    }
+  }
+
+  async revokePermission(serial: string, packageName: string, permission: string): Promise<void> {
+    const result = await this.run(['shell', 'pm', 'revoke', packageName, permission], { serial });
+    if (result.exitCode !== 0 || result.stderr.length > 0) {
+      throw new AdbCommandError(combinedOutput(result));
+    }
+  }
+
+  // MARK: Файлы устройства
+
+  async listDirectory(serial: string, dirPath: string): Promise<RemoteFile[]> {
+    const result = await this.run(['shell', 'ls', '-la', dirPath], { serial });
+    if (result.stdout.length === 0 && result.stderr.length > 0) {
+      throw new AdbCommandError(result.stderr);
+    }
+    return parseRemoteFiles(result.stdout, dirPath);
+  }
+
+  async push(serial: string, localPath: string, remotePath: string): Promise<void> {
+    const result = await this.run(['push', localPath, remotePath], { serial, timeoutMs: 300_000 });
+    if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
+  }
+
+  async pull(serial: string, remotePath: string, localPath: string): Promise<void> {
+    const result = await this.run(['pull', remotePath, localPath], { serial, timeoutMs: 300_000 });
+    if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
+  }
+
+  async makeDirectory(serial: string, dirPath: string): Promise<void> {
+    const result = await this.run(['shell', 'mkdir', '-p', dirPath], { serial });
+    if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
+  }
+
+  async removeRemote(serial: string, targetPath: string, recursive: boolean): Promise<void> {
+    const args = ['shell', 'rm', recursive ? '-rf' : '-f', targetPath];
+    const result = await this.run(args, { serial });
+    if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
   }
 }

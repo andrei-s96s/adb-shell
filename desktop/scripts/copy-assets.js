@@ -19,5 +19,6 @@ function copyRecursive(src, dest) {
 
 const root = path.join(__dirname, '..');
 copyRecursive(path.join(root, 'src/renderer/index.html'), path.join(root, 'dist/renderer/index.html'));
+copyRecursive(path.join(root, 'src/renderer/error-handler.js'), path.join(root, 'dist/renderer/error-handler.js'));
 copyRecursive(path.join(root, 'src/renderer/styles'), path.join(root, 'dist/renderer/styles'));
 console.log('Скопированы статические файлы рендерера в dist/renderer');
