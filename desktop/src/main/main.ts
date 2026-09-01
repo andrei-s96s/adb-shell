@@ -1,8 +1,10 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron';
 import * as path from 'node:path';
 import { AdbService } from './adb/AdbService';
+import { LogcatSession } from './adb/LogcatSession';
 
 const adb = new AdbService();
+const logcatSessions = new Map<string, LogcatSession>();
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -74,6 +76,34 @@ function registerIpcHandlers(): void {
 
   // Свойства устройства
   ipcMain.handle('adb:allProperties', (_e, serial: string) => adb.allProperties(serial));
+
+  // Мониторинг
+  ipcMain.handle('adb:deviceStats', (_e, serial: string) => adb.deviceStats(serial));
+  ipcMain.handle('adb:runningProcesses', (_e, serial: string) => adb.runningProcesses(serial));
+  ipcMain.handle('adb:killProcess', (_e, serial: string, pid: number) => adb.killProcess(serial, pid));
+
+  // Logcat — живой стрим, строки уходят в renderer как события 'logcat:line',
+  // а не через ответ на invoke (сессия долгоживущая, невозможно вернуть
+  // одно значение).
+  ipcMain.handle('adb:startLogcat', (event: IpcMainInvokeEvent, serial: string) => {
+    logcatSessions.get(serial)?.stop();
+    const session = new LogcatSession(adb.adbPath, serial);
+    logcatSessions.set(serial, session);
+    session.start((line) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('logcat:line', serial, line);
+      }
+    });
+  });
+  ipcMain.handle('adb:stopLogcat', (_e, serial: string) => {
+    logcatSessions.get(serial)?.stop();
+    logcatSessions.delete(serial);
+  });
+  ipcMain.handle('adb:clearLogcatBuffer', (_e, serial: string) => {
+    // Работает и без активного стрима — просто спавнит `adb logcat -c` разово.
+    const session = logcatSessions.get(serial) ?? new LogcatSession(adb.adbPath, serial);
+    session.clearDeviceBuffer();
+  });
 }
 
 app.whenReady().then(() => {
@@ -87,4 +117,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  for (const session of logcatSessions.values()) session.stop();
+  logcatSessions.clear();
 });
