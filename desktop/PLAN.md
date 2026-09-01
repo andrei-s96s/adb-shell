@@ -41,10 +41,11 @@ Discord, Figma Desktop; не самый современный из рассмо
       macOS), иконки, `adb.exe` + DLL вшиты в Windows-сборку через
       vendor/win/ + win.extraResources. Самообновление (electron-updater)
       пока не подключено — не начато
-- [ ] Фаза 7 — CI на паковку/релиз по тегу (сейчас desktop-build.yml
-      собирает, тестирует и паковкует на каждый push, но релизных
-      артефактов в GitHub Releases не публикует — только build artifacts
-      самого workflow)
+- [x] Фаза 7 — desktop-release.yml публикует настоящий GitHub Release по
+      тегу `desktop-v*.*.*` (отдельный неймспейс от `v*.*.*` Swift-версии).
+      Проверено вживую: тег `desktop-v0.2.0` → реальный релиз с
+      `ADB Shell Setup 0.2.0.exe` (83 МБ, NSIS) и `ADB Shell-0.2.0-arm64-
+      mac.zip` (99 МБ) — https://github.com/andrei-s96s/adb-shell/releases/tag/desktop-v0.2.0
 
 Проверено вручную через Chrome DevTools Protocol (не только `node --test`
 для чистой логики, но и реальный запуск Electron + проверка живого DOM) —
