@@ -13,6 +13,11 @@
 Бесплатно, без рекламы и без сбора данных. Если приложение полезно —
 [поддержите проект донатом](https://andrei-s96s.github.io/adb-shell/) в USDT (BEP20).
 
+> В этом же репозитории, в [`desktop/`](desktop/), идёт независимая
+> Electron-версия для Windows (со временем — общая кроссплатформенная замена
+> этой Swift-версии). Не пересекается с кодом ниже — см.
+> [desktop/PLAN.md](desktop/PLAN.md).
+
 <p align="center">
   <img src="docs/screenshots/apps-light.png" width="49%" alt="ADB Shell — светлая тема">
   <img src="docs/screenshots/apps-dark.png" width="49%" alt="ADB Shell — тёмная тема">
