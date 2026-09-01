@@ -96,6 +96,11 @@ body {
   border-radius: 6px;
   background: var(--cp-bg-panel-alt);
   font-size: 12px;
+  cursor: pointer;
+}
+
+#device-list li.selected {
+  outline: 1px solid var(--cp-gold);
 }
 
 #device-list li.empty {
@@ -143,9 +148,263 @@ button:hover {
 
 #content {
   flex: 1;
-  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+#no-device-hint.placeholder {
+  margin: 24px;
 }
 
 .placeholder {
   color: var(--cp-text-muted);
+}
+
+.error {
+  color: var(--cp-crimson);
+}
+
+/* Вкладки */
+
+#tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px 0;
+  border-bottom: 1px solid var(--cp-hairline);
+  flex-shrink: 0;
+}
+
+#tabs button {
+  background: none;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  padding: 8px 14px;
+  color: var(--cp-text-muted);
+}
+
+#tabs button.active {
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-gold);
+}
+
+.tab-panel {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.tab-panel.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Общие элементы */
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.toolbar input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  white-space: nowrap;
+}
+
+.scroll-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scroll-list.small {
+  max-height: 120px;
+  flex: none;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--cp-bg-panel-alt);
+  font-size: 12px;
+}
+
+.row.selected {
+  outline: 1px solid var(--cp-gold);
+}
+
+.row button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.hint.section-title {
+  margin-top: 10px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Приложения */
+
+.panel-split {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel-left {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-right {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.detail-header h2 {
+  font-size: 14px;
+  margin: 0 0 6px;
+  color: var(--cp-gold);
+}
+
+.actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.perms-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.badge {
+  font-size: 10px;
+  color: var(--cp-text-muted);
+}
+
+/* Shell */
+
+.shell-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--cp-bg-panel-alt);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.shell-log pre {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.shell-cmd {
+  color: var(--cp-gold);
+}
+
+.shell-err {
+  color: var(--cp-crimson);
+}
+
+/* Инструменты */
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tool-card {
+  background: var(--cp-bg-panel);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.tool-card.wide {
+  grid-column: 1 / -1;
+}
+
+.tool-card h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--cp-ice);
+}
+
+.props-list {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prop-row {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.prop-row:hover {
+  background: var(--cp-bg-panel-alt);
+}
+
+.prop-key {
+  color: var(--cp-ice);
+  flex-shrink: 0;
+  min-width: 260px;
+}
+
+.prop-value {
+  color: var(--cp-text-primary);
+  word-break: break-all;
 }

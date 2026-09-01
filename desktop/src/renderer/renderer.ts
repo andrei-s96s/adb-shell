@@ -1,49 +1,61 @@
-// Простой DOM-скрипт без фреймворка (см. PLAN.md — React и т.п. добавим,
-// когда экран реально разрастётся). Загружается как обычный <script>, а не
-// как модуль — поэтому никаких import/export здесь: window.adbApi доступен
-// как ambient-глобал через contextBridge (preload.ts).
+import { adbApi, el, errorMessage } from './api.js';
+import type { Device } from './api.js';
+import { setCurrentSerial, getCurrentSerial } from './state.js';
+import { initTabs } from './tabs.js';
+import { initAppsScreen } from './screens/apps.js';
+import { initFilesScreen } from './screens/files.js';
+import { initShellScreen } from './screens/shellScreen.js';
+import { initToolsScreen } from './screens/tools.js';
 
-interface DeviceSummary {
-  serial: string;
-  state: string;
-  model?: string;
-}
+const deviceListEl = el<HTMLUListElement>('device-list');
+const statusEl = el<HTMLDivElement>('status');
+const refreshBtn = el<HTMLButtonElement>('refresh-btn');
+const connectBtn = el<HTMLButtonElement>('connect-btn');
+const connectHostInput = el<HTMLInputElement>('connect-host');
+const contentEl = el<HTMLDivElement>('content');
+const noDeviceHintEl = el<HTMLParagraphElement>('no-device-hint');
 
-const adbApi = (window as unknown as {
-  adbApi: {
-    listDevices(): Promise<DeviceSummary[]>;
-    connect(host: string): Promise<string>;
-    shell(serial: string, command: string): Promise<string>;
-  };
-}).adbApi;
-
-const deviceListEl = document.getElementById('device-list') as HTMLUListElement;
-const statusEl = document.getElementById('status') as HTMLDivElement;
-const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
-const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
-const connectHostInput = document.getElementById('connect-host') as HTMLInputElement;
+let devices: Device[] = [];
 
 async function refreshDevices(): Promise<void> {
   statusEl.textContent = 'Обновление…';
   try {
-    const devices = await adbApi.listDevices();
-    deviceListEl.innerHTML = '';
-    if (devices.length === 0) {
-      const li = document.createElement('li');
-      li.className = 'empty';
-      li.textContent = 'Нет подключённых устройств';
-      deviceListEl.appendChild(li);
-    } else {
-      for (const device of devices) {
-        const li = document.createElement('li');
-        li.textContent = `${device.model ?? device.serial} — ${device.state}`;
-        deviceListEl.appendChild(li);
-      }
-    }
+    devices = await adbApi.listDevices();
+    renderDeviceList();
     statusEl.textContent = '';
+
+    const current = getCurrentSerial();
+    if (current && !devices.some((d) => d.serial === current)) {
+      selectDevice(undefined);
+    }
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${(error as Error).message}`;
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
+}
+
+function renderDeviceList(): void {
+  deviceListEl.innerHTML = '';
+  if (devices.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = 'Нет подключённых устройств';
+    deviceListEl.appendChild(li);
+    return;
+  }
+  for (const device of devices) {
+    const li = document.createElement('li');
+    li.className = device.serial === getCurrentSerial() ? 'selected' : '';
+    li.textContent = `${device.model ?? device.serial} — ${device.state}`;
+    li.addEventListener('click', () => selectDevice(device.serial));
+    deviceListEl.appendChild(li);
+  }
+}
+
+function selectDevice(serial: string | undefined): void {
+  setCurrentSerial(serial);
+  renderDeviceList();
+  contentEl.style.display = serial ? 'flex' : 'none';
+  noDeviceHintEl.style.display = serial ? 'none' : 'block';
 }
 
 refreshBtn.addEventListener('click', () => void refreshDevices());
@@ -58,9 +70,15 @@ connectBtn.addEventListener('click', () => {
       statusEl.textContent = result;
       await refreshDevices();
     } catch (error) {
-      statusEl.textContent = `Ошибка: ${(error as Error).message}`;
+      statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
     }
   })();
 });
 
+initTabs();
+initAppsScreen();
+initFilesScreen();
+initShellScreen();
+initToolsScreen();
+selectDevice(undefined);
 void refreshDevices();
