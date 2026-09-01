@@ -39,13 +39,29 @@ export class LogcatSession {
     });
   }
 
-  /** Очищает лог-буфер УСТРОЙСТВА (adb logcat -c), не влияет на текущий стрим. */
+  /** Очищает лог-буфер УСТРОЙСТВА (adb logcat -c), не влияет на текущий стрим.
+   * 'error' обязателен — необработанное 'error' на ChildProcess (EventEmitter)
+   * иначе бросает исключение и валит весь main-процесс Electron, если adb
+   * вдруг не нашёлся/не смог запуститься в этот момент. */
   clearDeviceBuffer(): void {
-    spawn(this.adbPath, ['-s', this.serial, 'logcat', '-c'], { windowsHide: true });
+    const child = spawn(this.adbPath, ['-s', this.serial, 'logcat', '-c'], { windowsHide: true });
+    child.on('error', () => {
+      /* тихо игнорируем — это разовая best-effort команда, откуда её вызвали
+       * уже не отследить колбэком, а падать из-за неё нельзя. */
+    });
   }
 
   stop(): void {
-    this.process?.kill();
+    if (this.process) {
+      // Снимаем слушатель ПЕРЕД kill(): SIGTERM не мгновенен, и без этого
+      // строки, ещё летящие от уже "остановленного" процесса, попадали бы в
+      // onLine() старой сессии — а вызывающая сторона (main.ts) шлёт их в
+      // renderer под тем же serial, что и новый стрим, если start() вызвали
+      // сразу следом. Поймано разбором логики, не флаки-тестом на таймингах.
+      this.process.stdout.removeAllListeners('data');
+      this.process.removeAllListeners('error');
+      this.process.kill();
+    }
     this.process = undefined;
     this.buffer = '';
   }

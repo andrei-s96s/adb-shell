@@ -14,8 +14,9 @@ const statusEl = el<HTMLDivElement>('status');
 const refreshBtn = el<HTMLButtonElement>('refresh-btn');
 const connectBtn = el<HTMLButtonElement>('connect-btn');
 const connectHostInput = el<HTMLInputElement>('connect-host');
-const contentEl = el<HTMLDivElement>('content');
-const noDeviceHintEl = el<HTMLParagraphElement>('no-device-hint');
+const pairBtn = el<HTMLButtonElement>('pair-btn');
+const pairHostInput = el<HTMLInputElement>('pair-host');
+const pairCodeInput = el<HTMLInputElement>('pair-code');
 
 let devices: Device[] = [];
 
@@ -46,18 +47,46 @@ function renderDeviceList(): void {
   }
   for (const device of devices) {
     const li = document.createElement('li');
-    li.className = device.serial === getCurrentSerial() ? 'selected' : '';
-    li.textContent = `${device.model ?? device.serial} — ${device.state}`;
-    li.addEventListener('click', () => selectDevice(device.serial));
+    li.className = 'row' + (device.serial === getCurrentSerial() ? ' selected' : '');
+
+    const label = document.createElement('span');
+    label.textContent = `${device.model ?? device.serial} — ${device.state}`;
+    label.style.cursor = 'pointer';
+    label.addEventListener('click', () => selectDevice(device.serial));
+    li.appendChild(label);
+
+    if (device.serial.includes(':')) {
+      const disconnectBtn = document.createElement('button');
+      disconnectBtn.textContent = '✕';
+      disconnectBtn.title = 'Отключить';
+      disconnectBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        void (async () => {
+          try {
+            await adbApi.disconnect(device.serial);
+            if (getCurrentSerial() === device.serial) selectDevice(undefined);
+            await refreshDevices();
+          } catch (error) {
+            statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+          }
+        })();
+      });
+      li.appendChild(disconnectBtn);
+    }
+
     deviceListEl.appendChild(li);
   }
 }
 
 function selectDevice(serial: string | undefined): void {
+  // #content (вкладки) видны ВСЕГДА, вне зависимости от выбора устройства —
+  // раньше вся навигация блокировалась до выбора устройства, тот же класс
+  // ошибки, что уже чинили в Swift-версии для библиотеки APK ("доступна и
+  // без подключённого устройства"). Каждый экран сам решает, что показать
+  // при отсутствии serial (см. onDeviceChanged в screens/*.ts), а не прячется
+  // целиком за пределами достижимости.
   setCurrentSerial(serial);
   renderDeviceList();
-  contentEl.style.display = serial ? 'flex' : 'none';
-  noDeviceHintEl.style.display = serial ? 'none' : 'block';
 }
 
 refreshBtn.addEventListener('click', () => void refreshDevices());
@@ -71,6 +100,23 @@ connectBtn.addEventListener('click', () => {
       const result = await adbApi.connect(host);
       statusEl.textContent = result;
       await refreshDevices();
+    } catch (error) {
+      statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    }
+  })();
+});
+
+pairBtn.addEventListener('click', () => {
+  void (async () => {
+    const hostPort = pairHostInput.value.trim();
+    const code = pairCodeInput.value.trim();
+    if (!hostPort || !code) return;
+    statusEl.textContent = 'Сопряжение…';
+    try {
+      const result = await adbApi.pair(hostPort, code);
+      statusEl.textContent = result;
+      pairHostInput.value = '';
+      pairCodeInput.value = '';
     } catch (error) {
       statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
     }
