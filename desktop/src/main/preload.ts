@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -50,4 +50,19 @@ contextBridge.exposeInMainWorld('adbApi', {
 
   // Свойства устройства
   allProperties: (serial: string) => ipcRenderer.invoke('adb:allProperties', serial),
+
+  // Мониторинг
+  deviceStats: (serial: string) => ipcRenderer.invoke('adb:deviceStats', serial),
+  runningProcesses: (serial: string) => ipcRenderer.invoke('adb:runningProcesses', serial),
+  killProcess: (serial: string, pid: number) => ipcRenderer.invoke('adb:killProcess', serial, pid),
+
+  // Logcat — живой стрим строк через событие, не через invoke
+  startLogcat: (serial: string) => ipcRenderer.invoke('adb:startLogcat', serial),
+  stopLogcat: (serial: string) => ipcRenderer.invoke('adb:stopLogcat', serial),
+  clearLogcatBuffer: (serial: string) => ipcRenderer.invoke('adb:clearLogcatBuffer', serial),
+  onLogcatLine: (callback: (serial: string, line: string) => void) => {
+    const listener = (_event: IpcRendererEvent, serial: string, line: string) => callback(serial, line);
+    ipcRenderer.on('logcat:line', listener);
+    return () => ipcRenderer.removeListener('logcat:line', listener);
+  },
 });

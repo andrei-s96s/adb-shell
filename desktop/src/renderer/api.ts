@@ -62,6 +62,36 @@ export interface DeviceProperty {
   value: string;
 }
 
+export interface DeviceStats {
+  cpuPercent?: number;
+  memUsedKB: number;
+  memTotalKB: number;
+  batteryLevel?: number;
+  batteryTemperature?: number;
+  isCharging: boolean;
+  timestamp: number;
+}
+
+export interface RunningProcess {
+  pid: number;
+  ppid?: number;
+  user: string;
+  rssKB?: number;
+  name: string;
+}
+
+export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
+
+export interface LogLine {
+  raw: string;
+  timestamp?: string;
+  pid?: string;
+  tid?: string;
+  level: LogLevel;
+  tag?: string;
+  message: string;
+}
+
 export interface AdbApi {
   listDevices(): Promise<Device[]>;
   connect(host: string): Promise<string>;
@@ -95,6 +125,15 @@ export interface AdbApi {
   removeReverse(serial: string, deviceSpec: string): Promise<void>;
 
   allProperties(serial: string): Promise<DeviceProperty[]>;
+
+  deviceStats(serial: string): Promise<DeviceStats>;
+  runningProcesses(serial: string): Promise<RunningProcess[]>;
+  killProcess(serial: string, pid: number): Promise<void>;
+
+  startLogcat(serial: string): Promise<void>;
+  stopLogcat(serial: string): Promise<void>;
+  clearLogcatBuffer(serial: string): Promise<void>;
+  onLogcatLine(callback: (serial: string, line: string) => void): () => void;
 }
 
 export const adbApi: AdbApi = (window as unknown as { adbApi: AdbApi }).adbApi;

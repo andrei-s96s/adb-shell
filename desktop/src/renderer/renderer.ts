@@ -6,6 +6,8 @@ import { initAppsScreen } from './screens/apps.js';
 import { initFilesScreen } from './screens/files.js';
 import { initShellScreen } from './screens/shellScreen.js';
 import { initToolsScreen } from './screens/tools.js';
+import { initMonitorScreen } from './screens/monitor.js';
+import { initLogcatScreen } from './screens/logcat.js';
 
 const deviceListEl = el<HTMLUListElement>('device-list');
 const statusEl = el<HTMLDivElement>('status');
@@ -80,5 +82,7 @@ initAppsScreen();
 initFilesScreen();
 initShellScreen();
 initToolsScreen();
+initMonitorScreen();
+initLogcatScreen();
 selectDevice(undefined);
 void refreshDevices();

@@ -26,6 +26,8 @@
           <button data-tab="files" type="button">Файлы</button>
           <button data-tab="shell" type="button">Shell</button>
           <button data-tab="tools" type="button">Инструменты</button>
+          <button data-tab="monitor" type="button">Мониторинг</button>
+          <button data-tab="logcat" type="button">Logcat</button>
         </div>
 
         <section id="tab-apps" class="tab-panel">
@@ -103,6 +105,50 @@
               <div id="props-list" class="props-list"></div>
             </div>
           </div>
+        </section>
+
+        <section id="tab-monitor" class="tab-panel">
+          <div id="monitor-status" class="hint"></div>
+          <div class="monitor-stats">
+            <div class="stat-card">
+              <div class="stat-label">CPU</div>
+              <div id="monitor-cpu" class="stat-value">—</div>
+              <svg class="sparkline" viewBox="0 0 280 60" preserveAspectRatio="none">
+                <polyline id="monitor-sparkline-points" points="" />
+              </svg>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Память</div>
+              <div id="monitor-mem" class="stat-value">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Батарея</div>
+              <div id="monitor-battery" class="stat-value">—</div>
+            </div>
+          </div>
+          <div class="hint section-title">Процессы (топ-50 по RSS)</div>
+          <ul id="monitor-process-list" class="scroll-list"></ul>
+        </section>
+
+        <section id="tab-logcat" class="tab-panel">
+          <div class="toolbar">
+            <button id="logcat-start" type="button">Старт</button>
+            <button id="logcat-stop" type="button" disabled>Стоп</button>
+            <button id="logcat-clear" type="button">Очистить буфер устройства</button>
+          </div>
+          <div class="toolbar">
+            <input id="logcat-filter" placeholder="Фильтр по тексту/тегу…" />
+            <select id="logcat-level">
+              <option value="0">Verbose+</option>
+              <option value="1">Debug+</option>
+              <option value="2" selected>Info+</option>
+              <option value="3">Warn+</option>
+              <option value="4">Error+</option>
+            </select>
+            <label class="checkbox-label"><input id="logcat-autoscroll" type="checkbox" checked /> автопрокрутка</label>
+          </div>
+          <div id="logcat-status" class="hint"></div>
+          <div id="logcat-log" class="logcat-log"></div>
         </section>
       </main>
 

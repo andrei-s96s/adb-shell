@@ -18,6 +18,10 @@ import { AppDetail, InstalledApp } from './types/AppInfo';
 import { mergeApps } from './parsers/AppListParser';
 import { parseAppDetail } from './parsers/DumpsysParser';
 import { RemoteFile } from './types/RemoteFile';
+import { DeviceStats } from './types/DeviceStats';
+import { parseDeviceStats } from './parsers/DeviceStatsParser';
+import { RunningProcess } from './types/RunningProcess';
+import { parseProcessList } from './parsers/ProcessListParser';
 import { parseRemoteFiles } from './parsers/RemoteFileParser';
 
 export class AdbCommandError extends Error {}
@@ -252,5 +256,25 @@ export class AdbService {
     const args = ['shell', 'rm', recursive ? '-rf' : '-f', targetPath];
     const result = await this.run(args, { serial });
     if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
+  }
+
+  // MARK: Мониторинг
+
+  async deviceStats(serial: string): Promise<DeviceStats> {
+    const [cpu, mem, battery] = await Promise.all([
+      this.run(['shell', 'dumpsys', 'cpuinfo'], { serial }),
+      this.run(['shell', 'cat', '/proc/meminfo'], { serial }),
+      this.run(['shell', 'dumpsys', 'battery'], { serial }),
+    ]);
+    return parseDeviceStats(combinedOutput(cpu), combinedOutput(mem), combinedOutput(battery));
+  }
+
+  async runningProcesses(serial: string): Promise<RunningProcess[]> {
+    const result = await this.run(['shell', 'ps', '-A', '-o', 'PID,PPID,USER,RSS,NAME'], { serial });
+    return parseProcessList(result.stdout);
+  }
+
+  async killProcess(serial: string, pid: number): Promise<void> {
+    await this.run(['shell', 'kill', String(pid)], { serial });
   }
 }
