@@ -42,3 +42,23 @@ jobs:
       # directory-argument resolution caused that.
       - name: Build and test
         run: npm test
+
+      # Реальная упаковка (не только tsc) — NSIS-инсталлятор на Windows,
+      # .app в zip на macOS. Без подписи (нет сертификата) — тот же посыл,
+      # что и у текущей неподписанной Swift-версии.
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npm run dist:win
+
+      - name: Package (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npm run dist:mac
+
+      - name: Upload packaged app
+        uses: actions/upload-artifact@v4
+        with:
+          name: adb-shell-desktop-${{ matrix.os }}
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.zip
+          if-no-files-found: error
