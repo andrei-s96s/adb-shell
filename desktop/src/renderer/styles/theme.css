@@ -1,0 +1,151 @@
+/* Цветовая палитра портирована из Sources/AdbShell/Design/Theme.swift (CP.*) —
+   светлая тема по умолчанию, тёмная — через prefers-color-scheme, та же
+   схема токенов, что и в Swift-версии (dynamicColor(light:dark:)). */
+
+:root {
+  --cp-bg: rgb(247, 246, 244);
+  --cp-bg-panel: rgb(255, 255, 255);
+  --cp-bg-panel-alt: rgb(237, 236, 233);
+  --cp-hairline: rgba(0, 0, 0, 0.08);
+
+  --cp-gold: rgb(130, 102, 43);
+  --cp-ice: rgb(51, 107, 168);
+  --cp-rose: rgb(158, 77, 94);
+  --cp-emerald: rgb(31, 120, 82);
+  --cp-crimson: rgb(189, 41, 51);
+
+  --cp-text-primary: rgb(23, 23, 26);
+  --cp-text-muted: rgb(102, 102, 112);
+
+  --cp-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cp-bg: rgb(11, 11, 13);
+    --cp-bg-panel: rgb(22, 22, 25);
+    --cp-bg-panel-alt: rgb(32, 32, 36);
+    --cp-hairline: rgba(255, 255, 255, 0.08);
+
+    --cp-gold: rgb(212, 176, 102);
+    --cp-ice: rgb(143, 184, 230);
+    --cp-rose: rgb(199, 133, 143);
+    --cp-emerald: rgb(89, 199, 148);
+    --cp-crimson: rgb(222, 87, 94);
+
+    --cp-text-primary: rgb(242, 242, 240);
+    --cp-text-muted: rgb(148, 148, 161);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cp-bg);
+  color: var(--cp-text-primary);
+  font-family: var(--cp-mono);
+  font-size: 13px;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+#sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  background: var(--cp-bg-panel);
+  border-right: 1px solid var(--cp-hairline);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#sidebar h1 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cp-gold);
+  margin: 0;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#device-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+#device-list li {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--cp-bg-panel-alt);
+  font-size: 12px;
+}
+
+#device-list li.empty {
+  color: var(--cp-text-muted);
+  background: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+.connect-row {
+  display: flex;
+  gap: 6px;
+}
+
+.connect-row input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+}
+
+#status {
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  min-height: 14px;
+}
+
+#content {
+  flex: 1;
+  padding: 24px;
+}
+
+.placeholder {
+  color: var(--cp-text-muted);
+}

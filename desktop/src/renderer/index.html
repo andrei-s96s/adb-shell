@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self';" />
+    <title>ADB Shell</title>
+    <link rel="stylesheet" href="styles/theme.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <h1>ADB Shell</h1>
+        <div class="hint">Устройства</div>
+        <ul id="device-list"></ul>
+        <button id="refresh-btn" type="button">Обновить</button>
+        <div class="connect-row">
+          <input id="connect-host" placeholder="192.168.1.50:5555" />
+          <button id="connect-btn" type="button">Подключить</button>
+        </div>
+        <div id="status"></div>
+      </aside>
+      <main id="content">
+        <p class="placeholder">MVP-каркас: список устройств и подключение по IP. Остальные экраны — по плану в PLAN.md.</p>
+      </main>
+    </div>
+    <script type="module" src="renderer.js"></script>
+  </body>
+</html>

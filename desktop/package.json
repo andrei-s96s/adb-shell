@@ -1,0 +1,21 @@
+{
+  "name": "adb-shell-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cross-platform (Windows/macOS) Electron port of ADB Shell.",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && node scripts/copy-assets.js",
+    "test": "npm run build && node --test dist/test",
+    "start": "npm run build && electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "electron": "^33.0.0",
+    "typescript": "^5.7.0"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}

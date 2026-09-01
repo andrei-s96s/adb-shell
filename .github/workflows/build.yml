@@ -3,8 +3,10 @@ name: Build
 on:
   push:
     branches: [ main ]
+    paths-ignore: [ 'desktop/**' ]
   pull_request:
     branches: [ main ]
+    paths-ignore: [ 'desktop/**' ]
   workflow_dispatch:
 
 jobs:
