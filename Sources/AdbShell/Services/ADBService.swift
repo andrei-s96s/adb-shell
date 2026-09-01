@@ -494,6 +494,80 @@ final class ADBService {
         return result.combined
     }
 
+    // MARK: - Wi-Fi отладка
+
+    /// Переключает устройство в режим adb по TCP/IP — после этого можно
+    /// отключить USB и подключиться по IP:порту. Работает, только пока
+    /// устройство физически подключено (USB или уже по сети) в момент вызова.
+    @discardableResult
+    func enableWirelessDebugging(serial: String, port: Int = 5555) async throws -> String {
+        let result = try await run(["tcpip", "\(port)"], serial: serial)
+        let combined = result.combined
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(combined)
+        }
+        return combined
+    }
+
+    /// IP устройства в локальной сети — источник для `adb connect ip:port`
+    /// после enableWirelessDebugging. nil, если распарсить не удалось
+    /// (например, только мобильные данные, без Wi-Fi).
+    func deviceIPAddress(serial: String) async throws -> String? {
+        let result = try await run(["shell", "ip", "route"], serial: serial)
+        return IpRouteParser.parseDeviceIP(from: result.stdout)
+    }
+
+    // MARK: - Проброс портов
+
+    func listForwards(serial: String) async throws -> [PortForwardRule] {
+        let result = try await run(["forward", "--list"], serial: serial)
+        return PortForwardParser.parseForwardList(result.stdout, serial: serial)
+    }
+
+    func addForward(serial: String, hostSpec: String, deviceSpec: String) async throws {
+        let result = try await run(["forward", hostSpec, deviceSpec], serial: serial)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
+    func removeForward(serial: String, hostSpec: String) async throws {
+        let result = try await run(["forward", "--remove", hostSpec], serial: serial)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
+    func listReverses(serial: String) async throws -> [PortForwardRule] {
+        let result = try await run(["reverse", "--list"], serial: serial)
+        return PortForwardParser.parseReverseList(result.stdout, serial: serial)
+    }
+
+    /// adb reverse принимает аргументы в порядке (remote, local) — наоборот
+    /// относительно forward, поэтому deviceSpec идёт первым.
+    func addReverse(serial: String, deviceSpec: String, hostSpec: String) async throws {
+        let result = try await run(["reverse", deviceSpec, hostSpec], serial: serial)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
+    func removeReverse(serial: String, deviceSpec: String) async throws {
+        let result = try await run(["reverse", "--remove", deviceSpec], serial: serial)
+        if result.exitCode != 0 {
+            throw ADBError.commandFailed(result.combined)
+        }
+    }
+
+    // MARK: - Свойства устройства
+
+    /// Все системные свойства устройства (`adb shell getprop`) — полный
+    /// дамп для диагностического просмотра с поиском.
+    func allProperties(serial: String) async throws -> [DeviceProperty] {
+        let result = try await run(["shell", "getprop"], serial: serial)
+        return GetpropParser.parse(result.stdout)
+    }
+
     func screenshot(serial: String) async throws -> Data {
         let adbPath = self.adbPath
         return try await withCheckedThrowingContinuation { continuation in

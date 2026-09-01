@@ -25,6 +25,9 @@ struct ShellRunnerView: View {
     @State private var textToSend = ""
     @State private var isSendingText = false
     @State private var showIntentTester = false
+    @State private var showWirelessDebugging = false
+    @State private var showPortForwarding = false
+    @State private var showDeviceProperties = false
     @StateObject private var savedCommands = ShellHistoryStore()
     @StateObject private var mirror = ScreenMirrorService()
     @EnvironmentObject private var loc: LocalizationManager
@@ -80,6 +83,9 @@ struct ShellRunnerView: View {
                     Button("adb remount") { Task { await runQuick("adb remount") { try await service.remount(serial: serial) } } }
                     Divider()
                     Button(L("shell.intentTester")) { showIntentTester = true }
+                    Button(L("shell.wirelessDebugging")) { showWirelessDebugging = true }
+                    Button(L("shell.portForwarding")) { showPortForwarding = true }
+                    Button(L("shell.deviceProperties")) { showDeviceProperties = true }
                 } label: {
                     Text(L("shell.more"))
                 }
@@ -151,6 +157,15 @@ struct ShellRunnerView: View {
         }
         .sheet(isPresented: $showIntentTester) {
             IntentTesterSheet(serial: serial, service: service) { showIntentTester = false }
+        }
+        .sheet(isPresented: $showWirelessDebugging) {
+            WirelessDebuggingSheet(serial: serial, service: service) { showWirelessDebugging = false }
+        }
+        .sheet(isPresented: $showPortForwarding) {
+            PortForwardingSheet(serial: serial, service: service) { showPortForwarding = false }
+        }
+        .sheet(isPresented: $showDeviceProperties) {
+            DevicePropertiesSheet(serial: serial, service: service) { showDeviceProperties = false }
         }
     }
 
