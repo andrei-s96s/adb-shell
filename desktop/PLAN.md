@@ -79,6 +79,41 @@ Discord, Figma Desktop; не самый современный из рассмо
   `textContent`/`createElement` везде, где раньше был string-interpolated
   `innerHTML`.
 
+### Ревизия v0.3.1 — «не открывается на Mac», «криво на Windows»
+
+- **macOS: Gatekeeper жёстко отклонял скачанный .app** ("ADB Shell.app
+  is damaged and can't be opened") — CI-сборка (без Developer ID, GitHub
+  Actions macos-latest: "0 valid identities found") наследовала ad-hoc
+  подпись от прекомпилированного Electron.app, которая переставала быть
+  валидной после того как electron-builder докладывал app.asar и прочие
+  ресурсы в Contents/Resources, но повторной полной подписи не происходило.
+  Подтверждено вживую: `spctl -a -vvv --type execute` на скачанном (с
+  `com.apple.quarantine`, симулирующим реальное скачивание браузером)
+  артефакте возвращал `code has no resources but signature indicates
+  they must be present` — это жёсткий блок, не мягкое предупреждение
+  "неизвестный разработчик". Исправлено хуком `afterSign`
+  (`scripts/afterSign.js`), который запускает `codesign --force --deep
+  --sign -` на полностью упакованном `.app` — тот же приём, что уже
+  использует `build_app.sh` для Swift-версии. После фикса: `Sealed
+  Resources` заполнены, ошибка исчезла, повторно собранный и
+  квалифицированный (той же симуляцией) .app реально запускается.
+- **Windows/везде: чекбоксы в `.toolbar` раздувались и наезжали на
+  соседний текст** — `.toolbar input { flex: 1; padding: 8px; border:
+  1px solid ...; background: ... }` был рассчитан на текстовые поля, но
+  как обычный descendant-селектор ловил и `<input type="checkbox">`
+  внутри `.checkbox-label` (чекбоксы "системные" на вкладке Приложения и
+  "автопрокрутка" на Logcat) — вместо маленького нативного чекбокса
+  получалась раздутая плашка с рамкой и фоном на flex:1, конкурирующая за
+  место с соседними полями и текстом подписи. Баг платформонезависимый по
+  природе (чистый CSS-селектор), но по описанию ("поля наползают на
+  текст") и понятной разнице в рендеринге чекбоксов между Chromium на
+  Windows и на Mac — главный подозреваемый на роль "криво на Windows".
+  Исправлено: `.toolbar input:not([type='checkbox'])` для текстовых
+  полей, отдельный сброс `.toolbar input[type='checkbox']` до нативного
+  вида. Проверено вживую через CDP (computed style + getBoundingClientRect)
+  на обоих местах использования — чекбокс 13×13px без padding/border/фона,
+  соседние элементы toolbar не пересекаются.
+
 ## Почему именно так по фазам
 
 Портируется не код, а **спецификация**: каждый существующий Swift-парсер
