@@ -1,7 +1,7 @@
 {
   "name": "adb-shell-desktop",
   "private": true,
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "Cross-platform (Windows/macOS) Electron port of ADB Shell.",
   "main": "dist/main/main.js",
   "author": "andrei-s96s",

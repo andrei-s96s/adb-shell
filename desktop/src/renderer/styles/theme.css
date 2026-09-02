@@ -73,6 +73,39 @@ body {
   margin: 0;
 }
 
+/* [hidden] (атрибут HTML) и ".update-banner { display: flex }" имеют
+   ОДИНАКОВУЮ специфичность (0,1,0) -- при равенстве побеждает более
+   поздний по каскаду, а авторский theme.css идёт после UA-стиля браузера,
+   так что голый ".update-banner { display: flex }" перебил бы [hidden] и
+   баннер остался бы виден. display: none здесь + явный флекс только
+   ":not([hidden])" ниже снимает эту гонку специфичности. */
+.update-banner {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cp-gold) 16%, var(--cp-bg-panel-alt));
+  border: 1px solid var(--cp-gold);
+  font-size: 11px;
+}
+
+.update-banner:not([hidden]) {
+  display: flex;
+}
+
+.update-banner span {
+  flex: 1;
+  min-width: 100px;
+  color: var(--cp-text-primary);
+}
+
+.update-banner button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
 .hint {
   font-size: 11px;
   color: var(--cp-text-muted);
@@ -433,9 +466,15 @@ button:hover {
 
 /* Инструменты */
 
+/* minmax(0, 1fr), не голый 1fr -- у грид-трека по умолчанию min-width:auto,
+   как и у flex-элемента (см. .toolbar выше): если содержимое карточки
+   (например, внутренний .toolbar) требует больше места, чем доля 1fr,
+   трек не сжимается, а раздувает всю сетку за пределы .tools-grid.
+   Пойман тем же CDP-прогоном на узком окне (~650px), что и переполнение
+   .panel-left/.panel-right на вкладке "Приложения". */
 .tools-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -491,7 +530,7 @@ button:hover {
 
 .monitor-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 16px;
   flex-shrink: 0;

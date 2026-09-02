@@ -35,7 +35,19 @@ export class ApkLibraryService {
 
   constructor() {
     this.directory = this.loadSavedDirectory() ?? path.join(app.getPath('documents'), 'AdbShell', 'APK');
-    fs.mkdirSync(this.directory, { recursive: true });
+    // Сконструирован на верхнем уровне main.ts, до app.whenReady() -- если
+    // mkdirSync здесь бросит исключение (нет прав на Documents, каталог
+    // недоступен из-за OneDrive-редиректа и т.п. на Windows), необработанное
+    // синхронное исключение в конструкторе уронит ВЕСЬ процесс до открытия
+    // хоть одного окна -- ровно то, что выглядит как "приложение не
+    // открывается". list()/importFiles() уже переживают отсутствующий
+    // каталог сами, так что здесь достаточно не дать ошибке всплыть.
+    try {
+      fs.mkdirSync(this.directory, { recursive: true });
+    } catch {
+      // Каталог останется недоступен -- library.list() и другие методы
+      // уже обрабатывают эту ситуацию корректно (пустой список и т.д.).
+    }
   }
 
   private get configPath(): string {

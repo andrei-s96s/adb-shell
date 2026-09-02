@@ -134,3 +134,24 @@ initMonitorScreen();
 initLogcatScreen();
 selectDevice(undefined);
 void refreshDevices();
+void checkForUpdatesOnce();
+
+// Раз за запуск, не периодический опрос -- обычному пользователю этого
+// достаточно, а GitHub API не дёргается лишний раз. Только уведомление +
+// ссылка на страницу релиза, ничего не скачивает и не подменяет само —
+// см. updateChecker.ts про то, почему не полноценное автообновление.
+async function checkForUpdatesOnce(): Promise<void> {
+  try {
+    const update = await adbApi.checkForUpdates();
+    if (!update) return;
+    const banner = el<HTMLDivElement>('update-banner');
+    el<HTMLSpanElement>('update-banner-text').textContent = `Доступна версия ${update.version}`;
+    el<HTMLButtonElement>('update-banner-open').addEventListener('click', () => void adbApi.openExternal(update.releaseUrl));
+    el<HTMLButtonElement>('update-banner-dismiss').addEventListener('click', () => {
+      banner.hidden = true;
+    });
+    banner.hidden = false;
+  } catch {
+    // Тихо игнорируем -- проверка обновлений не должна мешать обычной работе.
+  }
+}

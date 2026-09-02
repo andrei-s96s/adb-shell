@@ -27,7 +27,7 @@ export function initApkLibraryScreen(): void {
   listEl = el<HTMLUListElement>('apklibrary-list');
 
   el<HTMLButtonElement>('apklibrary-choose-dir').addEventListener('click', () => void chooseDirectory());
-  el<HTMLButtonElement>('apklibrary-reveal').addEventListener('click', () => void adbApi.apkLibraryRevealInFileManager());
+  el<HTMLButtonElement>('apklibrary-reveal').addEventListener('click', () => void revealInFileManager());
   el<HTMLButtonElement>('apklibrary-add').addEventListener('click', () => void addFiles());
   el<HTMLButtonElement>('apklibrary-download').addEventListener('click', () => void downloadFromUrl());
   el<HTMLButtonElement>('apklibrary-check-updates').addEventListener('click', () => void checkForUpdates());
@@ -53,12 +53,29 @@ async function refresh(): Promise<void> {
   }
 }
 
+async function revealInFileManager(): Promise<void> {
+  // shell.openPath не бросает исключение при неудаче — резолвится строкой
+  // с текстом ошибки (пустая строка = успех), поэтому обычный try/catch
+  // здесь ничего не поймает без явной проверки результата.
+  try {
+    const error = await adbApi.apkLibraryRevealInFileManager();
+    if (error) statusEl.textContent = `Ошибка: ${error}`;
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
 async function chooseDirectory(): Promise<void> {
-  const dir = await adbApi.apkLibraryChooseDirectory();
-  dirEl.textContent = dir;
-  dirEl.title = dir;
-  fdroidUpdates = {};
-  await refresh();
+  statusEl.textContent = '';
+  try {
+    const dir = await adbApi.apkLibraryChooseDirectory();
+    dirEl.textContent = dir;
+    dirEl.title = dir;
+    fdroidUpdates = {};
+    await refresh();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
 }
 
 async function addFiles(): Promise<void> {

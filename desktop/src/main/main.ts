@@ -6,6 +6,7 @@ import { ApkLibraryService } from './apkLibrary/ApkLibraryService';
 import { isReadyState, displayName } from './adb/types/Device';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
+import { checkForDesktopUpdate } from './updateChecker';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
@@ -15,6 +16,14 @@ function createWindow(): void {
   const win = new BrowserWindow({
     width: 1200,
     height: 760,
+    // Без минимума окно можно сжать до ширины, на которой .panel-left
+    // (320px, не сжимается) уже не помещается рядом с .panel-right --
+    // поймано прогоном через CDP на принудительно суженном viewport
+    // (~650px): .panel-left/.panel-right на вкладке "Приложения" и
+    // карточки на "Инструментах" вылезали за границы. При 900px и шире
+    // переполнений не возникает ни на одной вкладке -- 920 даёт запас.
+    minWidth: 920,
+    minHeight: 600,
     title: 'ADB Shell',
     backgroundColor: '#0b0b0d',
     webPreferences: {
@@ -28,6 +37,18 @@ function createWindow(): void {
 }
 
 function registerIpcHandlers(): void {
+  // Проверка обновлений — только уведомление со ссылкой на релиз, см.
+  // updateChecker.ts про то, почему не автозамена файла на лету.
+  ipcMain.handle('app:checkForUpdates', () => checkForDesktopUpdate(app.getVersion()));
+  ipcMain.handle('app:openExternal', (_e, url: string) => {
+    // На всякий случай ограничиваем схему -- renderer не грузит внешний
+    // контент, но контекстный мост в принципе вызываем из кода страницы.
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      return shell.openExternal(url);
+    }
+    return undefined;
+  });
+
   // Устройства
   ipcMain.handle('adb:listDevices', () => adb.listDevices());
   ipcMain.handle('adb:connect', (_e, host: string) => adb.connect(host));
@@ -183,6 +204,19 @@ function registerIpcHandlers(): void {
     session.clearDeviceBuffer();
   });
 }
+
+// Без этого необработанное исключение/rejection в main-процессе (вне
+// ipcMain.handle, который сам сериализует брошенное в отклонённый промис
+// на стороне renderer) по умолчанию у Electron просто валит всё
+// приложение без единого сообщения пользователю — то самое "просто не
+// открылось". showErrorBox не требует готового окна/renderer, поэтому
+// безопасен даже на самых ранних этапах старта.
+process.on('uncaughtException', (error) => {
+  dialog.showErrorBox('ADB Shell — непредвиденная ошибка', error.stack ?? error.message);
+});
+process.on('unhandledRejection', (reason) => {
+  dialog.showErrorBox('ADB Shell — непредвиденная ошибка', reason instanceof Error ? (reason.stack ?? reason.message) : String(reason));
+});
 
 app.whenReady().then(() => {
   registerIpcHandlers();
