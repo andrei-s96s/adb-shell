@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+import { ApkFile } from './adb/types/ApkFile';
+import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -24,6 +26,24 @@ contextBridge.exposeInMainWorld('adbApi', {
   revokePermission: (serial: string, packageName: string, permission: string) =>
     ipcRenderer.invoke('adb:revokePermission', serial, packageName, permission),
   selectApkFile: (): Promise<string | undefined> => ipcRenderer.invoke('dialog:selectApk'),
+
+  // Библиотека APK — доступна без подключённого устройства
+  apkLibraryList: (): Promise<ApkFile[]> => ipcRenderer.invoke('apkLibrary:list'),
+  apkLibraryGetDirectory: (): Promise<string> => ipcRenderer.invoke('apkLibrary:getDirectory'),
+  apkLibraryChooseDirectory: (): Promise<string> => ipcRenderer.invoke('apkLibrary:chooseDirectory'),
+  apkLibraryAddFiles: (): Promise<ApkFile[]> => ipcRenderer.invoke('apkLibrary:addFiles'),
+  apkLibraryDeleteFile: (filePath: string): Promise<void> => ipcRenderer.invoke('apkLibrary:deleteFile', filePath),
+  apkLibraryRevealInFileManager: (): Promise<string> => ipcRenderer.invoke('apkLibrary:revealInFileManager'),
+  apkLibraryDownloadFromUrl: (url: string, filename?: string): Promise<string> =>
+    ipcRenderer.invoke('apkLibrary:downloadFromUrl', url, filename),
+  apkLibraryCheckFDroidUpdates: (): Promise<Record<string, FDroidUpdateInfo>> =>
+    ipcRenderer.invoke('apkLibrary:checkFDroidUpdates'),
+  apkLibraryDownloadFDroidUpdate: (file: ApkFile, update: FDroidUpdateInfo): Promise<string> =>
+    ipcRenderer.invoke('apkLibrary:downloadFDroidUpdate', file, update),
+  apkLibraryInstallToAllDevices: (
+    apkPath: string
+  ): Promise<{ successCount: number; total: number; failures: string[] }> =>
+    ipcRenderer.invoke('apkLibrary:installToAllDevices', apkPath),
 
   // Файлы устройства
   listDirectory: (serial: string, dirPath: string) => ipcRenderer.invoke('adb:listDirectory', serial, dirPath),

@@ -80,6 +80,26 @@ export interface RunningProcess {
   name: string;
 }
 
+export interface ApkFile {
+  path: string;
+  name: string;
+  sizeBytes: number;
+  modifiedMs: number;
+}
+
+export interface FDroidUpdateInfo {
+  packageName: string;
+  installedVersionCode: number;
+  latestVersionCode: number;
+  latestVersionName?: string;
+}
+
+export interface InstallToAllResult {
+  successCount: number;
+  total: number;
+  failures: string[];
+}
+
 export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface LogLine {
@@ -108,6 +128,17 @@ export interface AdbApi {
   grantPermission(serial: string, packageName: string, permission: string): Promise<void>;
   revokePermission(serial: string, packageName: string, permission: string): Promise<void>;
   selectApkFile(): Promise<string | undefined>;
+
+  apkLibraryList(): Promise<ApkFile[]>;
+  apkLibraryGetDirectory(): Promise<string>;
+  apkLibraryChooseDirectory(): Promise<string>;
+  apkLibraryAddFiles(): Promise<ApkFile[]>;
+  apkLibraryDeleteFile(filePath: string): Promise<void>;
+  apkLibraryRevealInFileManager(): Promise<string>;
+  apkLibraryDownloadFromUrl(url: string, filename?: string): Promise<string>;
+  apkLibraryCheckFDroidUpdates(): Promise<Record<string, FDroidUpdateInfo>>;
+  apkLibraryDownloadFDroidUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<string>;
+  apkLibraryInstallToAllDevices(apkPath: string): Promise<InstallToAllResult>;
 
   listDirectory(serial: string, dirPath: string): Promise<RemoteFile[]>;
   makeDirectory(serial: string, dirPath: string): Promise<void>;

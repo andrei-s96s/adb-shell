@@ -3,6 +3,7 @@ import type { Device } from './api.js';
 import { setCurrentSerial, getCurrentSerial } from './state.js';
 import { initTabs } from './tabs.js';
 import { initAppsScreen } from './screens/apps.js';
+import { initApkLibraryScreen } from './screens/apkLibrary.js';
 import { initFilesScreen } from './screens/files.js';
 import { initShellScreen } from './screens/shellScreen.js';
 import { initToolsScreen } from './screens/tools.js';
@@ -125,6 +126,7 @@ pairBtn.addEventListener('click', () => {
 
 initTabs();
 initAppsScreen();
+initApkLibraryScreen();
 initFilesScreen();
 initShellScreen();
 initToolsScreen();

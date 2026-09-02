@@ -367,6 +367,42 @@ button:hover {
   color: var(--cp-text-muted);
 }
 
+/* Библиотека APK */
+
+/* Путь к каталогу живёт внутри .toolbar как обычный div, не input --
+   ".toolbar input"/"checkbox" сбросы его не касаются, поэтому сжатие и
+   обрезание длинного пути прописаны отдельно. Переопределяем .hint's
+   text-transform/letter-spacing -- путь к файлу в верхнем регистре нечитаем. */
+.apklibrary-dir {
+  flex: 1;
+  min-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.apk-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.apk-update-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--cp-gold);
+}
+
+.apk-row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 /* Shell */
 
 .shell-log {

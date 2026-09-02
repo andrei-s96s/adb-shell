@@ -1,9 +1,14 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, dialog, shell } from 'electron';
 import * as path from 'node:path';
 import { AdbService } from './adb/AdbService';
 import { LogcatSession } from './adb/LogcatSession';
+import { ApkLibraryService } from './apkLibrary/ApkLibraryService';
+import { isReadyState, displayName } from './adb/types/Device';
+import { ApkFile } from './adb/types/ApkFile';
+import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
 
 const adb = new AdbService();
+const apkLibrary = new ApkLibraryService();
 const logcatSessions = new Map<string, LogcatSession>();
 
 function createWindow(): void {
@@ -60,6 +65,63 @@ function registerIpcHandlers(): void {
     const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
     if (result.canceled || result.filePaths.length === 0) return undefined;
     return result.filePaths[0];
+  });
+
+  // Библиотека APK — локальный каталог с .apk, доступный и без
+  // подключённого устройства (тот же класс требования, что уже привёл к
+  // фиксу "нельзя работать с приложениями без устройства": библиотеку
+  // тоже можно смотреть/пополнять/проверять на обновления без adb).
+  ipcMain.handle('apkLibrary:list', () => apkLibrary.list());
+  ipcMain.handle('apkLibrary:getDirectory', () => apkLibrary.getDirectory());
+  ipcMain.handle('apkLibrary:chooseDirectory', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Выберите папку для библиотеки APK',
+      properties: ['openDirectory' as const, 'createDirectory' as const],
+      defaultPath: apkLibrary.getDirectory(),
+    };
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) return apkLibrary.getDirectory();
+    apkLibrary.setDirectory(result.filePaths[0]);
+    return apkLibrary.getDirectory();
+  });
+  ipcMain.handle('apkLibrary:addFiles', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Добавить APK в библиотеку',
+      properties: ['openFile' as const, 'multiSelections' as const],
+      filters: [{ name: 'Android package', extensions: ['apk'] }],
+    };
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) return apkLibrary.list();
+    apkLibrary.importFiles(result.filePaths);
+    return apkLibrary.list();
+  });
+  ipcMain.handle('apkLibrary:deleteFile', (_e, filePath: string) => apkLibrary.deleteFile(filePath));
+  ipcMain.handle('apkLibrary:revealInFileManager', () => shell.openPath(apkLibrary.getDirectory()));
+  ipcMain.handle('apkLibrary:downloadFromUrl', (_e, url: string, filename?: string) => apkLibrary.downloadFromUrl(url, filename));
+  ipcMain.handle('apkLibrary:checkFDroidUpdates', () => apkLibrary.checkFDroidUpdates());
+  ipcMain.handle('apkLibrary:downloadFDroidUpdate', (_e, file: ApkFile, update: FDroidUpdateInfo) =>
+    apkLibrary.downloadFDroidUpdate(file, update)
+  );
+  // Установка на устройство переиспользует adb:install (см. ниже); здесь —
+  // только "поставить на все готовые сразу", специфичное для библиотеки.
+  ipcMain.handle('apkLibrary:installToAllDevices', async (_e, apkPath: string) => {
+    const devices = (await adb.listDevices()).filter((d) => isReadyState(d.state));
+    if (devices.length === 0) {
+      return { successCount: 0, total: 0, failures: [] as string[] };
+    }
+    const failures: string[] = [];
+    let successCount = 0;
+    for (const device of devices) {
+      try {
+        await adb.install(device.serial, apkPath);
+        successCount += 1;
+      } catch (error) {
+        failures.push(`${displayName(device)}: ${(error as Error).message}`);
+      }
+    }
+    return { successCount, total: devices.length, failures };
   });
 
   // Файлы устройства

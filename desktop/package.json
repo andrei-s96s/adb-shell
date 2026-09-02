@@ -1,7 +1,7 @@
 {
   "name": "adb-shell-desktop",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Cross-platform (Windows/macOS) Electron port of ADB Shell.",
   "main": "dist/main/main.js",
   "author": "andrei-s96s",
@@ -12,9 +12,11 @@
     "start": "npm run build && electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "fetch:win-adb": "node scripts/fetch-windows-adb.js",
+    "fetch:aapt2:mac": "node scripts/fetch-aapt2.js mac",
+    "fetch:aapt2:win": "node scripts/fetch-aapt2.js win",
     "dist:dir": "npm run build && electron-builder --dir --publish=never",
-    "dist:win": "npm run build && npm run fetch:win-adb && electron-builder --win --publish=never",
-    "dist:mac": "npm run build && electron-builder --mac --publish=never"
+    "dist:win": "npm run build && npm run fetch:win-adb && npm run fetch:aapt2:win && electron-builder --win --publish=never",
+    "dist:mac": "npm run build && npm run fetch:aapt2:mac && electron-builder --mac --publish=never"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -37,7 +39,8 @@
     "mac": {
       "target": "zip",
       "icon": "build/icon.icns",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "extraResources": [{ "from": "vendor/mac", "to": ".", "filter": ["**/*"] }]
     },
     "afterSign": "scripts/afterSign.js",
     "win": {
