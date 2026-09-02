@@ -218,7 +218,7 @@ button:hover {
   color: var(--cp-text-primary);
 }
 
-.toolbar input {
+.toolbar input:not([type='checkbox']) {
   flex: 1;
   font-family: inherit;
   font-size: 12px;
@@ -227,6 +227,21 @@ button:hover {
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
+}
+
+/* Без исключения выше чекбоксы внутри .checkbox-label (потомки .toolbar)
+   тоже попадали под ".toolbar input" и получали flex:1 + padding + border +
+   background/border-radius, задуманные для текстовых полей -- вместо
+   маленького нативного чекбокса получалась раздутая плашка, растущая за
+   пространство наравне с соседним input'ом и наезжающая на текст подписи
+   рядом. Явный сброс здесь -- на случай, если что-то ещё попадёт под
+   ".toolbar input" по недосмотру в будущем. */
+.toolbar input[type='checkbox'] {
+  flex: none;
+  width: auto;
+  padding: 0;
+  border: none;
+  background: none;
 }
 
 /* Специфичность (.toolbar input.input-narrow) намеренно выше, чем у
