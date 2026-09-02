@@ -200,8 +200,18 @@ button:hover {
 
 /* Общие элементы */
 
+/* flex-wrap здесь не декоративный: панель "Приложения" держит .toolbar
+   (поиск + чекбокс + кнопка "Установить APK…") внутри .panel-left, у
+   которой фиксированная ширина 320px. Без wrap и без min-width на полях
+   ниже flex-элементы по умолчанию не сжимаются меньше своего
+   intrinsic-content размера (min-width: auto) -- когда сумма содержимого
+   toolbar шире 320px, элементы не сжимаются, а визуально вылезают за
+   границу .panel-left (overflow не задан) и накладываются на соседнюю
+   .panel-right с текстом "Выберите приложение слева". С wrap лишние
+   элементы просто переносятся на новую строку вместо наложения. */
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   margin-bottom: 10px;
@@ -220,6 +230,7 @@ button:hover {
 
 .toolbar input:not([type='checkbox']) {
   flex: 1;
+  min-width: 80px;
   font-family: inherit;
   font-size: 12px;
   padding: 8px;
