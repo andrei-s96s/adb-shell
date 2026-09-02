@@ -1,11 +1,15 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
+import { UpdateInfo } from './updateChecker';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
 // только через этот явный, узкий API, ничего больше не пробрасывается.
 contextBridge.exposeInMainWorld('adbApi', {
+  checkForUpdates: (): Promise<UpdateInfo | undefined> => ipcRenderer.invoke('app:checkForUpdates'),
+  openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),
+
   // Устройства
   listDevices: () => ipcRenderer.invoke('adb:listDevices'),
   connect: (host: string) => ipcRenderer.invoke('adb:connect', host),

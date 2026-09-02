@@ -10,6 +10,11 @@
     <div id="app">
       <aside id="sidebar">
         <h1>ADB Shell</h1>
+        <div id="update-banner" class="update-banner" hidden>
+          <span id="update-banner-text"></span>
+          <button id="update-banner-open" type="button">Открыть релиз</button>
+          <button id="update-banner-dismiss" type="button" title="Скрыть">✕</button>
+        </div>
         <div class="hint">Устройства</div>
         <ul id="device-list"></ul>
         <button id="refresh-btn" type="button">Обновить</button>

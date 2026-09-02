@@ -100,6 +100,11 @@ export interface InstallToAllResult {
   failures: string[];
 }
 
+export interface UpdateInfo {
+  version: string;
+  releaseUrl: string;
+}
+
 export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface LogLine {
@@ -113,6 +118,9 @@ export interface LogLine {
 }
 
 export interface AdbApi {
+  checkForUpdates(): Promise<UpdateInfo | undefined>;
+  openExternal(url: string): Promise<void>;
+
   listDevices(): Promise<Device[]>;
   connect(host: string): Promise<string>;
   disconnect(serial: string): Promise<void>;

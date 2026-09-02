@@ -169,7 +169,9 @@ export function initToolsScreen(): void {
     renderProps();
 
     if (!serial) return;
-    void refreshPortForwarding(serial);
+    refreshPortForwarding(serial).catch((error) => {
+      portForwardStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    });
     adbApi
       .allProperties(serial)
       .then((props) => {
