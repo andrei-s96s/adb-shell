@@ -32,6 +32,7 @@ import { AppUsageStat } from './types/AppUsageStat';
 import { parseUsageStats } from './parsers/UsageStatsParser';
 import { CrashTraceFile } from './types/CrashTraceFile';
 import { parseCrashTraceListing } from './parsers/CrashTraceParser';
+import { singleQuoted } from './parsers/ShellQuoting';
 
 export class AdbCommandError extends Error {}
 
@@ -122,6 +123,11 @@ export class AdbService {
   async shell(serial: string, command: string): Promise<string> {
     const result = await this.run(['shell', command], { serial });
     return combinedOutput(result);
+  }
+
+  /** Открывает deep link на устройстве. Используется intent-тестером. */
+  async openDeepLink(serial: string, uri: string): Promise<string> {
+    return this.shell(serial, `am start -a android.intent.action.VIEW -d ${singleQuoted(uri)}`);
   }
 
   // MARK: Wi-Fi отладка

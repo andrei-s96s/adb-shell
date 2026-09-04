@@ -5,9 +5,13 @@
 // действие здесь, которому реально нужен serial; сам список, добавление,
 // скачивание по ссылке и проверка обновлений с F-Droid работают всегда.
 //
-// Сознательно не перенесено из Swift-версии (см. PLAN.md): тегирование
-// файлов, drag-and-drop прямо в окно, отдельный "Инфо"-лист с разрешениями
-// из манифеста — самостоятельные, менее приоритетные куски.
+// Теги -- пользовательские метки для файлов библиотеки, порт ApkTagStore
+// (Sources/AdbShell/Services/ApkTagStore.swift): чипы-фильтр над списком,
+// инлайн-добавление/удаление тегов у каждого файла.
+//
+// Сознательно не перенесено из Swift-версии (см. PLAN.md): drag-and-drop
+// прямо в окно, отдельный "Инфо"-лист с разрешениями из манифеста —
+// самостоятельные, менее приоритетные куски.
 
 import { adbApi, el, errorMessage } from '../api.js';
 import type { ApkFile, FDroidUpdateInfo } from '../api.js';
@@ -16,8 +20,11 @@ import { onDeviceChanged, getCurrentSerial } from '../state.js';
 let dirEl: HTMLDivElement;
 let statusEl: HTMLDivElement;
 let listEl: HTMLUListElement;
+let tagFilterEl: HTMLDivElement;
 let files: ApkFile[] = [];
 let fdroidUpdates: Record<string, FDroidUpdateInfo> = {};
+let tagsByPath: Record<string, string[]> = {};
+let activeTagFilter: string | undefined;
 let installingPath: string | undefined;
 let isCheckingUpdates = false;
 
@@ -25,6 +32,7 @@ export function initApkLibraryScreen(): void {
   dirEl = el<HTMLDivElement>('apklibrary-dir');
   statusEl = el<HTMLDivElement>('apklibrary-status');
   listEl = el<HTMLUListElement>('apklibrary-list');
+  tagFilterEl = el<HTMLDivElement>('apklibrary-tag-filter');
 
   el<HTMLButtonElement>('apklibrary-choose-dir').addEventListener('click', () => void chooseDirectory());
   el<HTMLButtonElement>('apklibrary-reveal').addEventListener('click', () => void revealInFileManager());
@@ -43,13 +51,36 @@ export function initApkLibraryScreen(): void {
 
 async function refresh(): Promise<void> {
   try {
-    const [dir, list] = await Promise.all([adbApi.apkLibraryGetDirectory(), adbApi.apkLibraryList()]);
+    const [dir, list, tags] = await Promise.all([
+      adbApi.apkLibraryGetDirectory(),
+      adbApi.apkLibraryList(),
+      adbApi.apkLibraryTagsList(),
+    ]);
     dirEl.textContent = dir;
     dirEl.title = dir;
     files = list;
+    tagsByPath = tags;
+    renderTagFilter();
     renderList();
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+function renderTagFilter(): void {
+  const allTags = [...new Set(Object.values(tagsByPath).flat())].sort();
+  tagFilterEl.innerHTML = '';
+  if (activeTagFilter && !allTags.includes(activeTagFilter)) activeTagFilter = undefined;
+  for (const tag of allTags) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip' + (tag === activeTagFilter ? ' active' : '');
+    chip.textContent = tag;
+    chip.addEventListener('click', () => {
+      activeTagFilter = activeTagFilter === tag ? undefined : tag;
+      renderTagFilter();
+      renderList();
+    });
+    tagFilterEl.appendChild(chip);
   }
 }
 
@@ -120,16 +151,17 @@ async function checkForUpdates(): Promise<void> {
 
 function renderList(): void {
   listEl.innerHTML = '';
-  if (files.length === 0) {
+  const visible = activeTagFilter ? files.filter((f) => (tagsByPath[f.path] ?? []).includes(activeTagFilter!)) : files;
+  if (visible.length === 0) {
     const li = document.createElement('li');
     li.className = 'row empty';
-    li.textContent = 'Библиотека пуста — добавьте .apk кнопкой выше';
+    li.textContent = files.length === 0 ? 'Библиотека пуста — добавьте .apk кнопкой выше' : 'Нет файлов с этим тегом';
     listEl.appendChild(li);
     return;
   }
 
   const serial = getCurrentSerial();
-  for (const file of files) {
+  for (const file of visible) {
     listEl.appendChild(renderRow(file, serial));
   }
 }
@@ -157,6 +189,30 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
     badge.textContent = `↑ F-Droid: ${update.latestVersionName ?? update.latestVersionCode}`;
     main.appendChild(badge);
   }
+
+  const tagsRow = document.createElement('div');
+  tagsRow.className = 'apk-row-tags';
+  for (const tag of tagsByPath[file.path] ?? []) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    const label = document.createElement('span');
+    label.textContent = tag;
+    chip.appendChild(label);
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Убрать тег';
+    removeBtn.addEventListener('click', () => void removeTag(file, tag));
+    chip.appendChild(removeBtn);
+    tagsRow.appendChild(chip);
+  }
+  const addTagBtn = document.createElement('button');
+  addTagBtn.type = 'button';
+  addTagBtn.className = 'tag-add-btn';
+  addTagBtn.textContent = '+ тег';
+  addTagBtn.addEventListener('click', () => void promptAddTag(file));
+  tagsRow.appendChild(addTagBtn);
+  main.appendChild(tagsRow);
 
   li.appendChild(main);
 
@@ -252,6 +308,28 @@ async function deleteFile(file: ApkFile): Promise<void> {
     await adbApi.apkLibraryDeleteFile(file.path);
     delete fdroidUpdates[file.path];
     await refresh();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+async function promptAddTag(file: ApkFile): Promise<void> {
+  const tag = prompt('Тег:');
+  if (!tag || !tag.trim()) return;
+  try {
+    tagsByPath = await adbApi.apkLibraryAddTag(file.path, tag);
+    renderTagFilter();
+    renderList();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+async function removeTag(file: ApkFile, tag: string): Promise<void> {
+  try {
+    tagsByPath = await adbApi.apkLibraryRemoveTag(file.path, tag);
+    renderTagFilter();
+    renderList();
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }

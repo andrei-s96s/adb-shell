@@ -1,6 +1,7 @@
 import { adbApi, el, errorMessage } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openScreenshotPreview } from './screenshot.js';
+import { openIntentTesterModal } from './intentTester.js';
 
 let inputEl: HTMLInputElement;
 let logEl: HTMLDivElement;
@@ -20,6 +21,10 @@ export function initShellScreen(): void {
   el<HTMLButtonElement>('shell-screenshot').addEventListener('click', () => {
     const serial = getCurrentSerial();
     if (serial) void openScreenshotPreview(serial);
+  });
+  el<HTMLButtonElement>('shell-intent').addEventListener('click', () => {
+    const serial = getCurrentSerial();
+    if (serial) openIntentTesterModal(serial);
   });
 
   onDeviceChanged((serial) => {
