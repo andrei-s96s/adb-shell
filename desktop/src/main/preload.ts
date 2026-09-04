@@ -200,4 +200,15 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.on('logcat:line', listener);
     return () => ipcRenderer.removeListener('logcat:line', listener);
   },
+
+  mirrorIsAvailable: (): Promise<boolean> => ipcRenderer.invoke('mirror:isAvailable'),
+  mirrorRunningSerials: (): Promise<string[]> => ipcRenderer.invoke('mirror:runningSerials'),
+  mirrorLaunch: (serial: string, recordPath?: string): Promise<void> => ipcRenderer.invoke('mirror:launch', serial, recordPath),
+  mirrorLaunchGrid: (serials: string[]): Promise<void> => ipcRenderer.invoke('mirror:launchGrid', serials),
+  selectRecordPath: (serial: string): Promise<string | undefined> => ipcRenderer.invoke('dialog:selectRecordPath', serial),
+  onMirrorStopped: (callback: (serial: string) => void) => {
+    const listener = (_event: IpcRendererEvent, serial: string) => callback(serial);
+    ipcRenderer.on('mirror:stopped', listener);
+    return () => ipcRenderer.removeListener('mirror:stopped', listener);
+  },
 });

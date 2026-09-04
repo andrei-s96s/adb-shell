@@ -7,12 +7,19 @@ let inputEl: HTMLInputElement;
 let logEl: HTMLDivElement;
 let runBtn: HTMLButtonElement;
 let broadcastEl: HTMLInputElement;
+let mirrorBtn: HTMLButtonElement;
+let mirrorRecordBtn: HTMLButtonElement;
+let mirrorStatusEl: HTMLSpanElement;
+let mirroringSerials = new Set<string>();
 
 export function initShellScreen(): void {
   inputEl = el<HTMLInputElement>('shell-input');
   logEl = el<HTMLDivElement>('shell-log');
   runBtn = el<HTMLButtonElement>('shell-run');
   broadcastEl = el<HTMLInputElement>('shell-broadcast');
+  mirrorBtn = el<HTMLButtonElement>('shell-mirror');
+  mirrorRecordBtn = el<HTMLButtonElement>('shell-mirror-record');
+  mirrorStatusEl = el<HTMLSpanElement>('shell-mirror-status');
 
   runBtn.addEventListener('click', () => void runCommand());
   inputEl.addEventListener('keydown', (event) => {
@@ -26,13 +33,77 @@ export function initShellScreen(): void {
     const serial = getCurrentSerial();
     if (serial) openIntentTesterModal(serial);
   });
+  mirrorBtn.addEventListener('click', () => void startMirror());
+  mirrorRecordBtn.addEventListener('click', () => void startMirrorWithRecording());
+  el<HTMLButtonElement>('shell-mirror-all').addEventListener('click', () => void mirrorAll());
+
+  adbApi.onMirrorStopped((serial) => {
+    mirroringSerials.delete(serial);
+    renderMirrorState();
+  });
 
   onDeviceChanged((serial) => {
     logEl.innerHTML = '';
     if (!serial) {
       appendLine('Нет подключённого устройства — выберите устройство слева', 'shell-out');
     }
+    renderMirrorState();
   });
+
+  void adbApi.mirrorRunningSerials().then((serials) => {
+    mirroringSerials = new Set(serials);
+    renderMirrorState();
+  });
+}
+
+function renderMirrorState(): void {
+  const serial = getCurrentSerial();
+  const isMirroring = serial !== undefined && mirroringSerials.has(serial);
+  mirrorBtn.textContent = isMirroring ? 'Зеркалируется' : 'Зеркалировать';
+  mirrorBtn.disabled = !serial || isMirroring;
+  mirrorRecordBtn.disabled = !serial || isMirroring;
+}
+
+/** Порт ScreenMirrorService-кнопок из Sources/AdbShell/Views/ShellRunnerView.swift. */
+async function startMirror(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial) return;
+  try {
+    await adbApi.mirrorLaunch(serial);
+    mirroringSerials.add(serial);
+    renderMirrorState();
+  } catch (error) {
+    mirrorStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+async function startMirrorWithRecording(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial) return;
+  const recordPath = await adbApi.selectRecordPath(serial);
+  if (!recordPath) return;
+  try {
+    await adbApi.mirrorLaunch(serial, recordPath);
+    mirroringSerials.add(serial);
+    renderMirrorState();
+  } catch (error) {
+    mirrorStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+async function mirrorAll(): Promise<void> {
+  try {
+    const devices = (await adbApi.listDevices()).filter((d) => d.state === 'device');
+    if (devices.length === 0) {
+      mirrorStatusEl.textContent = 'Нет готовых устройств';
+      return;
+    }
+    await adbApi.mirrorLaunchGrid(devices.map((d) => d.serial));
+    for (const d of devices) mirroringSerials.add(d.serial);
+    renderMirrorState();
+  } catch (error) {
+    mirrorStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
 }
 
 async function runCommand(): Promise<void> {
