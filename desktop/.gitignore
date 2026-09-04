@@ -1,8 +1,0 @@
-node_modules/
-dist/
-out/
-release/
-.cache/
-vendor/
-*.log
-.DS_Store
