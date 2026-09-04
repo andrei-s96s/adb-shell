@@ -360,6 +360,14 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
   actions.appendChild(actionButton('Force stop', () => run(() => adbApi.forceStop(serial, detail.packageName))));
   actions.appendChild(actionButton('Очистить данные', () => run(() => adbApi.clearData(serial, detail.packageName))));
   actions.appendChild(
+    actionButton('Экспортировать APK', () =>
+      run(async () => {
+        const saved = await adbApi.appsExportApk(serial, detail.packageName);
+        statusEl.textContent = saved ? 'APK экспортирован' : '';
+      })
+    )
+  );
+  actions.appendChild(
     actionButton(detail.isEnabled ? 'Отключить' : 'Включить', () =>
       run(async () => {
         await adbApi.setEnabled(serial, detail.packageName, !detail.isEnabled);

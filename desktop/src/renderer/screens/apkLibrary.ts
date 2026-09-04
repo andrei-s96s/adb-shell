@@ -9,13 +9,10 @@
 // (Sources/AdbShell/Services/ApkTagStore.swift): чипы-фильтр над списком,
 // инлайн-добавление/удаление тегов у каждого файла.
 //
-// Сознательно не перенесено из Swift-версии (см. PLAN.md): drag-and-drop
-// прямо в окно, отдельный "Инфо"-лист с разрешениями из манифеста —
-// самостоятельные, менее приоритетные куски.
-
 import { adbApi, el, errorMessage } from '../api.js';
 import type { ApkFile, FDroidUpdateInfo } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
+import { openApkInfoModal } from './apkInfo.js';
 
 let dirEl: HTMLDivElement;
 let statusEl: HTMLDivElement;
@@ -39,6 +36,27 @@ export function initApkLibraryScreen(): void {
   el<HTMLButtonElement>('apklibrary-add').addEventListener('click', () => void addFiles());
   el<HTMLButtonElement>('apklibrary-download').addEventListener('click', () => void downloadFromUrl());
   el<HTMLButtonElement>('apklibrary-check-updates').addEventListener('click', () => void checkForUpdates());
+
+  // Drag&drop .apk прямо в эту вкладку импортирует в библиотеку -- своя,
+  // более специфичная обработка, чем глобальный drop в renderer.ts
+  // (устанавливает на устройство), поэтому останавливаем всплытие.
+  const panel = el<HTMLElement>('tab-apklibrary');
+  panel.addEventListener('dragover', (event) => event.preventDefault());
+  panel.addEventListener('drop', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const paths = Array.from(event.dataTransfer?.files ?? [])
+      .filter((f) => f.name.toLowerCase().endsWith('.apk'))
+      .map((f) => adbApi.getPathForFile(f));
+    if (paths.length === 0) return;
+    adbApi
+      .apkLibraryImportPaths(paths)
+      .then((updated) => {
+        files = updated;
+        renderList();
+      })
+      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+  });
 
   // Установка требует serial, но список/добавление/проверка обновлений —
   // нет, поэтому просто перерисовываем ряды при смене устройства (чтобы
@@ -240,6 +258,11 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   installAllBtn.addEventListener('click', () => void installToAll(file));
   actions.appendChild(installAllBtn);
 
+  const infoBtn = document.createElement('button');
+  infoBtn.textContent = 'Инфо';
+  infoBtn.addEventListener('click', () => openApkInfoModal(file.path, file.name, serial));
+  actions.appendChild(infoBtn);
+
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = 'Удалить';
   deleteBtn.addEventListener('click', () => void deleteFile(file));
@@ -277,6 +300,18 @@ async function installToAll(file: ApkFile): Promise<void> {
       statusEl.textContent = `Установлено на ${result.successCount} из ${result.total}`;
     } else {
       statusEl.textContent = `Установлено на ${result.successCount} из ${result.total}. Ошибки: ${result.failures.join('; ')}`;
+    }
+    // Порт NotificationService.notify(...) из ApkLibraryViewModel.installToAllDevices
+    // (Sources/AdbShell/ViewModels/ApkLibraryViewModel.swift) -- всегда, не
+    // только при count>1, в отличие от пакетной установки/удаления в apps.ts.
+    if (result.total > 0) {
+      try {
+        new Notification('Установка на все устройства', {
+          body: result.failures.length === 0 ? `${file.name}: установлено на ${result.successCount}` : `${file.name}: установлено на ${result.successCount} из ${result.total}`,
+        });
+      } catch {
+        // Не критично.
+      }
     }
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;

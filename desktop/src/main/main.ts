@@ -326,6 +326,14 @@ function registerIpcHandlers(): void {
     apkLibrary.importFiles(result.filePaths);
     return apkLibrary.list();
   });
+  // Импорт готовыми путями -- для drag&drop прямо в окно библиотеки (пути уже
+  // известны через webUtils.getPathForFile в renderer, диалог не нужен),
+  // в отличие от apkLibrary:addFiles выше (кнопка -> диалог выбора файла).
+  ipcMain.handle('apkLibrary:importPaths', (_e, paths: string[]) => {
+    apkLibrary.importFiles(paths.filter((p) => p.toLowerCase().endsWith('.apk')));
+    return apkLibrary.list();
+  });
+  ipcMain.handle('apkLibrary:inspect', (_e, apkPath: string) => ApkLibraryService.inspect(apkPath));
   ipcMain.handle('apkLibrary:deleteFile', (_e, filePath: string) => apkLibrary.deleteFile(filePath));
   ipcMain.handle('apkLibrary:revealInFileManager', () => shell.openPath(apkLibrary.getDirectory()));
   ipcMain.handle('apkLibrary:downloadFromUrl', (_e, url: string, filename?: string) => apkLibrary.downloadFromUrl(url, filename));
@@ -365,6 +373,39 @@ function registerIpcHandlers(): void {
   ipcMain.handle('adb:removeRemote', (_e, serial: string, targetPath: string, recursive: boolean) =>
     adb.removeRemote(serial, targetPath, recursive)
   );
+  // push(localPath) приходит либо из диалога выбора файла, либо готовым
+  // абсолютным путём с drag&drop (webUtils.getPathForFile, см. preload.ts) --
+  // сам push ничего не открывает сам. pull, наоборот, всегда спрашивает
+  // "куда сохранить" через диалог здесь же (renderer выбора пути не видит).
+  ipcMain.handle('adb:push', (_e, serial: string, localPath: string, remotePath: string) => adb.push(serial, localPath, remotePath));
+  ipcMain.handle('dialog:selectFileToPush', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = { title: 'Выберите файл для отправки на устройство', properties: ['openFile' as const] };
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    return result.canceled || result.filePaths.length === 0 ? undefined : result.filePaths[0];
+  });
+  ipcMain.handle('adb:pullToChosenPath', async (event: IpcMainInvokeEvent, serial: string, remotePath: string, suggestedName: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = { title: 'Сохранить как', defaultPath: suggestedName };
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    await adb.pull(serial, remotePath, result.filePath);
+    shell.showItemInFolder(result.filePath);
+    return true;
+  });
+  // Экспорт APK установленного приложения обратно на компьютер (pm path + pull).
+  ipcMain.handle('apps:exportApk', async (event: IpcMainInvokeEvent, serial: string, packageName: string) => {
+    const paths = await adb.apkPaths(serial, packageName);
+    const basePath = paths.find((p) => p.endsWith('base.apk')) ?? paths[0];
+    if (!basePath) return false;
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = { title: 'Экспортировать APK', defaultPath: `${packageName}.apk`, filters: [{ name: 'APK', extensions: ['apk'] }] };
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    await adb.pull(serial, basePath, result.filePath);
+    shell.showItemInFolder(result.filePath);
+    return true;
+  });
 
   // Shell
   ipcMain.handle('adb:shell', (_e, serial: string, command: string) => adb.shell(serial, command));

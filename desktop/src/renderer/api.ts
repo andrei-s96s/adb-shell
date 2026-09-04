@@ -87,6 +87,17 @@ export interface ApkFile {
   modifiedMs: number;
 }
 
+export interface ApkManifestInfo {
+  packageName?: string;
+  versionName?: string;
+  versionCode?: string;
+  minSdk?: string;
+  targetSdk?: string;
+  applicationLabel?: string;
+  permissions: string[];
+  rawBadging: string;
+}
+
 export interface FDroidUpdateInfo {
   packageName: string;
   installedVersionCode: number;
@@ -292,10 +303,17 @@ export interface AdbApi {
   apkLibraryTagsList(): Promise<Record<string, string[]>>;
   apkLibraryAddTag(filePath: string, tag: string): Promise<Record<string, string[]>>;
   apkLibraryRemoveTag(filePath: string, tag: string): Promise<Record<string, string[]>>;
+  apkLibraryImportPaths(paths: string[]): Promise<ApkFile[]>;
+  apkLibraryInspect(apkPath: string): Promise<ApkManifestInfo>;
 
   listDirectory(serial: string, dirPath: string): Promise<RemoteFile[]>;
   makeDirectory(serial: string, dirPath: string): Promise<void>;
   removeRemote(serial: string, targetPath: string, recursive: boolean): Promise<void>;
+  push(serial: string, localPath: string, remotePath: string): Promise<void>;
+  selectFileToPush(): Promise<string | undefined>;
+  pullToChosenPath(serial: string, remotePath: string, suggestedName: string): Promise<boolean>;
+  appsExportApk(serial: string, packageName: string): Promise<boolean>;
+  getPathForFile(file: File): string;
 
   shell(serial: string, command: string): Promise<string>;
   openDeepLink(serial: string, uri: string): Promise<string>;
