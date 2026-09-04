@@ -11,6 +11,7 @@ import { initMonitorScreen } from './screens/monitor.js';
 import { initLogcatScreen } from './screens/logcat.js';
 import { initSettingsScreen } from './screens/settings.js';
 import { initMacrosScreen } from './screens/macros.js';
+import { initCommandPalette } from './screens/commandPalette.js';
 
 const deviceListEl = el<HTMLUListElement>('device-list');
 const statusEl = el<HTMLDivElement>('status');
@@ -385,6 +386,13 @@ function selectDevice(serial: string | undefined): void {
   renderPinnedStrip();
 }
 
+/** Точка входа для командной палитры (screens/commandPalette.ts) — выбор
+ * устройства оттуда должен так же обновить подсветку в сайдбаре, как и
+ * обычный клик по строке. */
+export function selectDeviceFromPalette(serial: string): void {
+  selectDevice(serial);
+}
+
 refreshBtn.addEventListener('click', () => void refreshDevices());
 
 connectBtn.addEventListener('click', () => {
@@ -429,6 +437,7 @@ initMonitorScreen();
 initLogcatScreen();
 initSettingsScreen();
 initMacrosScreen();
+initCommandPalette();
 // Держим main в курсе выбранного устройства -- нужно глобальному хоткею
 // скриншота (main.ts, HOTKEY_ACCELERATOR), который обязан работать и когда
 // окно не в фокусе, то есть без похода за состоянием сюда в момент нажатия.
