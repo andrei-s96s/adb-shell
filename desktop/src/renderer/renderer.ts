@@ -1,5 +1,5 @@
 import { adbApi, el, errorMessage } from './api.js';
-import type { Device } from './api.js';
+import type { Device, MdnsDevice, ConnectionProfile } from './api.js';
 import { setCurrentSerial, getCurrentSerial } from './state.js';
 import { initTabs } from './tabs.js';
 import { initAppsScreen } from './screens/apps.js';
@@ -18,14 +18,33 @@ const connectHostInput = el<HTMLInputElement>('connect-host');
 const pairBtn = el<HTMLButtonElement>('pair-btn');
 const pairHostInput = el<HTMLInputElement>('pair-host');
 const pairCodeInput = el<HTMLInputElement>('pair-code');
+const pinnedStripEl = el<HTMLDivElement>('pinned-strip');
+const mdnsSectionEl = el<HTMLDivElement>('mdns-section');
+const mdnsListEl = el<HTMLUListElement>('mdns-list');
+const profilesListEl = el<HTMLUListElement>('profiles-list');
+const profileNameInput = el<HTMLInputElement>('profile-name');
+const profileHostInput = el<HTMLInputElement>('profile-host');
+const profileAddBtn = el<HTMLButtonElement>('profile-add');
+const profileExportBtn = el<HTMLButtonElement>('profile-export');
+const profileImportBtn = el<HTMLButtonElement>('profile-import');
 
 let devices: Device[] = [];
+let nicknames: Record<string, string> = {};
+let pinnedSerials: string[] = [];
+let mdnsDevices: MdnsDevice[] = [];
+let profiles: ConnectionProfile[] = [];
+/** serial устройства, для которого сейчас открыт инлайн-редактор имени —
+ * не больше одного одновременно, повторный клик на другую строку закрывает
+ * предыдущий редактор без сохранения (как blur). */
+let renamingSerial: string | undefined;
 
 async function refreshDevices(): Promise<void> {
   statusEl.textContent = 'Обновление…';
   try {
     devices = await adbApi.listDevices();
     renderDeviceList();
+    renderPinnedStrip();
+    renderMdnsList();
     statusEl.textContent = '';
 
     const current = getCurrentSerial();
@@ -35,6 +54,16 @@ async function refreshDevices(): Promise<void> {
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
+}
+
+/** Порт Device.displayName из Sources/AdbShell/Models/Device.swift (модель с
+ * "_" заменённым на пробел, иначе serial), с никнеймом поверх, если задан —
+ * тот же приоритет, что и в оригинале (DeviceNicknameStore используется
+ * везде, где вычисляется displayName). */
+function deviceLabel(device: Device): string {
+  const nickname = nicknames[device.serial];
+  if (nickname) return nickname;
+  return device.model ? device.model.replace(/_/g, ' ') : device.serial;
 }
 
 function renderDeviceList(): void {
@@ -50,11 +79,71 @@ function renderDeviceList(): void {
     const li = document.createElement('li');
     li.className = 'row' + (device.serial === getCurrentSerial() ? ' selected' : '');
 
+    const main = document.createElement('div');
+    main.className = 'device-row-main';
+
+    if (renamingSerial === device.serial) {
+      const input = document.createElement('input');
+      input.className = 'device-rename-input';
+      input.value = nicknames[device.serial] ?? '';
+      input.placeholder = deviceLabel(device);
+      const commit = (): void => {
+        void (async () => {
+          nicknames = await adbApi.deviceNicknamesSet(device.serial, input.value);
+          renamingSerial = undefined;
+          renderDeviceList();
+          renderPinnedStrip();
+        })();
+      };
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') commit();
+        if (event.key === 'Escape') {
+          renamingSerial = undefined;
+          renderDeviceList();
+        }
+      });
+      input.addEventListener('blur', commit);
+      main.appendChild(input);
+      li.appendChild(main);
+      deviceListEl.appendChild(li);
+      input.focus();
+      input.select();
+      continue;
+    }
+
     const label = document.createElement('span');
-    label.textContent = `${device.model ?? device.serial} — ${device.state}`;
-    label.style.cursor = 'pointer';
+    label.className = 'device-row-label';
+    label.textContent = `${deviceLabel(device)} — ${device.state}`;
+    label.title = device.serial;
     label.addEventListener('click', () => selectDevice(device.serial));
-    li.appendChild(label);
+    main.appendChild(label);
+
+    const actions = document.createElement('div');
+    actions.className = 'device-row-actions';
+
+    const pinBtn = document.createElement('button');
+    pinBtn.textContent = '📌';
+    pinBtn.title = pinnedSerials.includes(device.serial) ? 'Открепить' : 'Закрепить';
+    if (pinnedSerials.includes(device.serial)) pinBtn.classList.add('active');
+    pinBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void (async () => {
+        pinnedSerials = await adbApi.devicePinsToggle(device.serial);
+        renderDeviceList();
+        renderPinnedStrip();
+      })();
+    });
+    actions.appendChild(pinBtn);
+
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = '✎';
+    renameBtn.title = 'Переименовать';
+    renameBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      renamingSerial = device.serial;
+      renderDeviceList();
+    });
+    actions.appendChild(renameBtn);
 
     if (device.serial.includes(':')) {
       const disconnectBtn = document.createElement('button');
@@ -72,12 +161,187 @@ function renderDeviceList(): void {
           }
         })();
       });
-      li.appendChild(disconnectBtn);
+      actions.appendChild(disconnectBtn);
     }
 
+    main.appendChild(actions);
+    li.appendChild(main);
     deviceListEl.appendChild(li);
   }
 }
+
+/** Полоска закреплённых устройств над вкладками — только реально видимые
+ * сейчас (закреплённый serial отключённого устройства просто не рисуется,
+ * но остаётся в pinnedSerials и появится снова при переподключении). */
+function renderPinnedStrip(): void {
+  const pinnedDevices = pinnedSerials
+    .map((serial) => devices.find((d) => d.serial === serial))
+    .filter((d): d is Device => d !== undefined);
+
+  pinnedStripEl.innerHTML = '';
+  pinnedStripEl.hidden = pinnedDevices.length === 0;
+  for (const device of pinnedDevices) {
+    const chip = document.createElement('div');
+    chip.className = 'pinned-chip' + (device.serial === getCurrentSerial() ? ' active' : '');
+    const label = document.createElement('span');
+    label.textContent = deviceLabel(device);
+    chip.appendChild(label);
+    chip.addEventListener('click', () => selectDevice(device.serial));
+
+    const unpin = document.createElement('button');
+    unpin.textContent = '✕';
+    unpin.title = 'Открепить';
+    unpin.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void (async () => {
+        pinnedSerials = await adbApi.devicePinsToggle(device.serial);
+        renderDeviceList();
+        renderPinnedStrip();
+      })();
+    });
+    chip.appendChild(unpin);
+
+    pinnedStripEl.appendChild(chip);
+  }
+}
+
+// MARK: mDNS-автообнаружение
+
+async function refreshMdns(): Promise<void> {
+  try {
+    mdnsDevices = await adbApi.discoverMdns();
+  } catch {
+    // mDNS-демон может быть недоступен на этой машине — тихо пропускаем тик.
+    return;
+  }
+  renderMdnsList();
+}
+
+function renderMdnsList(): void {
+  const connectedSerials = new Set(devices.map((d) => d.serial));
+  const undiscovered = mdnsDevices.filter((d) => !connectedSerials.has(d.address));
+
+  mdnsSectionEl.hidden = undiscovered.length === 0;
+  mdnsListEl.innerHTML = '';
+  for (const mdnsDevice of undiscovered) {
+    const li = document.createElement('li');
+    li.className = 'row';
+    const label = document.createElement('span');
+    const needsPairing = mdnsDevice.type.includes('pairing');
+    label.textContent = `${needsPairing ? '🟡' : '🟢'} ${mdnsDevice.name}`;
+    label.title = mdnsDevice.address;
+    li.appendChild(label);
+
+    const actionBtn = document.createElement('button');
+    if (needsPairing) {
+      actionBtn.textContent = 'Сопрячь';
+      actionBtn.addEventListener('click', () => {
+        pairHostInput.value = mdnsDevice.address;
+        pairCodeInput.focus();
+      });
+    } else {
+      actionBtn.textContent = 'Connect';
+      actionBtn.addEventListener('click', () => {
+        void (async () => {
+          statusEl.textContent = 'Подключение…';
+          try {
+            statusEl.textContent = await adbApi.connect(mdnsDevice.address);
+            await refreshDevices();
+          } catch (error) {
+            statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+          }
+        })();
+      });
+    }
+    li.appendChild(actionBtn);
+    mdnsListEl.appendChild(li);
+  }
+}
+
+// MARK: Профили подключения
+
+async function refreshProfiles(): Promise<void> {
+  profiles = await adbApi.connectionProfilesList();
+  renderProfilesList();
+}
+
+function renderProfilesList(): void {
+  profilesListEl.innerHTML = '';
+  for (const profile of profiles) {
+    const li = document.createElement('li');
+    li.className = 'row';
+
+    const label = document.createElement('span');
+    label.textContent = profile.name;
+    label.title = profile.host;
+    li.appendChild(label);
+
+    const star = document.createElement('button');
+    star.textContent = profile.autoConnect ? '★' : '☆';
+    star.title = 'Автоподключение при запуске';
+    if (profile.autoConnect) star.classList.add('active');
+    star.addEventListener('click', () => {
+      void (async () => {
+        profiles = await adbApi.connectionProfilesToggleAutoConnect(profile.id);
+        renderProfilesList();
+      })();
+    });
+    li.appendChild(star);
+
+    const connectProfileBtn = document.createElement('button');
+    connectProfileBtn.textContent = 'Connect';
+    connectProfileBtn.addEventListener('click', () => {
+      void (async () => {
+        statusEl.textContent = 'Подключение…';
+        try {
+          statusEl.textContent = await adbApi.connectionProfilesConnect(profile.host);
+          await refreshDevices();
+        } catch (error) {
+          statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+        }
+      })();
+    });
+    li.appendChild(connectProfileBtn);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Удалить профиль';
+    removeBtn.addEventListener('click', () => {
+      void (async () => {
+        profiles = await adbApi.connectionProfilesRemove(profile.id);
+        renderProfilesList();
+      })();
+    });
+    li.appendChild(removeBtn);
+
+    profilesListEl.appendChild(li);
+  }
+}
+
+profileAddBtn.addEventListener('click', () => {
+  void (async () => {
+    const host = profileHostInput.value.trim();
+    if (!host) return;
+    profiles = await adbApi.connectionProfilesAdd(profileNameInput.value, host);
+    profileNameInput.value = '';
+    profileHostInput.value = '';
+    renderProfilesList();
+  })();
+});
+
+profileExportBtn.addEventListener('click', () => {
+  void adbApi.connectionProfilesExport().then((saved) => {
+    if (saved) statusEl.textContent = 'Профили экспортированы';
+  });
+});
+
+profileImportBtn.addEventListener('click', () => {
+  void (async () => {
+    profiles = await adbApi.connectionProfilesImport();
+    renderProfilesList();
+    statusEl.textContent = 'Профили импортированы';
+  })();
+});
 
 function selectDevice(serial: string | undefined): void {
   // #content (вкладки) видны ВСЕГДА, вне зависимости от выбора устройства —
@@ -88,6 +352,7 @@ function selectDevice(serial: string | undefined): void {
   // целиком за пределами достижимости.
   setCurrentSerial(serial);
   renderDeviceList();
+  renderPinnedStrip();
 }
 
 refreshBtn.addEventListener('click', () => void refreshDevices());
@@ -133,8 +398,40 @@ initToolsScreen();
 initMonitorScreen();
 initLogcatScreen();
 selectDevice(undefined);
-void refreshDevices();
+void bootDeviceIdentity();
+void refreshProfiles();
 void checkForUpdatesOnce();
+
+/** Никнеймы/пины грузятся один раз при старте и дальше держатся в памяти,
+ * обновляясь локально после каждой мутации (adbApi.deviceNicknamesSet/
+ * devicePinsToggle возвращают новое состояние) — не имеет смысла
+ * перезапрашивать их на каждый 3-секундный тик поллинга устройств. */
+async function bootDeviceIdentity(): Promise<void> {
+  try {
+    [nicknames, pinnedSerials] = await Promise.all([adbApi.deviceNicknamesList(), adbApi.devicePinsList()]);
+  } catch {
+    // Не критично — список устройств отрисуется без никнеймов/пинов.
+  }
+  await refreshDevices();
+  renderDeviceList();
+  renderPinnedStrip();
+
+  // Best-effort автоподключение сохранённых профилей — как и в Swift-версии,
+  // делается один раз при старте, ошибки отдельных профилей не показываются.
+  try {
+    const count = await adbApi.connectionProfilesAutoConnect();
+    if (count > 0) await refreshDevices();
+  } catch {
+    // Тихо игнорируем.
+  }
+
+  // Периодический опрос устройств и mDNS-находок — то же поведение, что и
+  // в Swift-версии (DevicesViewModel.startPolling — 3с; startMdnsDiscovery —
+  // 5с), раньше в desktop-версии обновление было только по кнопке.
+  setInterval(() => void refreshDevices(), 3000);
+  setInterval(() => void refreshMdns(), 5000);
+  void refreshMdns();
+}
 
 // Раз за запуск, не периодический опрос -- обычному пользователю этого
 // достаточно, а GitHub API не дёргается лишний раз. Только уведомление +

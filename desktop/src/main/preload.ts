@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
 import { UpdateInfo } from './updateChecker';
+import { MdnsDevice } from './adb/types/MdnsDevice';
+import { ConnectionProfile } from './adb/types/ConnectionProfile';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -15,6 +17,29 @@ contextBridge.exposeInMainWorld('adbApi', {
   connect: (host: string) => ipcRenderer.invoke('adb:connect', host),
   disconnect: (serial: string) => ipcRenderer.invoke('adb:disconnect', serial),
   pair: (hostPort: string, code: string) => ipcRenderer.invoke('adb:pair', hostPort, code),
+  discoverMdns: (): Promise<MdnsDevice[]> => ipcRenderer.invoke('adb:discoverMdns'),
+
+  // Никнеймы устройств
+  deviceNicknamesList: (): Promise<Record<string, string>> => ipcRenderer.invoke('deviceNicknames:list'),
+  deviceNicknamesSet: (serial: string, name: string): Promise<Record<string, string>> =>
+    ipcRenderer.invoke('deviceNicknames:set', serial, name),
+
+  // Закреплённые устройства
+  devicePinsList: (): Promise<string[]> => ipcRenderer.invoke('devicePins:list'),
+  devicePinsToggle: (serial: string): Promise<string[]> => ipcRenderer.invoke('devicePins:toggle', serial),
+
+  // Профили подключения
+  connectionProfilesList: (): Promise<ConnectionProfile[]> => ipcRenderer.invoke('connectionProfiles:list'),
+  connectionProfilesAdd: (name: string, host: string): Promise<ConnectionProfile[]> =>
+    ipcRenderer.invoke('connectionProfiles:add', name, host),
+  connectionProfilesRemove: (id: string): Promise<ConnectionProfile[]> =>
+    ipcRenderer.invoke('connectionProfiles:remove', id),
+  connectionProfilesToggleAutoConnect: (id: string): Promise<ConnectionProfile[]> =>
+    ipcRenderer.invoke('connectionProfiles:toggleAutoConnect', id),
+  connectionProfilesConnect: (host: string): Promise<string> => ipcRenderer.invoke('connectionProfiles:connect', host),
+  connectionProfilesAutoConnect: (): Promise<number> => ipcRenderer.invoke('connectionProfiles:autoConnect'),
+  connectionProfilesExport: (): Promise<boolean> => ipcRenderer.invoke('connectionProfiles:export'),
+  connectionProfilesImport: (): Promise<ConnectionProfile[]> => ipcRenderer.invoke('connectionProfiles:import'),
 
   // Приложения
   listApps: (serial: string) => ipcRenderer.invoke('adb:listApps', serial),

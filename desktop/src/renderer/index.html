@@ -30,10 +30,28 @@
           <input id="pair-code" placeholder="123456" />
           <button id="pair-btn" type="button">Сопрячь</button>
         </div>
+        <div id="mdns-section" hidden>
+          <div class="hint section-title">Найдено в сети</div>
+          <ul id="mdns-list" class="scroll-list small"></ul>
+        </div>
+        <div class="hint section-title">Профили подключения</div>
+        <ul id="profiles-list" class="scroll-list small"></ul>
+        <div class="connect-row">
+          <input id="profile-name" placeholder="Имя (необязательно)" />
+        </div>
+        <div class="connect-row">
+          <input id="profile-host" placeholder="192.168.1.50:5555" />
+          <button id="profile-add" type="button">Сохранить</button>
+        </div>
+        <div class="toolbar">
+          <button id="profile-export" type="button">Экспорт…</button>
+          <button id="profile-import" type="button">Импорт…</button>
+        </div>
         <div id="status"></div>
       </aside>
 
       <main id="content">
+        <div id="pinned-strip" class="pinned-strip" hidden></div>
         <div id="tabs">
           <button data-tab="apps" type="button">Приложения</button>
           <button data-tab="apklibrary" type="button">Библиотека APK</button>

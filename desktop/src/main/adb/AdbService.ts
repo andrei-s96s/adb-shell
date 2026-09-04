@@ -23,6 +23,9 @@ import { parseDeviceStats } from './parsers/DeviceStatsParser';
 import { RunningProcess } from './types/RunningProcess';
 import { parseProcessList } from './parsers/ProcessListParser';
 import { parseRemoteFiles } from './parsers/RemoteFileParser';
+import { MdnsDevice } from './types/MdnsDevice';
+import { parseMdnsServices } from './parsers/MdnsParser';
+import { normalizeConnectHost } from './parsers/ConnectHost';
 
 export class AdbCommandError extends Error {}
 
@@ -90,7 +93,7 @@ export class AdbService {
   }
 
   async connect(host: string): Promise<string> {
-    const result = await this.run(['connect', host]);
+    const result = await this.run(['connect', normalizeConnectHost(host)]);
     return combinedOutput(result).trim();
   }
 
@@ -101,6 +104,13 @@ export class AdbService {
   async pair(hostPort: string, code: string): Promise<string> {
     const result = await this.run(['pair', hostPort, code], { timeoutMs: 15000 });
     return combinedOutput(result).trim();
+  }
+
+  /** Аналог ADBService.discoverMdnsDevices() — устройства с включённой
+   * беспроводной отладкой (Android 11+), рекламирующие себя по mDNS. */
+  async discoverMdnsDevices(): Promise<MdnsDevice[]> {
+    const result = await this.run(['mdns', 'services']);
+    return parseMdnsServices(result.stdout);
   }
 
   async shell(serial: string, command: string): Promise<string> {
