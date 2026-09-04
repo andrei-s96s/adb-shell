@@ -1,6 +1,6 @@
 import { adbApi, el, errorMessage } from './api.js';
 import type { Device, MdnsDevice, ConnectionProfile } from './api.js';
-import { setCurrentSerial, getCurrentSerial } from './state.js';
+import { setCurrentSerial, getCurrentSerial, onDeviceChanged } from './state.js';
 import { initTabs } from './tabs.js';
 import { initAppsScreen } from './screens/apps.js';
 import { initApkLibraryScreen } from './screens/apkLibrary.js';
@@ -399,6 +399,10 @@ initToolsScreen();
 initMonitorScreen();
 initLogcatScreen();
 initSettingsScreen();
+// Держим main в курсе выбранного устройства -- нужно глобальному хоткею
+// скриншота (main.ts, HOTKEY_ACCELERATOR), который обязан работать и когда
+// окно не в фокусе, то есть без похода за состоянием сюда в момент нажатия.
+onDeviceChanged((serial) => void adbApi.setHotkeySelectedSerial(serial));
 selectDevice(undefined);
 void bootDeviceIdentity();
 void refreshProfiles();

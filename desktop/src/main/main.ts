@@ -1,5 +1,17 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, dialog, shell, Notification } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  IpcMainInvokeEvent,
+  dialog,
+  shell,
+  Notification,
+  clipboard,
+  nativeImage,
+  globalShortcut,
+} from 'electron';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import * as fsPromises from 'node:fs/promises';
 import { AdbService } from './adb/AdbService';
 import { LogcatSession } from './adb/LogcatSession';
@@ -16,6 +28,7 @@ import { AlertArmState, checkThresholds, initialArmState } from './monitoring/al
 import { DeviceStats } from './adb/types/DeviceStats';
 import { comparePackages } from './adb/parsers/PackageDiff';
 import { analyzeSecurity } from './adb/parsers/DeviceSecurityAnalyzer';
+import { timestampForFilename } from './util/timestamp';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
@@ -25,6 +38,41 @@ const devicePins = new DevicePinStore();
 const appSettings = new AppSettingsStore();
 let alertArmState: AlertArmState = initialArmState();
 const logcatSessions = new Map<string, LogcatSession>();
+/** Serial выбранного в renderer устройства -- renderer сообщает о каждой
+ * смене через hotkey:setSelectedSerial, потому что глобальный хоткей
+ * (см. registerScreenshotHotkey ниже) обязан работать и когда окно не в
+ * фокусе, то есть без похода за состоянием в renderer в момент нажатия. */
+let hotkeySelectedSerial: string | undefined;
+const HOTKEY_ACCELERATOR = 'CommandOrControl+Shift+S';
+
+/** Тихий скриншот выбранного устройства прямо на Рабочий стол -- аналог
+ * GlobalHotkeyService.captureScreenshot(devicesVM:) из
+ * Sources/AdbShell/Services/GlobalHotkeyService.swift. Никакого превью --
+ * успех/ошибка сообщаются только системным уведомлением. */
+async function captureScreenshotToDesktop(): Promise<void> {
+  const serial = hotkeySelectedSerial;
+  if (!serial) return;
+  try {
+    const data = await adb.screenshot(serial);
+    const fileName = `adbshell-screenshot-${timestampForFilename(new Date())}.png`;
+    const filePath = path.join(app.getPath('desktop') || os.homedir(), fileName);
+    await fsPromises.writeFile(filePath, data);
+    new Notification({ title: 'Скриншот сохранён', body: fileName }).show();
+  } catch (error) {
+    new Notification({ title: 'Не удалось сделать скриншот', body: (error as Error).message }).show();
+  }
+}
+
+/** Регистрирует/снимает глобальный хоткей по текущему значению настройки --
+ * вызывается при старте приложения и при каждом изменении настройки. */
+function applyHotkeySetting(): void {
+  globalShortcut.unregister(HOTKEY_ACCELERATOR);
+  if (appSettings.get().globalScreenshotHotkeyEnabled) {
+    // register() возвращает false, если сочетание уже занято другим
+    // приложением/системой -- не бросает исключение, тихо не активируется.
+    globalShortcut.register(HOTKEY_ACCELERATOR, () => void captureScreenshotToDesktop());
+  }
+}
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -281,7 +329,11 @@ function registerIpcHandlers(): void {
   // Настройки приложения (пороги CPU/батареи и т.п. -- один общий JSON,
   // см. AppSettingsStore) и однократные уведомления при пересечении порога.
   ipcMain.handle('settings:get', () => appSettings.get());
-  ipcMain.handle('settings:update', (_e, partial) => appSettings.update(partial));
+  ipcMain.handle('settings:update', (_e, partial) => {
+    const updated = appSettings.update(partial);
+    applyHotkeySetting();
+    return updated;
+  });
   ipcMain.handle('monitoring:resetAlertArm', () => {
     alertArmState = initialArmState();
   });
@@ -325,6 +377,36 @@ function registerIpcHandlers(): void {
     return true;
   });
 
+  // Скриншот -- ручная кнопка (превью-модалка с Copy/Save As, см.
+  // renderer/screens/shellScreen.ts) поверх того же AdbService.screenshot,
+  // что использует и глобальный хоткей выше.
+  ipcMain.handle('adb:screenshot', async (_e, serial: string) => {
+    const data = await adb.screenshot(serial);
+    return data.toString('base64');
+  });
+  ipcMain.handle('clipboard:writeImagePng', (_e, base64Png: string) => {
+    clipboard.writeImage(nativeImage.createFromBuffer(Buffer.from(base64Png, 'base64')));
+  });
+  ipcMain.handle('dialog:saveScreenshot', async (event: IpcMainInvokeEvent, base64Png: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Сохранить скриншот',
+      defaultPath: `adbshell-screenshot-${timestampForFilename(new Date())}.png`,
+      filters: [{ name: 'PNG', extensions: ['png'] }],
+    };
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    await fsPromises.writeFile(result.filePath, Buffer.from(base64Png, 'base64'));
+    shell.showItemInFolder(result.filePath);
+    return true;
+  });
+
+  // Renderer держит main в курсе текущего выбранного устройства -- нужно
+  // глобальному хоткею (работает и когда окно не в фокусе, см. выше).
+  ipcMain.handle('hotkey:setSelectedSerial', (_e, serial: string | undefined) => {
+    hotkeySelectedSerial = serial;
+  });
+
   // Logcat — живой стрим, строки уходят в renderer как события 'logcat:line',
   // а не через ответ на invoke (сессия долгоживущая, невозможно вернуть
   // одно значение).
@@ -365,6 +447,7 @@ process.on('unhandledRejection', (reason) => {
 app.whenReady().then(() => {
   registerIpcHandlers();
   createWindow();
+  applyHotkeySetting();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -378,4 +461,5 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   for (const session of logcatSessions.values()) session.stop();
   logcatSessions.clear();
+  globalShortcut.unregisterAll();
 });

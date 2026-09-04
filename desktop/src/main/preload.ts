@@ -132,6 +132,12 @@ contextBridge.exposeInMainWorld('adbApi', {
   saveCsv: (defaultName: string, content: string): Promise<boolean> =>
     ipcRenderer.invoke('dialog:saveCsv', defaultName, content),
 
+  screenshot: (serial: string): Promise<string> => ipcRenderer.invoke('adb:screenshot', serial),
+  clipboardWriteImagePng: (base64Png: string): Promise<void> => ipcRenderer.invoke('clipboard:writeImagePng', base64Png),
+  saveScreenshot: (base64Png: string): Promise<boolean> => ipcRenderer.invoke('dialog:saveScreenshot', base64Png),
+  setHotkeySelectedSerial: (serial: string | undefined): Promise<void> =>
+    ipcRenderer.invoke('hotkey:setSelectedSerial', serial),
+
   // Logcat — живой стрим строк через событие, не через invoke
   startLogcat: (serial: string) => ipcRenderer.invoke('adb:startLogcat', serial),
   stopLogcat: (serial: string) => ipcRenderer.invoke('adb:stopLogcat', serial),

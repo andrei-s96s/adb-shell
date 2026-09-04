@@ -7,17 +7,19 @@ import { adbApi, el, errorMessage } from '../api.js';
 let enabledEl: HTMLInputElement;
 let cpuEl: HTMLInputElement;
 let batteryEl: HTMLInputElement;
+let hotkeyEnabledEl: HTMLInputElement;
 let statusEl: HTMLDivElement;
 
 export function initSettingsScreen(): void {
   enabledEl = el<HTMLInputElement>('settings-alerts-enabled');
   cpuEl = el<HTMLInputElement>('settings-cpu-threshold');
   batteryEl = el<HTMLInputElement>('settings-battery-threshold');
+  hotkeyEnabledEl = el<HTMLInputElement>('settings-hotkey-enabled');
   statusEl = el<HTMLDivElement>('settings-status');
 
   void load();
 
-  for (const input of [enabledEl, cpuEl, batteryEl]) {
+  for (const input of [enabledEl, cpuEl, batteryEl, hotkeyEnabledEl]) {
     input.addEventListener('change', () => void save());
   }
 }
@@ -28,6 +30,7 @@ async function load(): Promise<void> {
     enabledEl.checked = settings.statsAlertsEnabled;
     cpuEl.value = String(settings.statsAlertCpuThreshold);
     batteryEl.value = String(settings.statsAlertBatteryThreshold);
+    hotkeyEnabledEl.checked = settings.globalScreenshotHotkeyEnabled;
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
@@ -41,6 +44,7 @@ async function save(): Promise<void> {
       statsAlertsEnabled: enabledEl.checked,
       statsAlertCpuThreshold: Number.isFinite(cpu) ? cpu : 90,
       statsAlertBatteryThreshold: Number.isFinite(battery) ? battery : 15,
+      globalScreenshotHotkeyEnabled: hotkeyEnabledEl.checked,
     });
     statusEl.textContent = 'Сохранено';
   } catch (error) {
