@@ -15,6 +15,8 @@ import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
 import { IntentPreset } from './adb/types/IntentPreset';
 import { Macro } from './adb/types/Macro';
 import { MacroRunOutcome } from './macros/MacroRunner';
+import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
+import { DeviceSnapshotInfo } from './deviceSnapshots/DeviceSnapshotService';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -66,6 +68,27 @@ contextBridge.exposeInMainWorld('adbApi', {
   revokePermission: (serial: string, packageName: string, permission: string) =>
     ipcRenderer.invoke('adb:revokePermission', serial, packageName, permission),
   selectApkFile: (): Promise<string | undefined> => ipcRenderer.invoke('dialog:selectApk'),
+  selectApkFiles: (): Promise<string[]> => ipcRenderer.invoke('dialog:selectApks'),
+
+  appsDeleteSelected: (serial: string, packages: string[]): Promise<number> =>
+    ipcRenderer.invoke('apps:deleteSelected', serial, packages),
+  appsInstallBatch: (
+    serial: string,
+    apkPaths: string[]
+  ): Promise<{ apkPath: string; success: boolean; message: string }[]> =>
+    ipcRenderer.invoke('apps:installBatch', serial, apkPaths),
+  appsExportSelected: (serial: string, packages: string[]): Promise<ExportBundleOutcome | undefined> =>
+    ipcRenderer.invoke('apps:exportSelected', serial, packages),
+  appsImportBundle: (serial: string): Promise<ImportBundleOutcome | undefined> =>
+    ipcRenderer.invoke('apps:importBundle', serial),
+
+  snapshotsList: (): Promise<DeviceSnapshotInfo[]> => ipcRenderer.invoke('snapshots:list'),
+  snapshotsTake: (serial: string, packages: string[], deviceLabel: string): Promise<ExportBundleOutcome> =>
+    ipcRenderer.invoke('snapshots:take', serial, packages, deviceLabel),
+  snapshotsRestore: (snapshotPath: string, serial: string): Promise<ImportBundleOutcome> =>
+    ipcRenderer.invoke('snapshots:restore', snapshotPath, serial),
+  snapshotsDelete: (snapshotPath: string): Promise<void> => ipcRenderer.invoke('snapshots:delete', snapshotPath),
+  snapshotsReveal: (snapshotPath: string): Promise<void> => ipcRenderer.invoke('snapshots:reveal', snapshotPath),
 
   // Библиотека APK — доступна без подключённого устройства
   apkLibraryList: (): Promise<ApkFile[]> => ipcRenderer.invoke('apkLibrary:list'),

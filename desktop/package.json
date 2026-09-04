@@ -19,6 +19,7 @@
     "dist:mac": "npm run build && npm run fetch:aapt2:mac && electron-builder --mac --publish=never"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/node": "^22.10.0",
     "electron": "^33.0.0",
     "electron-builder": "^26.15.3",
@@ -35,22 +36,45 @@
       "output": "release",
       "buildResources": "build"
     },
-    "files": ["dist/**/*", "package.json", "!**/*.map"],
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
     "mac": {
       "target": "zip",
       "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
-      "extraResources": [{ "from": "vendor/mac", "to": ".", "filter": ["**/*"] }]
+      "extraResources": [
+        {
+          "from": "vendor/mac",
+          "to": ".",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
     },
     "afterSign": "scripts/afterSign.js",
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
-      "extraResources": [{ "from": "vendor/win", "to": ".", "filter": ["**/*"] }]
+      "extraResources": [
+        {
+          "from": "vendor/win",
+          "to": ".",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     }
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16"
   }
 }

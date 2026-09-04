@@ -33,6 +33,7 @@ import { parseUsageStats } from './parsers/UsageStatsParser';
 import { CrashTraceFile } from './types/CrashTraceFile';
 import { parseCrashTraceListing } from './parsers/CrashTraceParser';
 import { singleQuoted } from './parsers/ShellQuoting';
+import { parseApkPaths } from './parsers/ApkPathParser';
 
 export class AdbCommandError extends Error {}
 
@@ -196,6 +197,17 @@ export class AdbService {
   async appDetail(serial: string, packageName: string): Promise<AppDetail> {
     const result = await this.run(['shell', 'dumpsys', 'package', packageName], { serial });
     return parseAppDetail(packageName, result.stdout);
+  }
+
+  /** Аналог ADBService.apkPaths(serial:packageName:) -- пути к установленным
+   * APK пакета на устройстве (split APK может дать несколько строк). */
+  async apkPaths(serial: string, packageName: string): Promise<string[]> {
+    const result = await this.run(['shell', 'pm', 'path', packageName], { serial });
+    const paths = parseApkPaths(result.stdout);
+    if (paths.length === 0) {
+      throw new AdbCommandError(combinedOutput(result).length > 0 ? combinedOutput(result) : 'Путь к APK не найден');
+    }
+    return paths;
   }
 
   async install(serial: string, apkPath: string): Promise<string> {

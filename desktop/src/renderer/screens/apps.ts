@@ -2,6 +2,7 @@ import { adbApi, el, errorMessage } from '../api.js';
 import type { InstalledApp, AppDetail } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openDeviceCompareModal } from './deviceCompare.js';
+import { openSnapshotsModal } from './snapshots.js';
 
 const NET_POLL_INTERVAL_MS = 3000;
 
@@ -10,8 +11,14 @@ let detailEl: HTMLDivElement;
 let statusEl: HTMLDivElement;
 let searchEl: HTMLInputElement;
 let showSystemEl: HTMLInputElement;
+let batchToolbarEl: HTMLDivElement;
 let apps: InstalledApp[] = [];
-let selectedPackage: string | undefined;
+/** Мультивыбор в духе Finder: обычный клик выбирает одну строку, ⌘/Ctrl-клик
+ * добавляет/убирает, ⇧-клик выделяет диапазон от последнего "обычного"
+ * клика. Порт AppsViewModel.handleRowClick (см. main/apps/multiSelectLogic.ts
+ * -- продублировано здесь напрямую, renderer не импортирует main/*). */
+let selectedForBatch = new Set<string>();
+let lastClickedPackage: string | undefined;
 let netPollTimer: ReturnType<typeof setInterval> | undefined;
 let lastNetSample: { rx: number; tx: number; at: number } | undefined;
 
@@ -21,18 +28,26 @@ export function initAppsScreen(): void {
   statusEl = el<HTMLDivElement>('apps-status');
   searchEl = el<HTMLInputElement>('apps-search');
   showSystemEl = el<HTMLInputElement>('apps-show-system');
+  batchToolbarEl = el<HTMLDivElement>('apps-batch-toolbar');
 
   searchEl.addEventListener('input', renderList);
   showSystemEl.addEventListener('change', renderList);
-  el<HTMLButtonElement>('apps-install').addEventListener('click', () => void installApk());
+  el<HTMLButtonElement>('apps-install').addEventListener('click', () => void installApks());
   el<HTMLButtonElement>('apps-export-csv').addEventListener('click', () => void exportCsv());
   el<HTMLButtonElement>('apps-compare').addEventListener('click', () => {
     const serial = getCurrentSerial();
     if (serial) openDeviceCompareModal(serial);
   });
+  el<HTMLButtonElement>('apps-import-bundle').addEventListener('click', () => void importBundle());
+  el<HTMLButtonElement>('apps-snapshot').addEventListener('click', () => {
+    const serial = getCurrentSerial();
+    if (serial) openSnapshotsModal(serial, apps, () => void loadApps(serial));
+  });
+  el<HTMLButtonElement>('apps-export-selected').addEventListener('click', () => void exportSelected());
+  el<HTMLButtonElement>('apps-delete-selected').addEventListener('click', () => void deleteSelected());
 
   onDeviceChanged((serial) => {
-    selectedPackage = undefined;
+    clearSelection();
     apps = [];
     renderList();
     renderDetail();
@@ -42,6 +57,11 @@ export function initAppsScreen(): void {
       statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
     }
   });
+}
+
+function clearSelection(): void {
+  selectedForBatch = new Set();
+  lastClickedPackage = undefined;
 }
 
 function filteredApps(): InstalledApp[] {
@@ -65,21 +85,103 @@ async function exportCsv(): Promise<void> {
   }
 }
 
-async function installApk(): Promise<void> {
+/** Порт AppsViewModel.installBatch -- выбор нескольких файлов сразу
+ * (диалог всегда позволяет мультивыбор, один файл — частный случай). */
+async function installApks(): Promise<void> {
   const serial = getCurrentSerial();
   if (!serial) {
     statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
     return;
   }
-  const apkPath = await adbApi.selectApkFile();
-  if (!apkPath) return;
-  statusEl.textContent = `Установка ${apkPath}…`;
+  const apkPaths = await adbApi.selectApkFiles();
+  if (apkPaths.length === 0) return;
+  statusEl.textContent = `Установка ${apkPaths.length} APK…`;
   try {
-    await adbApi.install(serial, apkPath);
-    statusEl.textContent = 'Установлено';
+    const results = await adbApi.appsInstallBatch(serial, apkPaths);
+    const failed = results.filter((r) => !r.success);
+    statusEl.textContent =
+      failed.length === 0 ? `Установлено: ${results.length}` : `Установлено ${results.length - failed.length} из ${results.length}. Ошибки: ${failed.map((f) => f.message).join('; ')}`;
+    if (results.length > 1) {
+      try {
+        new Notification('Пакетная установка', { body: `Установлено ${results.length - failed.length} из ${results.length}` });
+      } catch {
+        // Не критично.
+      }
+    }
     await loadApps(serial);
   } catch (error) {
     statusEl.textContent = `Ошибка установки: ${errorMessage(error)}`;
+  }
+}
+
+async function deleteSelected(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial || selectedForBatch.size === 0) return;
+  const packages = [...selectedForBatch];
+  statusEl.textContent = `Удаление ${packages.length}…`;
+  try {
+    const count = await adbApi.appsDeleteSelected(serial, packages);
+    clearSelection();
+    await loadApps(serial);
+    renderDetail();
+    statusEl.textContent = `Удалено: ${count}`;
+    if (count > 1) {
+      try {
+        new Notification('Пакетное удаление', { body: `Удалено приложений: ${count}` });
+      } catch {
+        // Не критично.
+      }
+    }
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+/** Порт AppsViewModel.exportSelected -- выбранные приложения вместе с их
+ * выданными runtime-разрешениями в один .zip. */
+async function exportSelected(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial || selectedForBatch.size === 0) return;
+  const packages = [...selectedForBatch];
+  statusEl.textContent = 'Экспорт…';
+  try {
+    const outcome = await adbApi.appsExportSelected(serial, packages);
+    if (!outcome) {
+      statusEl.textContent = '';
+      return;
+    }
+    statusEl.textContent = outcome.entryCount > 0 ? `Экспортировано приложений: ${outcome.entryCount}` : 'Ничего не экспортировано';
+    clearSelection();
+    renderList();
+    renderBatchToolbar();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+/** Порт AppsViewModel.importBundle -- ставит набор из .zip: apk + сохранённые
+ * runtime-разрешения через pm grant. */
+async function importBundle(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial) {
+    statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    return;
+  }
+  statusEl.textContent = 'Импорт…';
+  try {
+    const outcome = await adbApi.appsImportBundle(serial);
+    if (!outcome) {
+      statusEl.textContent = '';
+      return;
+    }
+    const failed = outcome.results.filter((r) => !r.success);
+    statusEl.textContent =
+      failed.length === 0
+        ? `Импортировано: ${outcome.results.length}`
+        : `Импортировано ${outcome.results.length - failed.length} из ${outcome.results.length}`;
+    await loadApps(serial);
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
 }
 
@@ -96,20 +198,59 @@ async function loadApps(serial: string): Promise<void> {
 
 function renderList(): void {
   const filtered = filteredApps();
+  const order = filtered.map((a) => a.packageName);
 
   listEl.innerHTML = '';
   for (const app of filtered) {
     const li = document.createElement('li');
-    li.className = 'row' + (app.packageName === selectedPackage ? ' selected' : '');
+    li.className = 'row' + (selectedForBatch.has(app.packageName) ? ' selected' : '');
     li.textContent = app.packageName + (app.isSystem ? '  [SYS]' : '') + (!app.isEnabled ? '  (выкл)' : '');
-    li.addEventListener('click', () => {
-      selectedPackage = app.packageName;
+    li.addEventListener('click', (event) => {
+      handleRowClick(app.packageName, order, event.metaKey || event.ctrlKey, event.shiftKey);
       renderList();
+      renderBatchToolbar();
       const serial = getCurrentSerial();
-      if (serial) void loadDetail(serial, app.packageName);
+      if (serial && selectedForBatch.size === 1) {
+        void loadDetail(serial, [...selectedForBatch][0]);
+      } else {
+        renderDetail();
+      }
     });
     listEl.appendChild(li);
   }
+}
+
+/** Дубликат main/apps/multiSelectLogic.ts (см. комментарий там про то, почему
+ * не импортируется напрямую) -- обычный клик выбирает одну строку, ⌘/Ctrl
+ * добавляет/убирает, ⇧ выделяет диапазон от последнего обычного клика. */
+function handleRowClick(packageName: string, order: string[], meta: boolean, shift: boolean): void {
+  if (meta) {
+    if (selectedForBatch.has(packageName)) {
+      selectedForBatch.delete(packageName);
+    } else {
+      selectedForBatch.add(packageName);
+    }
+    lastClickedPackage = packageName;
+    return;
+  }
+  if (shift && lastClickedPackage !== undefined) {
+    const anchorIdx = order.indexOf(lastClickedPackage);
+    const clickedIdx = order.indexOf(packageName);
+    if (anchorIdx !== -1 && clickedIdx !== -1) {
+      const from = Math.min(anchorIdx, clickedIdx);
+      const to = Math.max(anchorIdx, clickedIdx);
+      for (let i = from; i <= to; i++) selectedForBatch.add(order[i]);
+      return;
+    }
+  }
+  selectedForBatch = new Set([packageName]);
+  lastClickedPackage = packageName;
+}
+
+function renderBatchToolbar(): void {
+  batchToolbarEl.hidden = selectedForBatch.size === 0;
+  const countEl = document.getElementById('apps-selected-count');
+  if (countEl) countEl.textContent = `Выбрано: ${selectedForBatch.size}`;
 }
 
 async function loadDetail(serial: string, packageName: string): Promise<void> {
@@ -173,7 +314,10 @@ function formatBytes(bytes: number): string {
 function renderDetail(detail?: AppDetail, serial?: string): void {
   stopNetPolling();
   if (!detail || !serial) {
-    detailEl.innerHTML = '<p class="placeholder">Выберите приложение слева</p>';
+    detailEl.innerHTML =
+      selectedForBatch.size > 1
+        ? `<p class="placeholder">Выбрано приложений: ${selectedForBatch.size} — используйте Экспортировать/Удалить выбранные</p>`
+        : '<p class="placeholder">Выберите приложение слева</p>';
     return;
   }
 
@@ -227,9 +371,10 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
     actionButton('Удалить', () =>
       run(async () => {
         await adbApi.uninstall(serial, detail.packageName);
-        selectedPackage = undefined;
+        clearSelection();
         await loadApps(serial);
         renderDetail();
+        renderBatchToolbar();
       })
     )
   );

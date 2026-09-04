@@ -191,6 +191,34 @@ export interface MacroRunOutcome {
   results: MacroRunResult[];
 }
 
+export interface BundleOperationResult {
+  packageName: string;
+  success: boolean;
+  message: string;
+}
+
+export interface ExportBundleOutcome {
+  entryCount: number;
+  results: BundleOperationResult[];
+}
+
+export interface ImportBundleOutcome {
+  results: BundleOperationResult[];
+}
+
+export interface DeviceSnapshotInfo {
+  path: string;
+  deviceLabel: string;
+  appCount: number;
+  createdAtMs: number;
+}
+
+export interface InstallBatchFileResult {
+  apkPath: string;
+  success: boolean;
+  message: string;
+}
+
 export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface LogLine {
@@ -238,6 +266,18 @@ export interface AdbApi {
   grantPermission(serial: string, packageName: string, permission: string): Promise<void>;
   revokePermission(serial: string, packageName: string, permission: string): Promise<void>;
   selectApkFile(): Promise<string | undefined>;
+  selectApkFiles(): Promise<string[]>;
+
+  appsDeleteSelected(serial: string, packages: string[]): Promise<number>;
+  appsInstallBatch(serial: string, apkPaths: string[]): Promise<InstallBatchFileResult[]>;
+  appsExportSelected(serial: string, packages: string[]): Promise<ExportBundleOutcome | undefined>;
+  appsImportBundle(serial: string): Promise<ImportBundleOutcome | undefined>;
+
+  snapshotsList(): Promise<DeviceSnapshotInfo[]>;
+  snapshotsTake(serial: string, packages: string[], deviceLabel: string): Promise<ExportBundleOutcome>;
+  snapshotsRestore(snapshotPath: string, serial: string): Promise<ImportBundleOutcome>;
+  snapshotsDelete(snapshotPath: string): Promise<void>;
+  snapshotsReveal(snapshotPath: string): Promise<void>;
 
   apkLibraryList(): Promise<ApkFile[]>;
   apkLibraryGetDirectory(): Promise<string>;

@@ -33,12 +33,15 @@ import { ApkTagStore } from './apkLibrary/ApkTagStore';
 import { IntentPresetStore } from './intentPresets/IntentPresetStore';
 import { MacroStore } from './macros/MacroStore';
 import { runMacro } from './macros/MacroRunner';
+import { exportBundle, importBundle } from './appBundles/AppBundleService';
+import { DeviceSnapshotService } from './deviceSnapshots/DeviceSnapshotService';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
 const apkTags = new ApkTagStore();
 const intentPresets = new IntentPresetStore();
 const macroStore = new MacroStore();
+const deviceSnapshots = new DeviceSnapshotService();
 const connectionProfiles = new ConnectionProfileStore();
 const deviceNicknames = new DeviceNicknameStore();
 const devicePins = new DevicePinStore();
@@ -216,6 +219,79 @@ function registerIpcHandlers(): void {
     if (result.canceled || result.filePaths.length === 0) return undefined;
     return result.filePaths[0];
   });
+  ipcMain.handle('dialog:selectApks', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Выберите APK (можно несколько)',
+      properties: ['openFile' as const, 'multiSelections' as const],
+      filters: [{ name: 'Android package', extensions: ['apk'] }],
+    };
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    return result.canceled ? [] : result.filePaths;
+  });
+
+  // Пакетное удаление/установка (мультивыбор в духе Finder, apps.ts) --
+  // последовательно, не параллельно, тот же порядок, что и в оригинале.
+  ipcMain.handle('apps:deleteSelected', async (_e, serial: string, packages: string[]) => {
+    const sorted = [...packages].sort();
+    for (const pkg of sorted) {
+      try {
+        await adb.uninstall(serial, pkg);
+      } catch {
+        // Продолжаем остальные -- одна неудача не должна прерывать пакет.
+      }
+    }
+    return sorted.length;
+  });
+  ipcMain.handle('apps:installBatch', async (_e, serial: string, apkPaths: string[]) => {
+    const results: { apkPath: string; success: boolean; message: string }[] = [];
+    for (const apkPath of apkPaths) {
+      try {
+        const output = await adb.install(serial, apkPath);
+        results.push({ apkPath, success: true, message: output });
+      } catch (error) {
+        results.push({ apkPath, success: false, message: (error as Error).message });
+      }
+    }
+    return results;
+  });
+
+  // Наборы приложений (экспорт/импорт с runtime-разрешениями) и снапшоты
+  // устройства -- см. AppBundleService.ts/DeviceSnapshotService.ts.
+  ipcMain.handle('apps:exportSelected', async (event: IpcMainInvokeEvent, serial: string, packages: string[]) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Экспорт набора приложений',
+      defaultPath: `apps-export-${timestampForFilename(new Date())}.zip`,
+      filters: [{ name: 'ZIP', extensions: ['zip'] }],
+    };
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return undefined;
+    const outcome = await exportBundle(packages, serial, undefined, result.filePath, adb);
+    if (outcome.entryCount > 0) shell.showItemInFolder(result.filePath);
+    return outcome;
+  });
+  ipcMain.handle('apps:importBundle', async (event: IpcMainInvokeEvent, serial: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Импорт набора приложений',
+      properties: ['openFile' as const],
+      filters: [{ name: 'ZIP', extensions: ['zip'] }],
+    };
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) return undefined;
+    return importBundle(result.filePaths[0], serial, adb);
+  });
+
+  ipcMain.handle('snapshots:list', () => deviceSnapshots.list());
+  ipcMain.handle('snapshots:take', async (_e, serial: string, packages: string[], deviceLabel: string) =>
+    deviceSnapshots.take(packages, serial, deviceLabel, adb)
+  );
+  ipcMain.handle('snapshots:restore', (_e, snapshotPath: string, serial: string) =>
+    deviceSnapshots.restore(snapshotPath, serial, adb)
+  );
+  ipcMain.handle('snapshots:delete', (_e, snapshotPath: string) => deviceSnapshots.delete(snapshotPath));
+  ipcMain.handle('snapshots:reveal', (_e, snapshotPath: string) => shell.showItemInFolder(snapshotPath));
 
   // Библиотека APK — локальный каталог с .apk, доступный и без
   // подключённого устройства (тот же класс требования, что уже привёл к
