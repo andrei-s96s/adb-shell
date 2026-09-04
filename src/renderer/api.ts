@@ -174,6 +174,7 @@ export interface AppSettings {
   globalScreenshotHotkeyEnabled: boolean;
   defaultShowSystemApps: boolean;
   autoCheckUpdates: boolean;
+  themePreference: 'system' | 'light' | 'dark';
 }
 
 export interface ThresholdCheckResult {

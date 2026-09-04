@@ -1,6 +1,11 @@
-/* Цветовая палитра портирована из Sources/AdbShell/Design/Theme.swift (CP.*) —
-   светлая тема по умолчанию, тёмная — через prefers-color-scheme, та же
-   схема токенов, что и в Swift-версии (dynamicColor(light:dark:)). */
+/* Цветовая палитра портирована из Sources/AdbShell/Design/Theme.swift (CP.*).
+   Три состояния темы (порт ThemePreference.swift, применяется через
+   data-theme на <html>, см. screens/settings.ts applyTheme):
+   - нет атрибута ИЛИ data-theme="system" -- следует prefers-color-scheme;
+   - data-theme="light" -- форсирует светлую, даже если ОС в тёмной;
+   - data-theme="dark" -- форсирует тёмную, даже если ОС в светлой.
+   :root:not([data-theme="light"]) в медиа-запросе -- чтобы явный выбор
+   "светлая" не перебивался системной тёмной темой. */
 
 :root {
   --cp-bg: rgb(247, 246, 244);
@@ -21,7 +26,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --cp-bg: rgb(11, 11, 13);
     --cp-bg-panel: rgb(22, 22, 25);
     --cp-bg-panel-alt: rgb(32, 32, 36);
@@ -38,6 +43,22 @@
   }
 }
 
+:root[data-theme="dark"] {
+  --cp-bg: rgb(11, 11, 13);
+  --cp-bg-panel: rgb(22, 22, 25);
+  --cp-bg-panel-alt: rgb(32, 32, 36);
+  --cp-hairline: rgba(255, 255, 255, 0.08);
+
+  --cp-gold: rgb(212, 176, 102);
+  --cp-ice: rgb(143, 184, 230);
+  --cp-rose: rgb(199, 133, 143);
+  --cp-emerald: rgb(89, 199, 148);
+  --cp-crimson: rgb(222, 87, 94);
+
+  --cp-text-primary: rgb(242, 242, 240);
+  --cp-text-muted: rgb(148, 148, 161);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -48,6 +69,33 @@ body {
   color: var(--cp-text-primary);
   font-family: var(--cp-mono);
   font-size: 13px;
+}
+
+/* Тонкий скроллбар везде вместо толстого непрозрачного Windows-гаттера
+   (~17px, всегда виден, в отличие от auto-hide на Mac) -- Electron всюду
+   Chromium, ::-webkit-scrollbar работает одинаково на всех трёх платформах,
+   так что заодно и выглядит одинаково, а не по-разному на Mac/Win. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cp-hairline) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--cp-hairline);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--cp-text-muted);
 }
 
 #app {
@@ -193,12 +241,20 @@ body {
 /* Полоска закреплённых устройств -- быстрое переключение между несколькими
    подключёнными сразу, над вкладками, видна только когда есть хотя бы одно
    закреплённое устройство. */
+/* [hidden] и голый ".pinned-strip { display: flex }" имеют одинаковую
+   специфичность — тот же баг, что уже был словлен и починен для
+   .update-banner (см. комментарий там): без :not([hidden]) полоска видна
+   даже без единого закреплённого устройства. */
 .pinned-strip {
-  display: flex;
+  display: none;
   gap: 6px;
   padding: 8px 16px 0;
   flex-shrink: 0;
   overflow-x: auto;
+}
+
+.pinned-strip:not([hidden]) {
+  display: flex;
 }
 
 .pinned-chip {
@@ -328,13 +384,21 @@ button:hover {
    границу .panel-left (overflow не задан) и накладываются на соседнюю
    .panel-right с текстом "Выберите приложение слева". С wrap лишние
    элементы просто переносятся на новую строку вместо наложения. */
+/* display: none + :not([hidden]) ниже -- та же [hidden]-специфичность,
+   что и у .update-banner/.pinned-strip (см. комментарии там): один из
+   .toolbar в разметке (#apps-batch-toolbar) переключается через hidden,
+   и без этой пары он был виден всегда, независимо от JS. */
 .toolbar {
-  display: flex;
+  display: none;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   margin-bottom: 10px;
   flex-shrink: 0;
+}
+
+.toolbar:not([hidden]) {
+  display: flex;
 }
 
 .toolbar select {
@@ -386,11 +450,14 @@ button:hover {
 
 .checkbox-label {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   font-size: 11px;
   color: var(--cp-text-muted);
-  white-space: nowrap;
+  /* Без nowrap -- короткие подписи (типа "системные") и так помещаются в
+     одну строку, а длинные (описание хоткея в Настройках) переносятся,
+     вместо того чтобы вылезать за границу контейнера. Поймано вживую на
+     Windows-сборке. */
 }
 
 .scroll-list {
@@ -795,6 +862,16 @@ button:hover {
 
 .settings-row input[type='number'] {
   width: 70px;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+}
+
+.settings-row select {
   font-family: inherit;
   font-size: 12px;
   padding: 6px 8px;
