@@ -5,7 +5,7 @@
   "description": "Nativelike macOS/Windows app for everyday work with Android devices over adb.",
   "main": "dist/main/main.js",
   "author": "andrei-s96s",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && node scripts/copy-assets.js",
     "test": "npm run build && node --test dist/test/*.test.js",
