@@ -1,0 +1,958 @@
+/* Цветовая палитра портирована из Sources/AdbShell/Design/Theme.swift (CP.*) —
+   светлая тема по умолчанию, тёмная — через prefers-color-scheme, та же
+   схема токенов, что и в Swift-версии (dynamicColor(light:dark:)). */
+
+:root {
+  --cp-bg: rgb(247, 246, 244);
+  --cp-bg-panel: rgb(255, 255, 255);
+  --cp-bg-panel-alt: rgb(237, 236, 233);
+  --cp-hairline: rgba(0, 0, 0, 0.08);
+
+  --cp-gold: rgb(130, 102, 43);
+  --cp-ice: rgb(51, 107, 168);
+  --cp-rose: rgb(158, 77, 94);
+  --cp-emerald: rgb(31, 120, 82);
+  --cp-crimson: rgb(189, 41, 51);
+
+  --cp-text-primary: rgb(23, 23, 26);
+  --cp-text-muted: rgb(102, 102, 112);
+
+  --cp-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cp-bg: rgb(11, 11, 13);
+    --cp-bg-panel: rgb(22, 22, 25);
+    --cp-bg-panel-alt: rgb(32, 32, 36);
+    --cp-hairline: rgba(255, 255, 255, 0.08);
+
+    --cp-gold: rgb(212, 176, 102);
+    --cp-ice: rgb(143, 184, 230);
+    --cp-rose: rgb(199, 133, 143);
+    --cp-emerald: rgb(89, 199, 148);
+    --cp-crimson: rgb(222, 87, 94);
+
+    --cp-text-primary: rgb(242, 242, 240);
+    --cp-text-muted: rgb(148, 148, 161);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cp-bg);
+  color: var(--cp-text-primary);
+  font-family: var(--cp-mono);
+  font-size: 13px;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+#sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  background: var(--cp-bg-panel);
+  border-right: 1px solid var(--cp-hairline);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Профили/mDNS/никнеймы добавили сайдбару больше секций, чем помещается
+     по высоте на невысоких окнах -- без overflow контент просто обрезался
+     бы снизу без скролла. #device-list ниже сохраняет свой собственный
+     flex:1 + overflow-y для списка устройств. */
+  overflow-y: auto;
+}
+
+#sidebar h1 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cp-gold);
+  margin: 0;
+}
+
+/* [hidden] (атрибут HTML) и ".update-banner { display: flex }" имеют
+   ОДИНАКОВУЮ специфичность (0,1,0) -- при равенстве побеждает более
+   поздний по каскаду, а авторский theme.css идёт после UA-стиля браузера,
+   так что голый ".update-banner { display: flex }" перебил бы [hidden] и
+   баннер остался бы виден. display: none здесь + явный флекс только
+   ":not([hidden])" ниже снимает эту гонку специфичности. */
+.update-banner {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cp-gold) 16%, var(--cp-bg-panel-alt));
+  border: 1px solid var(--cp-gold);
+  font-size: 11px;
+}
+
+.update-banner:not([hidden]) {
+  display: flex;
+}
+
+.update-banner span {
+  flex: 1;
+  min-width: 100px;
+  color: var(--cp-text-primary);
+}
+
+.update-banner button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#device-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+#device-list li {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--cp-bg-panel-alt);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#device-list li.selected {
+  outline: 1px solid var(--cp-gold);
+}
+
+#device-list li.empty {
+  color: var(--cp-text-muted);
+  background: none;
+}
+
+.device-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.device-row-label {
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.device-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.device-row-actions button {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.device-row-actions button.active {
+  color: var(--cp-gold);
+  border-color: var(--cp-gold);
+}
+
+.device-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--cp-gold);
+  background: var(--cp-bg-panel);
+  color: var(--cp-text-primary);
+}
+
+/* Полоска закреплённых устройств -- быстрое переключение между несколькими
+   подключёнными сразу, над вкладками, видна только когда есть хотя бы одно
+   закреплённое устройство. */
+.pinned-strip {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px 0;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.pinned-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--cp-bg-panel-alt);
+  border: 1px solid var(--cp-hairline);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pinned-chip.active {
+  border-color: var(--cp-gold);
+  background: color-mix(in srgb, var(--cp-gold) 14%, var(--cp-bg-panel-alt));
+}
+
+.pinned-chip button {
+  padding: 0 4px;
+  font-size: 11px;
+  background: none;
+  border: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+.connect-row {
+  display: flex;
+  gap: 6px;
+}
+
+.connect-row input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+}
+
+#status {
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  min-height: 14px;
+}
+
+#content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.placeholder {
+  color: var(--cp-text-muted);
+}
+
+.error {
+  color: var(--cp-crimson);
+}
+
+/* Вкладки */
+
+#tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px 0;
+  border-bottom: 1px solid var(--cp-hairline);
+  flex-shrink: 0;
+}
+
+#tabs button {
+  background: none;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  padding: 8px 14px;
+  color: var(--cp-text-muted);
+}
+
+#tabs button.active {
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-gold);
+}
+
+.tab-panel {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.tab-panel.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Общие элементы */
+
+/* flex-wrap здесь не декоративный: панель "Приложения" держит .toolbar
+   (поиск + чекбокс + кнопка "Установить APK…") внутри .panel-left, у
+   которой фиксированная ширина 320px. Без wrap и без min-width на полях
+   ниже flex-элементы по умолчанию не сжимаются меньше своего
+   intrinsic-content размера (min-width: auto) -- когда сумма содержимого
+   toolbar шире 320px, элементы не сжимаются, а визуально вылезают за
+   границу .panel-left (overflow не задан) и накладываются на соседнюю
+   .panel-right с текстом "Выберите приложение слева". С wrap лишние
+   элементы просто переносятся на новую строку вместо наложения. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.toolbar select {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 7px;
+  border-radius: 8px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+}
+
+.toolbar input:not([type='checkbox']) {
+  flex: 1;
+  min-width: 80px;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+}
+
+/* Без исключения выше чекбоксы внутри .checkbox-label (потомки .toolbar)
+   тоже попадали под ".toolbar input" и получали flex:1 + padding + border +
+   background/border-radius, задуманные для текстовых полей -- вместо
+   маленького нативного чекбокса получалась раздутая плашка, растущая за
+   пространство наравне с соседним input'ом и наезжающая на текст подписи
+   рядом. Явный сброс здесь -- на случай, если что-то ещё попадёт под
+   ".toolbar input" по недосмотру в будущем. */
+.toolbar input[type='checkbox'] {
+  flex: none;
+  width: auto;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+/* Специфичность (.toolbar input.input-narrow) намеренно выше, чем у
+   ".toolbar input" выше — иначе flex:1 оттуда растянет поле снова. Раньше
+   это делалось через inline style="width: 80px" в разметке — CSP style-src
+   без 'unsafe-inline' тихо блокирует такие статичные атрибуты (проверено
+   вживую: getComputedStyle возвращал "auto" вместо заданной ширины). */
+.toolbar input.input-narrow {
+  flex: none;
+  width: 80px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  white-space: nowrap;
+}
+
+.scroll-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scroll-list.small {
+  max-height: 120px;
+  flex: none;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--cp-bg-panel-alt);
+  font-size: 12px;
+}
+
+.apps-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.row.selected {
+  outline: 1px solid var(--cp-gold);
+}
+
+.row button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.hint.section-title {
+  margin-top: 10px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Приложения */
+
+.panel-split {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel-left {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-right {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.detail-header h2 {
+  font-size: 14px;
+  margin: 0 0 6px;
+  color: var(--cp-gold);
+}
+
+.actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.perms-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.badge {
+  font-size: 10px;
+  color: var(--cp-text-muted);
+}
+
+/* Библиотека APK */
+
+/* Путь к каталогу живёт внутри .toolbar как обычный div, не input --
+   ".toolbar input"/"checkbox" сбросы его не касаются, поэтому сжатие и
+   обрезание длинного пути прописаны отдельно. Переопределяем .hint's
+   text-transform/letter-spacing -- путь к файлу в верхнем регистре нечитаем. */
+.apklibrary-dir {
+  flex: 1;
+  min-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.apk-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.apk-update-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--cp-gold);
+}
+
+.apk-row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tag-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--cp-bg-panel-alt);
+  border: 1px solid var(--cp-hairline);
+  font-size: 10px;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+}
+
+.tag-chip.active {
+  border-color: var(--cp-gold);
+  color: var(--cp-gold);
+}
+
+.apk-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.apk-row-tags .tag-chip {
+  cursor: default;
+}
+
+.apk-row-tags .tag-chip button {
+  padding: 0 2px;
+  background: none;
+  border: none;
+  font-size: 10px;
+  color: inherit;
+}
+
+.tag-add-btn {
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+/* Shell */
+
+.shell-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--cp-bg-panel-alt);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.shell-log pre {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.shell-cmd {
+  color: var(--cp-gold);
+}
+
+.shell-err {
+  color: var(--cp-crimson);
+}
+
+/* Инструменты */
+
+/* minmax(0, 1fr), не голый 1fr -- у грид-трека по умолчанию min-width:auto,
+   как и у flex-элемента (см. .toolbar выше): если содержимое карточки
+   (например, внутренний .toolbar) требует больше места, чем доля 1fr,
+   трек не сжимается, а раздувает всю сетку за пределы .tools-grid.
+   Пойман тем же CDP-прогоном на узком окне (~650px), что и переполнение
+   .panel-left/.panel-right на вкладке "Приложения". */
+.tools-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.tool-card {
+  background: var(--cp-bg-panel);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.tool-card.wide {
+  grid-column: 1 / -1;
+}
+
+.tool-card h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--cp-ice);
+}
+
+.props-list {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prop-row {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.prop-row:hover {
+  background: var(--cp-bg-panel-alt);
+}
+
+.prop-key {
+  color: var(--cp-ice);
+  flex-shrink: 0;
+  min-width: 260px;
+}
+
+.prop-value {
+  color: var(--cp-text-primary);
+  word-break: break-all;
+}
+
+/* Мониторинг */
+
+.monitor-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.stat-card {
+  background: var(--cp-bg-panel);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--cp-gold);
+}
+
+.sparkline {
+  width: 100%;
+  height: 40px;
+  margin-top: 8px;
+}
+
+.sparkline polyline {
+  fill: none;
+  stroke: var(--cp-emerald);
+  stroke-width: 2;
+}
+
+/* Модальные окна (сравнение устройств, ANR/tombstone-просмотр и т.д.) */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-panel {
+  width: min(720px, 92vw);
+  max-height: 85vh;
+  background: var(--cp-bg-panel);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--cp-hairline);
+  flex-shrink: 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--cp-gold);
+}
+
+.modal-header button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Настройки */
+
+.settings-section {
+  background: var(--cp-bg-panel);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+  max-width: 460px;
+}
+
+.settings-section h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--cp-ice);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.settings-row input[type='number'] {
+  width: 70px;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+}
+
+/* Сравнение устройств */
+
+.compare-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.compare-column h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.compare-column ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compare-column li {
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.compare-column li:hover {
+  background: var(--cp-bg-panel-alt);
+}
+
+/* Командная палитра (⌘K/Ctrl+K) */
+
+.palette-overlay {
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.palette-panel {
+  width: min(480px, 92vw);
+  max-height: 60vh;
+  background: var(--cp-bg-panel);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.palette-input {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 14px;
+  border: none;
+  border-bottom: 1px solid var(--cp-hairline);
+  background: none;
+  color: var(--cp-text-primary);
+}
+
+.palette-input:focus {
+  outline: none;
+}
+
+.palette-results {
+  overflow-y: auto;
+}
+
+.palette-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.palette-row:hover {
+  background: var(--cp-bg-panel-alt);
+}
+
+/* Логотрейсы (ANR/tombstone) */
+
+.trace-layout {
+  display: flex;
+  gap: 12px;
+  height: 60vh;
+}
+
+.trace-list {
+  width: 240px;
+  flex-shrink: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trace-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  background: var(--cp-bg-panel-alt);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Logcat */
+
+.logcat-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--cp-bg-panel-alt);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.log-row {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 1px 0;
+}
+
+.log-level-0,
+.log-level-1 {
+  color: var(--cp-text-muted);
+}
+
+.log-level-2 {
+  color: var(--cp-text-primary);
+}
+
+.log-level-3 {
+  color: var(--cp-gold);
+}
+
+.log-level-4,
+.log-level-5 {
+  color: var(--cp-crimson);
+}
