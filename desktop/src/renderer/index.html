@@ -57,6 +57,7 @@
           <button data-tab="apklibrary" type="button">Библиотека APK</button>
           <button data-tab="files" type="button">Файлы</button>
           <button data-tab="shell" type="button">Shell</button>
+          <button data-tab="macros" type="button">Макросы</button>
           <button data-tab="tools" type="button">Инструменты</button>
           <button data-tab="monitor" type="button">Мониторинг</button>
           <button data-tab="logcat" type="button">Logcat</button>
@@ -122,6 +123,16 @@
             <button id="shell-screenshot" type="button">Screenshot…</button>
             <button id="shell-intent" type="button">Intent…</button>
           </div>
+        </section>
+
+        <section id="tab-macros" class="tab-panel">
+          <div class="toolbar">
+            <button id="macros-new" type="button">Новый макрос…</button>
+            <button id="macros-export" type="button">Экспорт…</button>
+            <button id="macros-import" type="button">Импорт…</button>
+          </div>
+          <div id="macros-status" class="hint"></div>
+          <ul id="macros-list" class="scroll-list"></ul>
         </section>
 
         <section id="tab-tools" class="tab-panel">

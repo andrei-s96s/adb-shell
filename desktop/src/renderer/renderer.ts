@@ -10,6 +10,7 @@ import { initToolsScreen } from './screens/tools.js';
 import { initMonitorScreen } from './screens/monitor.js';
 import { initLogcatScreen } from './screens/logcat.js';
 import { initSettingsScreen } from './screens/settings.js';
+import { initMacrosScreen } from './screens/macros.js';
 
 const deviceListEl = el<HTMLUListElement>('device-list');
 const statusEl = el<HTMLDivElement>('status');
@@ -52,8 +53,36 @@ async function refreshDevices(): Promise<void> {
     if (current && !devices.some((d) => d.serial === current)) {
       selectDevice(undefined);
     }
+    void triggerAutorunMacros(devices);
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+/** Порт DevicesViewModel.triggerAutorunMacros(for:) из
+ * Sources/AdbShell/ViewModels/DevicesViewModel.swift -- запускает макросы с
+ * автозапуском только для устройств, которые ИМЕННО СЕЙЧАС стали готовыми
+ * (не на каждом тике поллинга, пока устройство уже готово). Fire-and-forget:
+ * ошибки отдельных шагов здесь не показываются пользователю. */
+let lastReadySerials = new Set<string>();
+async function triggerAutorunMacros(currentDevices: Device[]): Promise<void> {
+  const readyNow = new Set(currentDevices.filter((d) => d.state === 'device').map((d) => d.serial));
+  const newlyReady = [...readyNow].filter((serial) => !lastReadySerials.has(serial));
+  lastReadySerials = readyNow;
+  if (newlyReady.length === 0) return;
+
+  let autorunMacros;
+  try {
+    autorunMacros = (await adbApi.macrosList()).filter((m) => m.autorunOnConnect);
+  } catch {
+    return;
+  }
+  if (autorunMacros.length === 0) return;
+
+  for (const serial of newlyReady) {
+    for (const macro of autorunMacros) {
+      adbApi.macrosRun(macro.id, serial, {}).catch(() => {});
+    }
   }
 }
 
@@ -399,6 +428,7 @@ initToolsScreen();
 initMonitorScreen();
 initLogcatScreen();
 initSettingsScreen();
+initMacrosScreen();
 // Держим main в курсе выбранного устройства -- нужно глобальному хоткею
 // скриншота (main.ts, HOTKEY_ACCELERATOR), который обязан работать и когда
 // окно не в фокусе, то есть без похода за состоянием сюда в момент нажатия.
