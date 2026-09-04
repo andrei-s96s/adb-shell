@@ -167,6 +167,30 @@ export interface IntentPreset {
   uri: string;
 }
 
+export interface MacroStep {
+  id: string;
+  argsLine: string;
+}
+
+export interface Macro {
+  id: string;
+  name: string;
+  steps: MacroStep[];
+  autorunOnConnect: boolean;
+  abortOnFirstFailure: boolean;
+}
+
+export interface MacroRunResult {
+  argsLine: string;
+  output: string;
+  isError: boolean;
+}
+
+export interface MacroRunOutcome {
+  completedFully: boolean;
+  results: MacroRunResult[];
+}
+
 export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface LogLine {
@@ -238,6 +262,20 @@ export interface AdbApi {
   intentPresetsList(): Promise<IntentPreset[]>;
   intentPresetsAdd(name: string, uri: string): Promise<IntentPreset[]>;
   intentPresetsRemove(id: string): Promise<IntentPreset[]>;
+
+  macrosList(): Promise<Macro[]>;
+  macrosAdd(name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean): Promise<Macro[]>;
+  macrosUpdate(
+    id: string,
+    name: string,
+    rawText: string,
+    autorunOnConnect: boolean,
+    abortOnFirstFailure: boolean
+  ): Promise<Macro[]>;
+  macrosRemove(id: string): Promise<Macro[]>;
+  macrosRun(macroId: string, serial: string, variables: Record<string, string>): Promise<MacroRunOutcome>;
+  macrosExport(): Promise<boolean>;
+  macrosImport(): Promise<Macro[]>;
 
   enableWirelessDebugging(serial: string, port: number): Promise<string>;
   deviceIPAddress(serial: string): Promise<string | undefined>;

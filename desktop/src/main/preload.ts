@@ -13,6 +13,8 @@ import { AppSettings } from './settings/AppSettingsStore';
 import { DeviceStats } from './adb/types/DeviceStats';
 import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
 import { IntentPreset } from './adb/types/IntentPreset';
+import { Macro } from './adb/types/Macro';
+import { MacroRunOutcome } from './macros/MacroRunner';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -102,6 +104,22 @@ contextBridge.exposeInMainWorld('adbApi', {
   intentPresetsAdd: (name: string, uri: string): Promise<IntentPreset[]> =>
     ipcRenderer.invoke('intentPresets:add', name, uri),
   intentPresetsRemove: (id: string): Promise<IntentPreset[]> => ipcRenderer.invoke('intentPresets:remove', id),
+
+  macrosList: (): Promise<Macro[]> => ipcRenderer.invoke('macros:list'),
+  macrosAdd: (name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean): Promise<Macro[]> =>
+    ipcRenderer.invoke('macros:add', name, rawText, autorunOnConnect, abortOnFirstFailure),
+  macrosUpdate: (
+    id: string,
+    name: string,
+    rawText: string,
+    autorunOnConnect: boolean,
+    abortOnFirstFailure: boolean
+  ): Promise<Macro[]> => ipcRenderer.invoke('macros:update', id, name, rawText, autorunOnConnect, abortOnFirstFailure),
+  macrosRemove: (id: string): Promise<Macro[]> => ipcRenderer.invoke('macros:remove', id),
+  macrosRun: (macroId: string, serial: string, variables: Record<string, string>): Promise<MacroRunOutcome> =>
+    ipcRenderer.invoke('macros:run', macroId, serial, variables),
+  macrosExport: (): Promise<boolean> => ipcRenderer.invoke('macros:export'),
+  macrosImport: (): Promise<Macro[]> => ipcRenderer.invoke('macros:import'),
 
   // Wi-Fi отладка
   enableWirelessDebugging: (serial: string, port: number) =>

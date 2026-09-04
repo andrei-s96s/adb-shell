@@ -31,11 +31,14 @@ import { analyzeSecurity } from './adb/parsers/DeviceSecurityAnalyzer';
 import { timestampForFilename } from './util/timestamp';
 import { ApkTagStore } from './apkLibrary/ApkTagStore';
 import { IntentPresetStore } from './intentPresets/IntentPresetStore';
+import { MacroStore } from './macros/MacroStore';
+import { runMacro } from './macros/MacroRunner';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
 const apkTags = new ApkTagStore();
 const intentPresets = new IntentPresetStore();
+const macroStore = new MacroStore();
 const connectionProfiles = new ConnectionProfileStore();
 const deviceNicknames = new DeviceNicknameStore();
 const devicePins = new DevicePinStore();
@@ -292,6 +295,51 @@ function registerIpcHandlers(): void {
   ipcMain.handle('intentPresets:list', () => intentPresets.list());
   ipcMain.handle('intentPresets:add', (_e, name: string, uri: string) => intentPresets.add(name, uri));
   ipcMain.handle('intentPresets:remove', (_e, id: string) => intentPresets.remove(id));
+
+  // Макросы -- именованные последовательности adb-команд.
+  ipcMain.handle('macros:list', () => macroStore.list());
+  ipcMain.handle(
+    'macros:add',
+    (_e, name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean) =>
+      macroStore.add(name, rawText, autorunOnConnect, abortOnFirstFailure)
+  );
+  ipcMain.handle(
+    'macros:update',
+    (_e, id: string, name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean) =>
+      macroStore.update(id, name, rawText, autorunOnConnect, abortOnFirstFailure)
+  );
+  ipcMain.handle('macros:remove', (_e, id: string) => macroStore.remove(id));
+  // Выполнение -- см. MacroRunner.ts про то, почему результаты шагов не
+  // транслируются построчно, а возвращаются одним ответом по завершении.
+  ipcMain.handle('macros:run', (_e, macroId: string, serial: string, variables: Record<string, string>) => {
+    const macro = macroStore.get(macroId);
+    if (!macro) throw new Error('Макрос не найден');
+    return runMacro(macro, serial, adb, variables);
+  });
+  ipcMain.handle('macros:export', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Экспорт макросов',
+      defaultPath: 'adbshell-macros.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    };
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    await fsPromises.writeFile(result.filePath, macroStore.exportJSON(), 'utf8');
+    return true;
+  });
+  ipcMain.handle('macros:import', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Импорт макросов',
+      properties: ['openFile' as const],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    };
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) return macroStore.list();
+    const raw = await fsPromises.readFile(result.filePaths[0], 'utf8');
+    return macroStore.importJSON(raw);
+  });
 
   // Wi-Fi отладка
   ipcMain.handle('adb:enableWirelessDebugging', (_e, serial: string, port: number) =>
