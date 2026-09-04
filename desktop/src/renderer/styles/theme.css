@@ -823,6 +823,57 @@ button:hover {
   background: var(--cp-bg-panel-alt);
 }
 
+/* Командная палитра (⌘K/Ctrl+K) */
+
+.palette-overlay {
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.palette-panel {
+  width: min(480px, 92vw);
+  max-height: 60vh;
+  background: var(--cp-bg-panel);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.palette-input {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 14px;
+  border: none;
+  border-bottom: 1px solid var(--cp-hairline);
+  background: none;
+  color: var(--cp-text-primary);
+}
+
+.palette-input:focus {
+  outline: none;
+}
+
+.palette-results {
+  overflow-y: auto;
+}
+
+.palette-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.palette-row:hover {
+  background: var(--cp-bg-panel-alt);
+}
+
 /* Логотрейсы (ANR/tombstone) */
 
 .trace-layout {
