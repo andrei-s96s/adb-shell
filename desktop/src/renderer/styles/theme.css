@@ -64,6 +64,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Профили/mDNS/никнеймы добавили сайдбару больше секций, чем помещается
+     по высоте на невысоких окнах -- без overflow контент просто обрезался
+     бы снизу без скролла. #device-list ниже сохраняет свой собственный
+     flex:1 + overflow-y для списка устройств. */
+  overflow-y: auto;
 }
 
 #sidebar h1 {
@@ -139,6 +144,87 @@ body {
 #device-list li.empty {
   color: var(--cp-text-muted);
   background: none;
+}
+
+.device-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.device-row-label {
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.device-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.device-row-actions button {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.device-row-actions button.active {
+  color: var(--cp-gold);
+  border-color: var(--cp-gold);
+}
+
+.device-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--cp-gold);
+  background: var(--cp-bg-panel);
+  color: var(--cp-text-primary);
+}
+
+/* Полоска закреплённых устройств -- быстрое переключение между несколькими
+   подключёнными сразу, над вкладками, видна только когда есть хотя бы одно
+   закреплённое устройство. */
+.pinned-strip {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px 0;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.pinned-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--cp-bg-panel-alt);
+  border: 1px solid var(--cp-hairline);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pinned-chip.active {
+  border-color: var(--cp-gold);
+  background: color-mix(in srgb, var(--cp-gold) 14%, var(--cp-bg-panel-alt));
+}
+
+.pinned-chip button {
+  padding: 0 4px;
+  font-size: 11px;
+  background: none;
+  border: none;
 }
 
 button {

@@ -105,6 +105,19 @@ export interface UpdateInfo {
   releaseUrl: string;
 }
 
+export interface MdnsDevice {
+  name: string;
+  type: string;
+  address: string;
+}
+
+export interface ConnectionProfile {
+  id: string;
+  name: string;
+  host: string;
+  autoConnect: boolean;
+}
+
 export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface LogLine {
@@ -125,6 +138,22 @@ export interface AdbApi {
   connect(host: string): Promise<string>;
   disconnect(serial: string): Promise<void>;
   pair(hostPort: string, code: string): Promise<string>;
+  discoverMdns(): Promise<MdnsDevice[]>;
+
+  deviceNicknamesList(): Promise<Record<string, string>>;
+  deviceNicknamesSet(serial: string, name: string): Promise<Record<string, string>>;
+
+  devicePinsList(): Promise<string[]>;
+  devicePinsToggle(serial: string): Promise<string[]>;
+
+  connectionProfilesList(): Promise<ConnectionProfile[]>;
+  connectionProfilesAdd(name: string, host: string): Promise<ConnectionProfile[]>;
+  connectionProfilesRemove(id: string): Promise<ConnectionProfile[]>;
+  connectionProfilesToggleAutoConnect(id: string): Promise<ConnectionProfile[]>;
+  connectionProfilesConnect(host: string): Promise<string>;
+  connectionProfilesAutoConnect(): Promise<number>;
+  connectionProfilesExport(): Promise<boolean>;
+  connectionProfilesImport(): Promise<ConnectionProfile[]>;
 
   listApps(serial: string): Promise<InstalledApp[]>;
   appDetail(serial: string, packageName: string): Promise<AppDetail>;

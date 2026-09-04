@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, dialog, shell } from 'electron';
 import * as path from 'node:path';
+import * as fsPromises from 'node:fs/promises';
 import { AdbService } from './adb/AdbService';
 import { LogcatSession } from './adb/LogcatSession';
 import { ApkLibraryService } from './apkLibrary/ApkLibraryService';
@@ -7,9 +8,15 @@ import { isReadyState, displayName } from './adb/types/Device';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
 import { checkForDesktopUpdate } from './updateChecker';
+import { ConnectionProfileStore } from './connectionProfiles/ConnectionProfileStore';
+import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
+import { DevicePinStore } from './devicePins/DevicePinStore';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
+const connectionProfiles = new ConnectionProfileStore();
+const deviceNicknames = new DeviceNicknameStore();
+const devicePins = new DevicePinStore();
 const logcatSessions = new Map<string, LogcatSession>();
 
 function createWindow(): void {
@@ -54,6 +61,66 @@ function registerIpcHandlers(): void {
   ipcMain.handle('adb:connect', (_e, host: string) => adb.connect(host));
   ipcMain.handle('adb:disconnect', (_e, serial: string) => adb.disconnect(serial));
   ipcMain.handle('adb:pair', (_e, hostPort: string, code: string) => adb.pair(hostPort, code));
+  // mDNS-автообнаружение устройств с беспроводной отладкой (Android 11+) —
+  // renderer сам опрашивает раз в 5с (см. startMdnsPolling в renderer.ts),
+  // отдельного долгоживущего процесса в main для этого не требуется.
+  ipcMain.handle('adb:discoverMdns', () => adb.discoverMdnsDevices());
+
+  // Никнеймы устройств — по serial, не зависят от adb model.
+  ipcMain.handle('deviceNicknames:list', () => deviceNicknames.list());
+  ipcMain.handle('deviceNicknames:set', (_e, serial: string, name: string) => deviceNicknames.setNickname(serial, name));
+
+  // Закреплённые устройства (pinned tabs) — персистентно, в отличие от
+  // Swift-оригинала (см. devicePinsLogic.ts).
+  ipcMain.handle('devicePins:list', () => devicePins.list());
+  ipcMain.handle('devicePins:toggle', (_e, serial: string) => devicePins.toggle(serial));
+
+  // Профили подключения (сохранённые host + автоконнект при старте).
+  ipcMain.handle('connectionProfiles:list', () => connectionProfiles.list());
+  ipcMain.handle('connectionProfiles:add', (_e, name: string, host: string) => connectionProfiles.add(name, host));
+  ipcMain.handle('connectionProfiles:remove', (_e, id: string) => connectionProfiles.remove(id));
+  ipcMain.handle('connectionProfiles:toggleAutoConnect', (_e, id: string) => connectionProfiles.toggleAutoConnect(id));
+  // Подключение по адресу конкретного профиля — переиспользует adb.connect
+  // (та же нормализация host без порта, см. AdbService.connect).
+  ipcMain.handle('connectionProfiles:connect', (_e, host: string) => adb.connect(host));
+  // Best-effort автоподключение при старте — вызывается renderer'ом один раз
+  // после первого refreshDevices(), ошибка одного профиля не мешает
+  // остальным (устройство может быть выключено/недоступно).
+  ipcMain.handle('connectionProfiles:autoConnect', async () => {
+    const profiles = connectionProfiles.autoConnectProfiles;
+    for (const profile of profiles) {
+      try {
+        await adb.connect(profile.host);
+      } catch {
+        // Устройство может быть недоступно — не должно блокировать остальные.
+      }
+    }
+    return profiles.length;
+  });
+  ipcMain.handle('connectionProfiles:export', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Экспорт профилей подключения',
+      defaultPath: 'adbshell-profiles.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    };
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    await fsPromises.writeFile(result.filePath, connectionProfiles.exportJSON(), 'utf8');
+    return true;
+  });
+  ipcMain.handle('connectionProfiles:import', async (event: IpcMainInvokeEvent) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Импорт профилей подключения',
+      properties: ['openFile' as const],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    };
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) return connectionProfiles.list();
+    const raw = await fsPromises.readFile(result.filePaths[0], 'utf8');
+    return connectionProfiles.importJSON(raw);
+  });
 
   // Приложения
   ipcMain.handle('adb:listApps', (_e, serial: string) => adb.listApps(serial));
