@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
 import { UpdateInfo } from './updateChecker';
@@ -17,6 +17,7 @@ import { Macro } from './adb/types/Macro';
 import { MacroRunOutcome } from './macros/MacroRunner';
 import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
 import { DeviceSnapshotInfo } from './deviceSnapshots/DeviceSnapshotService';
+import { ApkManifestInfo } from './adb/types/ApkManifestInfo';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -112,12 +113,26 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('apkLibrary:addTag', filePath, tag),
   apkLibraryRemoveTag: (filePath: string, tag: string): Promise<Record<string, string[]>> =>
     ipcRenderer.invoke('apkLibrary:removeTag', filePath, tag),
+  apkLibraryImportPaths: (paths: string[]): Promise<ApkFile[]> => ipcRenderer.invoke('apkLibrary:importPaths', paths),
+  apkLibraryInspect: (apkPath: string): Promise<ApkManifestInfo> => ipcRenderer.invoke('apkLibrary:inspect', apkPath),
 
   // Файлы устройства
   listDirectory: (serial: string, dirPath: string) => ipcRenderer.invoke('adb:listDirectory', serial, dirPath),
   makeDirectory: (serial: string, dirPath: string) => ipcRenderer.invoke('adb:makeDirectory', serial, dirPath),
   removeRemote: (serial: string, targetPath: string, recursive: boolean) =>
     ipcRenderer.invoke('adb:removeRemote', serial, targetPath, recursive),
+  push: (serial: string, localPath: string, remotePath: string): Promise<void> =>
+    ipcRenderer.invoke('adb:push', serial, localPath, remotePath),
+  selectFileToPush: (): Promise<string | undefined> => ipcRenderer.invoke('dialog:selectFileToPush'),
+  pullToChosenPath: (serial: string, remotePath: string, suggestedName: string): Promise<boolean> =>
+    ipcRenderer.invoke('adb:pullToChosenPath', serial, remotePath, suggestedName),
+  appsExportApk: (serial: string, packageName: string): Promise<boolean> =>
+    ipcRenderer.invoke('apps:exportApk', serial, packageName),
+  /** Абсолютный локальный путь для File, полученного через drag&drop --
+   * File.path убран из Electron 32+ по соображениям изоляции контекста,
+   * актуальная замена — webUtils.getPathForFile (сам File-объект спокойно
+   * проходит через contextBridge, у Electron для него есть спецобработка). */
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 
   // Shell
   shell: (serial: string, command: string) => ipcRenderer.invoke('adb:shell', serial, command),

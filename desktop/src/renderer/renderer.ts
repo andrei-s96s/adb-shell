@@ -442,9 +442,44 @@ initCommandPalette();
 // скриншота (main.ts, HOTKEY_ACCELERATOR), который обязан работать и когда
 // окно не в фокусе, то есть без похода за состоянием сюда в момент нажатия.
 onDeviceChanged((serial) => void adbApi.setHotkeySelectedSerial(serial));
+initGlobalApkDrop();
 selectDevice(undefined);
 void bootDeviceIdentity();
 void refreshProfiles();
+
+/** Порт ContentView.onDrop(of: [.fileURL]) из Sources/AdbShell/Views/ContentView.swift
+ * -- drag&drop .apk-файла в любое место окна устанавливает его на выбранное
+ * устройство, без похода во вкладку "Библиотека APK". Вкладки "Библиотека
+ * APK" и "Файлы" перехватывают drop раньше (stopPropagation в их модулях) --
+ * там своя, более специфичная обработка (импорт в библиотеку / push). */
+function initGlobalApkDrop(): void {
+  document.body.addEventListener('dragover', (event) => {
+    event.preventDefault();
+  });
+  document.body.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const serial = getCurrentSerial();
+    if (!serial) {
+      statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+      return;
+    }
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    const apkFiles = files.filter((f) => f.name.toLowerCase().endsWith('.apk'));
+    if (apkFiles.length === 0) return;
+    for (const file of apkFiles) {
+      const path = adbApi.getPathForFile(file);
+      statusEl.textContent = `Установка ${file.name}…`;
+      adbApi
+        .install(serial, path)
+        .then(() => {
+          statusEl.textContent = `Установлено: ${file.name}`;
+        })
+        .catch((error) => {
+          statusEl.textContent = `Ошибка установки ${file.name}: ${errorMessage(error)}`;
+        });
+    }
+  });
+}
 void checkForUpdatesOnce();
 
 /** Никнеймы/пины грузятся один раз при старте и дальше держатся в памяти,

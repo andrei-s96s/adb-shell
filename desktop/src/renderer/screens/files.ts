@@ -32,6 +32,23 @@ export function initFilesScreen(): void {
       await refresh();
     });
   });
+  el<HTMLButtonElement>('files-push').addEventListener('click', () => void pushViaDialog());
+
+  const panel = el<HTMLElement>('tab-files');
+  panel.addEventListener('dragover', (event) => event.preventDefault());
+  panel.addEventListener('drop', (event) => {
+    // Своя, более специфичная обработка drop, чем глобальная (renderer.ts
+    // initGlobalApkDrop — установка .apk на устройство) -- здесь push
+    // ЛЮБОГО файла в текущую папку на устройстве, поэтому останавливаем
+    // всплытие.
+    event.preventDefault();
+    event.stopPropagation();
+    const serial = getCurrentSerial();
+    if (!serial) return;
+    for (const file of Array.from(event.dataTransfer?.files ?? [])) {
+      void pushOne(serial, adbApi.getPathForFile(file), file.name);
+    }
+  });
 
   onDeviceChanged((serial) => {
     listEl.innerHTML = '';
@@ -41,6 +58,26 @@ export function initFilesScreen(): void {
       statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
     }
   });
+}
+
+async function pushViaDialog(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial) return;
+  const localPath = await adbApi.selectFileToPush();
+  if (!localPath) return;
+  const name = localPath.split(/[/\\]/).pop() ?? localPath;
+  await pushOne(serial, localPath, name);
+}
+
+async function pushOne(serial: string, localPath: string, fileName: string): Promise<void> {
+  statusEl.textContent = `Отправка ${fileName}…`;
+  try {
+    await adbApi.push(serial, localPath, joinPath(currentPath, fileName));
+    statusEl.textContent = `Отправлено: ${fileName}`;
+    await refresh();
+  } catch (error) {
+    statusEl.textContent = `Ошибка отправки: ${errorMessage(error)}`;
+  }
 }
 
 function joinPath(parent: string, name: string): string {
@@ -78,6 +115,18 @@ function renderList(entries: RemoteFile[], serial: string): void {
       });
     }
     li.appendChild(label);
+
+    if (!entry.isDirectory) {
+      const pull = document.createElement('button');
+      pull.textContent = 'Скачать';
+      pull.addEventListener('click', () =>
+        run(async () => {
+          const saved = await adbApi.pullToChosenPath(serial, entry.path, entry.name);
+          if (saved) statusEl.textContent = `Скачано: ${entry.name}`;
+        })
+      );
+      li.appendChild(pull);
+    }
 
     const del = document.createElement('button');
     del.textContent = 'Удалить';
