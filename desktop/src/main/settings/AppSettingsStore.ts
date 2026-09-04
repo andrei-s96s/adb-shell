@@ -17,6 +17,11 @@ export interface AppSettings {
    * устройства прямо на Рабочий стол, работает даже когда окно не в фокусе.
    * Аналог @AppStorage("globalScreenshotHotkeyEnabled") в Swift-версии. */
   globalScreenshotHotkeyEnabled: boolean;
+  /** Показывать системные приложения по умолчанию при открытии вкладки
+   * Приложения (сам чекбокс в тулбаре по-прежнему можно переключить). */
+  defaultShowSystemApps: boolean;
+  /** Проверять обновления приложения при каждом запуске. */
+  autoCheckUpdates: boolean;
 }
 
 const CONFIG_FILE = 'app-settings.json';
@@ -26,6 +31,8 @@ const DEFAULTS: AppSettings = {
   statsAlertCpuThreshold: 90,
   statsAlertBatteryThreshold: 15,
   globalScreenshotHotkeyEnabled: false,
+  defaultShowSystemApps: false,
+  autoCheckUpdates: true,
 };
 
 export class AppSettingsStore {

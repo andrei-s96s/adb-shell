@@ -2,6 +2,7 @@ import { adbApi, el, errorMessage } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openScreenshotPreview } from './screenshot.js';
 import { openIntentTesterModal } from './intentTester.js';
+import { openShellHistoryModal } from './shellHistoryModal.js';
 
 let inputEl: HTMLInputElement;
 let logEl: HTMLDivElement;
@@ -36,6 +37,18 @@ export function initShellScreen(): void {
   mirrorBtn.addEventListener('click', () => void startMirror());
   mirrorRecordBtn.addEventListener('click', () => void startMirrorWithRecording());
   el<HTMLButtonElement>('shell-mirror-all').addEventListener('click', () => void mirrorAll());
+  el<HTMLButtonElement>('shell-favorite').addEventListener('click', () => {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    void adbApi.shellHistoryFavorite(text);
+  });
+  el<HTMLButtonElement>('shell-history').addEventListener('click', () => {
+    openShellHistoryModal((text) => {
+      inputEl.value = text;
+      document.querySelector('.modal-overlay')?.remove();
+      inputEl.focus();
+    });
+  });
 
   adbApi.onMirrorStopped((serial) => {
     mirroringSerials.delete(serial);
@@ -114,6 +127,9 @@ async function runCommand(): Promise<void> {
   appendLine(`$ ${command}`, 'shell-cmd');
   inputEl.value = '';
   runBtn.disabled = true;
+  // Запись в историю происходит один раз независимо от broadcast-режима,
+  // до ветвления -- порт того же порядка, что в ShellRunnerView.swift.
+  void adbApi.shellHistoryRecord(command);
   try {
     if (broadcastEl.checked) {
       await runBroadcast(command);

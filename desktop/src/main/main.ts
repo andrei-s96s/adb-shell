@@ -37,12 +37,16 @@ import { runMacro } from './macros/MacroRunner';
 import { exportBundle, importBundle } from './appBundles/AppBundleService';
 import { DeviceSnapshotService } from './deviceSnapshots/DeviceSnapshotService';
 import { ScreenMirrorService } from './screenMirror/ScreenMirrorService';
+import { AppIconService } from './appIcons/AppIconService';
+import { ShellHistoryStore } from './shellHistory/ShellHistoryStore';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
 const apkTags = new ApkTagStore();
 const intentPresets = new IntentPresetStore();
 const macroStore = new MacroStore();
+const appIcons = new AppIconService();
+const shellHistory = new ShellHistoryStore();
 const deviceSnapshots = new DeviceSnapshotService();
 const screenMirror = new ScreenMirrorService();
 const connectionProfiles = new ConnectionProfileStore();
@@ -148,6 +152,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('connectionProfiles:add', (_e, name: string, host: string) => connectionProfiles.add(name, host));
   ipcMain.handle('connectionProfiles:remove', (_e, id: string) => connectionProfiles.remove(id));
   ipcMain.handle('connectionProfiles:toggleAutoConnect', (_e, id: string) => connectionProfiles.toggleAutoConnect(id));
+  ipcMain.handle('connectionProfiles:clear', () => connectionProfiles.clear());
   // Подключение по адресу конкретного профиля — переиспользует adb.connect
   // (та же нормализация host без порта, см. AdbService.connect).
   ipcMain.handle('connectionProfiles:connect', (_e, host: string) => adb.connect(host));
@@ -192,6 +197,12 @@ function registerIpcHandlers(): void {
 
   // Приложения
   ipcMain.handle('adb:listApps', (_e, serial: string) => adb.listApps(serial));
+  // Реальные иконки приложений (aapt2 + adm-zip) -- лениво, по одному
+  // запросу на строку списка, см. appIcons/AppIconService.ts.
+  ipcMain.handle('icons:get', async (_e, serial: string, packageName: string) => {
+    const data = await appIcons.fetch(serial, packageName, adb);
+    return data ? data.toString('base64') : undefined;
+  });
   ipcMain.handle('adb:appDetail', (_e, serial: string, packageName: string) => adb.appDetail(serial, packageName));
   ipcMain.handle('adb:install', (_e, serial: string, apkPath: string) => adb.install(serial, apkPath));
   ipcMain.handle('adb:uninstall', (_e, serial: string, packageName: string) => adb.uninstall(serial, packageName));
@@ -409,6 +420,14 @@ function registerIpcHandlers(): void {
 
   // Shell
   ipcMain.handle('adb:shell', (_e, serial: string, command: string) => adb.shell(serial, command));
+
+  // Персистентная история shell-команд + избранное.
+  ipcMain.handle('shellHistory:list', () => shellHistory.list());
+  ipcMain.handle('shellHistory:record', (_e, text: string) => shellHistory.record(text));
+  ipcMain.handle('shellHistory:favorite', (_e, text: string) => shellHistory.favorite(text));
+  ipcMain.handle('shellHistory:toggleFavorite', (_e, id: string) => shellHistory.toggleFavorite(id));
+  ipcMain.handle('shellHistory:remove', (_e, id: string) => shellHistory.remove(id));
+  ipcMain.handle('shellHistory:clear', () => shellHistory.clear());
 
   // Intent/deep-link тестер + сохранённые пресеты
   ipcMain.handle('adb:openDeepLink', (_e, serial: string, uri: string) => adb.openDeepLink(serial, uri));

@@ -69,6 +69,12 @@ export class ConnectionProfileStore {
     return this.profiles;
   }
 
+  clear(): ConnectionProfile[] {
+    this.profiles = [];
+    this.save();
+    return this.profiles;
+  }
+
   importJSON(raw: string): ConnectionProfile[] {
     const imported = JSON.parse(raw) as ConnectionProfile[];
     this.profiles = mergeImportedProfiles(this.profiles, imported);

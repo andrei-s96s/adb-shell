@@ -125,6 +125,8 @@
           <div class="toolbar">
             <input id="shell-input" placeholder="adb shell <команда>" />
             <button id="shell-run" type="button">Выполнить</button>
+            <button id="shell-favorite" type="button" title="Добавить текущую команду в избранное">☆</button>
+            <button id="shell-history" type="button">История…</button>
             <label class="checkbox-label" title="Выполнить команду сразу на всех подключённых устройствах">
               <input id="shell-broadcast" type="checkbox" /> broadcast
             </label>
@@ -266,6 +268,29 @@
                 <input id="settings-hotkey-enabled" type="checkbox" /> Ctrl/Cmd+Shift+S — тихий скриншот выбранного
                 устройства на Рабочий стол, работает из любого приложения
               </label>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Общие</h3>
+            <div class="settings-row">
+              <label class="checkbox-label"><input id="settings-auto-update-check" type="checkbox" /> проверять обновления при запуске</label>
+            </div>
+            <div class="settings-row">
+              <label class="checkbox-label"><input id="settings-default-system-apps" type="checkbox" /> показывать системные приложения по умолчанию</label>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Данные</h3>
+            <div class="toolbar">
+              <button id="settings-clear-shell-history" type="button">Очистить историю shell</button>
+              <button id="settings-clear-profiles" type="button">Очистить профили подключения</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>О приложении</h3>
+            <div class="toolbar">
+              <button id="settings-open-repo" type="button">Репозиторий на GitHub</button>
+              <button id="settings-open-releases" type="button">Releases</button>
             </div>
           </div>
         </section>

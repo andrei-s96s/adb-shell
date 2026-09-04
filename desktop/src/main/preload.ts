@@ -18,6 +18,7 @@ import { MacroRunOutcome } from './macros/MacroRunner';
 import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
 import { DeviceSnapshotInfo } from './deviceSnapshots/DeviceSnapshotService';
 import { ApkManifestInfo } from './adb/types/ApkManifestInfo';
+import { SavedCommand } from './shellHistory/shellHistoryLogic';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -50,6 +51,7 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('connectionProfiles:remove', id),
   connectionProfilesToggleAutoConnect: (id: string): Promise<ConnectionProfile[]> =>
     ipcRenderer.invoke('connectionProfiles:toggleAutoConnect', id),
+  connectionProfilesClear: (): Promise<ConnectionProfile[]> => ipcRenderer.invoke('connectionProfiles:clear'),
   connectionProfilesConnect: (host: string): Promise<string> => ipcRenderer.invoke('connectionProfiles:connect', host),
   connectionProfilesAutoConnect: (): Promise<number> => ipcRenderer.invoke('connectionProfiles:autoConnect'),
   connectionProfilesExport: (): Promise<boolean> => ipcRenderer.invoke('connectionProfiles:export'),
@@ -57,6 +59,7 @@ contextBridge.exposeInMainWorld('adbApi', {
 
   // Приложения
   listApps: (serial: string) => ipcRenderer.invoke('adb:listApps', serial),
+  iconGet: (serial: string, packageName: string): Promise<string | undefined> => ipcRenderer.invoke('icons:get', serial, packageName),
   appDetail: (serial: string, packageName: string) => ipcRenderer.invoke('adb:appDetail', serial, packageName),
   install: (serial: string, apkPath: string) => ipcRenderer.invoke('adb:install', serial, apkPath),
   uninstall: (serial: string, packageName: string) => ipcRenderer.invoke('adb:uninstall', serial, packageName),
@@ -136,6 +139,13 @@ contextBridge.exposeInMainWorld('adbApi', {
 
   // Shell
   shell: (serial: string, command: string) => ipcRenderer.invoke('adb:shell', serial, command),
+
+  shellHistoryList: (): Promise<SavedCommand[]> => ipcRenderer.invoke('shellHistory:list'),
+  shellHistoryRecord: (text: string): Promise<SavedCommand[]> => ipcRenderer.invoke('shellHistory:record', text),
+  shellHistoryFavorite: (text: string): Promise<SavedCommand[]> => ipcRenderer.invoke('shellHistory:favorite', text),
+  shellHistoryToggleFavorite: (id: string): Promise<SavedCommand[]> => ipcRenderer.invoke('shellHistory:toggleFavorite', id),
+  shellHistoryRemove: (id: string): Promise<SavedCommand[]> => ipcRenderer.invoke('shellHistory:remove', id),
+  shellHistoryClear: (): Promise<SavedCommand[]> => ipcRenderer.invoke('shellHistory:clear'),
 
   openDeepLink: (serial: string, uri: string): Promise<string> => ipcRenderer.invoke('adb:openDeepLink', serial, uri),
   intentPresetsList: (): Promise<IntentPreset[]> => ipcRenderer.invoke('intentPresets:list'),

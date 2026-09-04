@@ -87,6 +87,13 @@ export interface ApkFile {
   modifiedMs: number;
 }
 
+export interface SavedCommand {
+  id: string;
+  text: string;
+  isFavorite: boolean;
+  lastUsedMs: number;
+}
+
 export interface ApkManifestInfo {
   packageName?: string;
   versionName?: string;
@@ -165,6 +172,8 @@ export interface AppSettings {
   statsAlertCpuThreshold: number;
   statsAlertBatteryThreshold: number;
   globalScreenshotHotkeyEnabled: boolean;
+  defaultShowSystemApps: boolean;
+  autoCheckUpdates: boolean;
 }
 
 export interface ThresholdCheckResult {
@@ -262,12 +271,14 @@ export interface AdbApi {
   connectionProfilesAdd(name: string, host: string): Promise<ConnectionProfile[]>;
   connectionProfilesRemove(id: string): Promise<ConnectionProfile[]>;
   connectionProfilesToggleAutoConnect(id: string): Promise<ConnectionProfile[]>;
+  connectionProfilesClear(): Promise<ConnectionProfile[]>;
   connectionProfilesConnect(host: string): Promise<string>;
   connectionProfilesAutoConnect(): Promise<number>;
   connectionProfilesExport(): Promise<boolean>;
   connectionProfilesImport(): Promise<ConnectionProfile[]>;
 
   listApps(serial: string): Promise<InstalledApp[]>;
+  iconGet(serial: string, packageName: string): Promise<string | undefined>;
   appDetail(serial: string, packageName: string): Promise<AppDetail>;
   install(serial: string, apkPath: string): Promise<string>;
   uninstall(serial: string, packageName: string): Promise<void>;
@@ -316,6 +327,13 @@ export interface AdbApi {
   getPathForFile(file: File): string;
 
   shell(serial: string, command: string): Promise<string>;
+
+  shellHistoryList(): Promise<SavedCommand[]>;
+  shellHistoryRecord(text: string): Promise<SavedCommand[]>;
+  shellHistoryFavorite(text: string): Promise<SavedCommand[]>;
+  shellHistoryToggleFavorite(id: string): Promise<SavedCommand[]>;
+  shellHistoryRemove(id: string): Promise<SavedCommand[]>;
+  shellHistoryClear(): Promise<SavedCommand[]>;
   openDeepLink(serial: string, uri: string): Promise<string>;
   intentPresetsList(): Promise<IntentPreset[]>;
   intentPresetsAdd(name: string, uri: string): Promise<IntentPreset[]>;
