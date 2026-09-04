@@ -519,6 +519,8 @@ async function bootDeviceIdentity(): Promise<void> {
 // см. updateChecker.ts про то, почему не полноценное автообновление.
 async function checkForUpdatesOnce(): Promise<void> {
   try {
+    const settings = await adbApi.settingsGet();
+    if (!settings.autoCheckUpdates) return;
     const update = await adbApi.checkForUpdates();
     if (!update) return;
     const banner = el<HTMLDivElement>('update-banner');

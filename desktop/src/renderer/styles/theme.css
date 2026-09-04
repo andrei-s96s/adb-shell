@@ -421,6 +421,21 @@ button:hover {
   font-size: 12px;
 }
 
+.apps-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
 .row.selected {
   outline: 1px solid var(--cp-gold);
 }

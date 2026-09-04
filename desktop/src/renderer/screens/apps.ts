@@ -3,8 +3,19 @@ import type { InstalledApp, AppDetail } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openDeviceCompareModal } from './deviceCompare.js';
 import { openSnapshotsModal } from './snapshots.js';
+import { loadDefaultShowSystemApps } from './settings.js';
 
 const NET_POLL_INTERVAL_MS = 3000;
+
+// Простая нейтральная иконка-плейсхолдер (квадрат со скруглением) --
+// показывается, пока (или если) реальная иконка из APK не пришла (порт
+// IconService.swift). Инлайновый SVG вместо файла-ассета -- одна строка,
+// не нужно тянуть отдельный ресурс в сборку.
+const PLACEHOLDER_ICON =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="7" fill="#8886"/></svg>'
+  );
 
 let listEl: HTMLUListElement;
 let detailEl: HTMLDivElement;
@@ -32,6 +43,9 @@ export function initAppsScreen(): void {
 
   searchEl.addEventListener('input', renderList);
   showSystemEl.addEventListener('change', renderList);
+  void loadDefaultShowSystemApps().then((value) => {
+    showSystemEl.checked = value;
+  });
   el<HTMLButtonElement>('apps-install').addEventListener('click', () => void installApks());
   el<HTMLButtonElement>('apps-export-csv').addEventListener('click', () => void exportCsv());
   el<HTMLButtonElement>('apps-compare').addEventListener('click', () => {
@@ -201,10 +215,26 @@ function renderList(): void {
   const order = filtered.map((a) => a.packageName);
 
   listEl.innerHTML = '';
+  const serialForIcons = getCurrentSerial();
   for (const app of filtered) {
     const li = document.createElement('li');
     li.className = 'row' + (selectedForBatch.has(app.packageName) ? ' selected' : '');
-    li.textContent = app.packageName + (app.isSystem ? '  [SYS]' : '') + (!app.isEnabled ? '  (выкл)' : '');
+
+    const main = document.createElement('div');
+    main.className = 'apps-row-main';
+
+    const icon = document.createElement('img');
+    icon.className = 'app-icon';
+    icon.src = PLACEHOLDER_ICON;
+    main.appendChild(icon);
+    if (serialForIcons) loadIcon(icon, serialForIcons, app.packageName);
+
+    const label = document.createElement('span');
+    label.textContent = app.packageName + (app.isSystem ? '  [SYS]' : '') + (!app.isEnabled ? '  (выкл)' : '');
+    main.appendChild(label);
+
+    li.appendChild(main);
+
     li.addEventListener('click', (event) => {
       handleRowClick(app.packageName, order, event.metaKey || event.ctrlKey, event.shiftKey);
       renderList();
@@ -309,6 +339,22 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${bytes.toFixed(0)} B`;
+}
+
+/** Лениво подгружает реальную иконку приложения (см.
+ * main/appIcons/AppIconService.ts) -- каждая видимая строка запрашивает
+ * свою один раз; если строка успела уйти из DOM (сменился список/устройство,
+ * пока летел запрос), просто не применяем устаревший результат. */
+function loadIcon(icon: HTMLImageElement, serial: string, packageName: string): void {
+  adbApi
+    .iconGet(serial, packageName)
+    .then((base64) => {
+      if (!base64 || !icon.isConnected) return;
+      icon.src = `data:image/png;base64,${base64}`;
+    })
+    .catch(() => {
+      // Иконка необязательна -- плейсхолдер остаётся.
+    });
 }
 
 function renderDetail(detail?: AppDetail, serial?: string): void {
