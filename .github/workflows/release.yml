@@ -1,5 +1,8 @@
 name: Release
 
+# До версии 1.0.0 в этом репозитории жили два независимо версионируемых
+# продукта (Swift-версия — "v*.*.*", Electron-порт — "desktop-v*.*.*").
+# С 1.0.0 клиент один, схема тегов тоже одна.
 on:
   push:
     tags:
@@ -12,15 +15,35 @@ on:
 
 jobs:
   release:
-    runs-on: macos-15
+    strategy:
+      matrix:
+        os: [ windows-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npm run dist:win
+
+      - name: Package (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npm run dist:mac
+
       - name: Determine tag
         id: tag
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
@@ -28,19 +51,12 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and package .app
-        run: |
-          chmod +x build_app.sh
-          ./build_app.sh
-
-      - name: Zip app bundle
-        run: |
-          ditto -c -k --sequesterRsrc --keepParent AdbShell.app AdbShell-macOS.zip
-
-      - name: Create GitHub Release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ADB Shell ${{ steps.tag.outputs.tag }}
           generate_release_notes: true
-          files: AdbShell-macOS.zip
+          files: |
+            release/*.exe
+            release/*.zip
