@@ -219,8 +219,10 @@ build/                  — иконки (icon.ico/icon.icns)
 
 ## Лицензии
 
+Исходный код самого ADB Shell распространяется под лицензией **MIT** — см.
+[LICENSE](LICENSE). Бесплатно для любого использования, в том числе
+коммерческого, без гарантий.
+
 `adb` и `aapt2` — части Android Platform Tools / Android Gradle Plugin от
 Google, `scrcpy` — проект Genymobile; все три распространяются под Apache
 License 2.0, сборки кладут рядом соответствующие `NOTICE`/`LICENSE`-файлы.
-
-Лицензия на исходный код самого ADB Shell в репозитории отдельно не указана.
