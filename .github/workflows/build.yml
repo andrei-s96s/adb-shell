@@ -3,32 +3,57 @@ name: Build
 on:
   push:
     branches: [ main ]
-    paths-ignore: [ 'desktop/**' ]
   pull_request:
     branches: [ main ]
-    paths-ignore: [ 'desktop/**' ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-15
+    strategy:
+      matrix:
+        os: [ windows-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Swift version
-        run: swift --version
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
-      - name: Build (debug)
-        run: swift build -v
+      - name: Install dependencies
+        run: npm install
 
-      - name: Run tests
-        run: swift test -v
+      - name: Type-check
+        run: npm run typecheck
 
-      - name: Build (release)
-        run: swift build -c release -v
+      # `npm test` runs build+test as one shell invocation (see
+      # package.json) — it also passes node --test an explicit
+      # dist/test/*.test.js glob rather than the bare dist/test directory,
+      # after CI hit "Cannot find module dist/test" on macos-latest with
+      # Node 22 that never reproduced locally on Node 26. Passing an
+      # explicit file list sidesteps whatever Node-version difference in
+      # directory-argument resolution caused that.
+      - name: Build and test
+        run: npm test
 
-      - name: Package .app
-        run: |
-          chmod +x build_app.sh
-          ./build_app.sh
+      # Реальная упаковка (не только tsc) — NSIS-инсталлятор на Windows,
+      # .app в zip на macOS. Без подписи (нет сертификата) — Windows
+      # SmartScreen/macOS Gatekeeper предупредят при первом запуске.
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npm run dist:win
+
+      - name: Package (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npm run dist:mac
+
+      - name: Upload packaged app
+        uses: actions/upload-artifact@v4
+        with:
+          name: adb-shell-${{ matrix.os }}
+          path: |
+            release/*.exe
+            release/*.zip
+          if-no-files-found: error

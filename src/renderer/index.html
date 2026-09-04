@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self';" />
+    <title>ADB Shell</title>
+    <link rel="stylesheet" href="styles/theme.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <h1>ADB Shell</h1>
+        <div id="update-banner" class="update-banner" hidden>
+          <span id="update-banner-text"></span>
+          <button id="update-banner-open" type="button">Открыть релиз</button>
+          <button id="update-banner-dismiss" type="button" title="Скрыть">✕</button>
+        </div>
+        <div class="hint">Устройства</div>
+        <ul id="device-list"></ul>
+        <button id="refresh-btn" type="button">Обновить</button>
+        <div class="connect-row">
+          <input id="connect-host" placeholder="192.168.1.50:5555" />
+          <button id="connect-btn" type="button">Подключить</button>
+        </div>
+        <div class="hint section-title">Сопряжение по коду (Android 11+)</div>
+        <div class="connect-row">
+          <input id="pair-host" placeholder="192.168.1.50:37831" />
+        </div>
+        <div class="connect-row">
+          <input id="pair-code" placeholder="123456" />
+          <button id="pair-btn" type="button">Сопрячь</button>
+        </div>
+        <div id="mdns-section" hidden>
+          <div class="hint section-title">Найдено в сети</div>
+          <ul id="mdns-list" class="scroll-list small"></ul>
+        </div>
+        <div class="hint section-title">Профили подключения</div>
+        <ul id="profiles-list" class="scroll-list small"></ul>
+        <div class="connect-row">
+          <input id="profile-name" placeholder="Имя (необязательно)" />
+        </div>
+        <div class="connect-row">
+          <input id="profile-host" placeholder="192.168.1.50:5555" />
+          <button id="profile-add" type="button">Сохранить</button>
+        </div>
+        <div class="toolbar">
+          <button id="profile-export" type="button">Экспорт…</button>
+          <button id="profile-import" type="button">Импорт…</button>
+        </div>
+        <div id="status"></div>
+      </aside>
+
+      <main id="content">
+        <div id="pinned-strip" class="pinned-strip" hidden></div>
+        <div id="tabs">
+          <button data-tab="apps" type="button">Приложения</button>
+          <button data-tab="apklibrary" type="button">Библиотека APK</button>
+          <button data-tab="files" type="button">Файлы</button>
+          <button data-tab="shell" type="button">Shell</button>
+          <button data-tab="macros" type="button">Макросы</button>
+          <button data-tab="tools" type="button">Инструменты</button>
+          <button data-tab="monitor" type="button">Мониторинг</button>
+          <button data-tab="logcat" type="button">Logcat</button>
+          <button data-tab="settings" type="button">Настройки</button>
+        </div>
+
+        <section id="tab-apps" class="tab-panel">
+          <div class="panel-split">
+            <div class="panel-left">
+              <div class="toolbar">
+                <input id="apps-search" placeholder="Поиск по package name…" />
+                <label class="checkbox-label"><input id="apps-show-system" type="checkbox" /> системные</label>
+              </div>
+              <div class="toolbar">
+                <button id="apps-install" type="button">Установить APK…</button>
+                <button id="apps-export-csv" type="button">Экспорт CSV</button>
+                <button id="apps-compare" type="button">Сравнить устройства…</button>
+                <button id="apps-import-bundle" type="button">Импорт набора…</button>
+                <button id="apps-snapshot" type="button">Снапшот…</button>
+              </div>
+              <div id="apps-batch-toolbar" class="toolbar" hidden>
+                <span id="apps-selected-count" class="hint"></span>
+                <button id="apps-export-selected" type="button">Экспортировать выбранные</button>
+                <button id="apps-delete-selected" type="button">Удалить выбранные</button>
+              </div>
+              <div id="apps-status" class="hint"></div>
+              <ul id="apps-list" class="scroll-list"></ul>
+            </div>
+            <div id="apps-detail" class="panel-right">
+              <p class="placeholder">Выберите приложение слева</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-apklibrary" class="tab-panel">
+          <div class="toolbar">
+            <div id="apklibrary-dir" class="hint apklibrary-dir"></div>
+            <button id="apklibrary-choose-dir" type="button">Выбрать папку…</button>
+            <button id="apklibrary-reveal" type="button">Показать в проводнике</button>
+          </div>
+          <div class="toolbar">
+            <button id="apklibrary-add" type="button">Добавить APK…</button>
+            <button id="apklibrary-download" type="button">Скачать по ссылке…</button>
+            <button id="apklibrary-check-updates" type="button">Проверить обновления (F-Droid)</button>
+          </div>
+          <div id="apklibrary-status" class="hint"></div>
+          <div id="apklibrary-tag-filter" class="tag-chip-row"></div>
+          <ul id="apklibrary-list" class="scroll-list"></ul>
+        </section>
+
+        <section id="tab-files" class="tab-panel">
+          <div class="toolbar">
+            <button id="files-up" type="button">↑ Вверх</button>
+            <input id="files-path" />
+            <button id="files-go" type="button">Перейти</button>
+            <button id="files-mkdir" type="button">Новая папка</button>
+            <button id="files-push" type="button">Отправить файл…</button>
+          </div>
+          <div id="files-status" class="hint"></div>
+          <ul id="files-list" class="scroll-list"></ul>
+        </section>
+
+        <section id="tab-shell" class="tab-panel">
+          <div id="shell-log" class="shell-log"></div>
+          <div class="toolbar">
+            <input id="shell-input" placeholder="adb shell <команда>" />
+            <button id="shell-run" type="button">Выполнить</button>
+            <button id="shell-favorite" type="button" title="Добавить текущую команду в избранное">☆</button>
+            <button id="shell-history" type="button">История…</button>
+            <label class="checkbox-label" title="Выполнить команду сразу на всех подключённых устройствах">
+              <input id="shell-broadcast" type="checkbox" /> broadcast
+            </label>
+            <button id="shell-screenshot" type="button">Screenshot…</button>
+            <button id="shell-intent" type="button">Intent…</button>
+          </div>
+          <div class="toolbar">
+            <button id="shell-mirror" type="button">Зеркалировать</button>
+            <button id="shell-mirror-record" type="button" title="Зеркалировать с записью в файл">⏺</button>
+            <button id="shell-mirror-all" type="button">Зеркалировать все</button>
+            <span id="shell-mirror-status" class="hint"></span>
+          </div>
+        </section>
+
+        <section id="tab-macros" class="tab-panel">
+          <div class="toolbar">
+            <button id="macros-new" type="button">Новый макрос…</button>
+            <button id="macros-export" type="button">Экспорт…</button>
+            <button id="macros-import" type="button">Импорт…</button>
+          </div>
+          <div id="macros-status" class="hint"></div>
+          <ul id="macros-list" class="scroll-list"></ul>
+        </section>
+
+        <section id="tab-tools" class="tab-panel">
+          <div class="tools-grid">
+            <div class="tool-card">
+              <h3>Wi-Fi отладка</h3>
+              <p class="hint">Переключает устройство в сетевой режим (adb tcpip) — после этого можно отключить USB.</p>
+              <div class="toolbar">
+                <input id="wireless-port" value="5555" class="input-narrow" />
+                <button id="wireless-enable" type="button">Включить</button>
+              </div>
+              <div id="wireless-status" class="hint"></div>
+            </div>
+
+            <div class="tool-card">
+              <h3>Проброс портов</h3>
+              <div class="hint section-title">Forward (Mac/PC → устройство)</div>
+              <ul id="forward-list" class="scroll-list small"></ul>
+              <div class="toolbar">
+                <input id="forward-host" placeholder="порт на хосте" />
+                <input id="forward-device" placeholder="порт на устройстве" />
+                <button id="forward-add" type="button">Добавить</button>
+              </div>
+              <div class="hint section-title">Reverse (устройство → Mac/PC)</div>
+              <ul id="reverse-list" class="scroll-list small"></ul>
+              <div class="toolbar">
+                <input id="reverse-device" placeholder="порт на устройстве" />
+                <input id="reverse-host" placeholder="порт на хосте" />
+                <button id="reverse-add" type="button">Добавить</button>
+              </div>
+              <div id="port-forward-status" class="hint"></div>
+            </div>
+
+            <div class="tool-card wide">
+              <h3>Свойства устройства</h3>
+              <div class="toolbar">
+                <input id="props-search" placeholder="Поиск по ключу или значению…" />
+                <div id="props-count" class="hint"></div>
+              </div>
+              <div id="props-list" class="props-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-monitor" class="tab-panel">
+          <div class="toolbar">
+            <div id="monitor-status" class="hint"></div>
+            <button id="monitor-export-csv" type="button">Экспорт CSV</button>
+          </div>
+          <div class="monitor-stats">
+            <div class="stat-card">
+              <div class="stat-label">CPU</div>
+              <div id="monitor-cpu" class="stat-value">—</div>
+              <svg class="sparkline" viewBox="0 0 280 60" preserveAspectRatio="none">
+                <polyline id="monitor-sparkline-points" points="" />
+              </svg>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Память</div>
+              <div id="monitor-mem" class="stat-value">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Батарея</div>
+              <div id="monitor-battery" class="stat-value">—</div>
+            </div>
+          </div>
+          <div class="hint section-title">Процессы (топ-50 по RSS)</div>
+          <ul id="monitor-process-list" class="scroll-list"></ul>
+          <div class="hint section-title">Экранное время (топ-15)</div>
+          <ul id="monitor-usage-list" class="scroll-list small"></ul>
+          <div class="hint section-title">Безопасность</div>
+          <ul id="monitor-security-list" class="scroll-list small"></ul>
+        </section>
+
+        <section id="tab-logcat" class="tab-panel">
+          <div class="toolbar">
+            <button id="logcat-start" type="button">Старт</button>
+            <button id="logcat-stop" type="button" disabled>Стоп</button>
+            <button id="logcat-clear" type="button">Очистить буфер устройства</button>
+            <button id="logcat-crashes" type="button">Crashes…</button>
+          </div>
+          <div class="toolbar">
+            <input id="logcat-filter" placeholder="Фильтр по тексту/тегу…" />
+            <select id="logcat-level">
+              <option value="0">Verbose+</option>
+              <option value="1">Debug+</option>
+              <option value="2" selected>Info+</option>
+              <option value="3">Warn+</option>
+              <option value="4">Error+</option>
+            </select>
+            <label class="checkbox-label"><input id="logcat-autoscroll" type="checkbox" checked /> автопрокрутка</label>
+          </div>
+          <div id="logcat-status" class="hint"></div>
+          <div id="logcat-log" class="logcat-log"></div>
+        </section>
+
+        <section id="tab-settings" class="tab-panel">
+          <div class="settings-section">
+            <h3>Уведомления о высокой нагрузке</h3>
+            <div class="settings-row">
+              <label class="checkbox-label"><input id="settings-alerts-enabled" type="checkbox" /> включить</label>
+            </div>
+            <div class="settings-row">
+              <span class="hint">Порог CPU, %</span>
+              <input id="settings-cpu-threshold" type="number" min="1" max="100" />
+            </div>
+            <div class="settings-row">
+              <span class="hint">Порог батареи, %</span>
+              <input id="settings-battery-threshold" type="number" min="1" max="100" />
+            </div>
+            <div id="settings-status" class="hint"></div>
+          </div>
+          <div class="settings-section">
+            <h3>Глобальный хоткей</h3>
+            <div class="settings-row">
+              <label class="checkbox-label">
+                <input id="settings-hotkey-enabled" type="checkbox" /> Ctrl/Cmd+Shift+S — тихий скриншот выбранного
+                устройства на Рабочий стол, работает из любого приложения
+              </label>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Общие</h3>
+            <div class="settings-row">
+              <label class="checkbox-label"><input id="settings-auto-update-check" type="checkbox" /> проверять обновления при запуске</label>
+            </div>
+            <div class="settings-row">
+              <label class="checkbox-label"><input id="settings-default-system-apps" type="checkbox" /> показывать системные приложения по умолчанию</label>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Данные</h3>
+            <div class="toolbar">
+              <button id="settings-clear-shell-history" type="button">Очистить историю shell</button>
+              <button id="settings-clear-profiles" type="button">Очистить профили подключения</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>О приложении</h3>
+            <div class="toolbar">
+              <button id="settings-open-repo" type="button">Репозиторий на GitHub</button>
+              <button id="settings-open-releases" type="button">Releases</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="error-handler.js"></script>
+    <script type="module" src="renderer.js"></script>
+  </body>
+</html>
