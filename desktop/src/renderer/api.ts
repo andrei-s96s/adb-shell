@@ -153,6 +153,7 @@ export interface AppSettings {
   statsAlertsEnabled: boolean;
   statsAlertCpuThreshold: number;
   statsAlertBatteryThreshold: number;
+  globalScreenshotHotkeyEnabled: boolean;
 }
 
 export interface ThresholdCheckResult {
@@ -254,6 +255,11 @@ export interface AdbApi {
   checkAlertThresholds(stats: DeviceStats): Promise<ThresholdCheckResult>;
 
   saveCsv(defaultName: string, content: string): Promise<boolean>;
+
+  screenshot(serial: string): Promise<string>;
+  clipboardWriteImagePng(base64Png: string): Promise<void>;
+  saveScreenshot(base64Png: string): Promise<boolean>;
+  setHotkeySelectedSerial(serial: string | undefined): Promise<void>;
 
   startLogcat(serial: string): Promise<void>;
   stopLogcat(serial: string): Promise<void>;

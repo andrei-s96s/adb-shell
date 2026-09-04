@@ -370,4 +370,27 @@ export class AdbService {
     if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
     return result.stdout;
   }
+
+  // MARK: Скриншот
+
+  /** Аналог ADBService.screenshot(serial:) — `exec-out screencap -p` отдаёт
+   * сырой PNG в stdout. В отличие от run(), собирает stdout как Buffer, а не
+   * UTF-8 строку — иначе бинарные байты PNG были бы необратимо испорчены
+   * перекодировкой (тот же повод, по которому Swift-версия обходит здесь
+   * общий текстовый путь и работает с Process напрямую). */
+  screenshot(serial: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      let child;
+      try {
+        child = spawn(this.adbPath, ['-s', serial, 'exec-out', 'screencap', '-p'], { windowsHide: true });
+      } catch (error) {
+        reject(new AdbCommandError(`Couldn't launch adb: ${(error as Error).message}`));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      child.stdout?.on('data', (chunk: Buffer) => chunks.push(chunk));
+      child.on('error', (error) => reject(new AdbCommandError(`Couldn't launch adb: ${error.message}`)));
+      child.on('close', () => resolve(Buffer.concat(chunks)));
+    });
+  }
 }

@@ -13,6 +13,10 @@ export interface AppSettings {
   statsAlertsEnabled: boolean;
   statsAlertCpuThreshold: number;
   statsAlertBatteryThreshold: number;
+  /** Глобальный хоткей Ctrl/Cmd+Shift+S -- тихий скриншот выбранного
+   * устройства прямо на Рабочий стол, работает даже когда окно не в фокусе.
+   * Аналог @AppStorage("globalScreenshotHotkeyEnabled") в Swift-версии. */
+  globalScreenshotHotkeyEnabled: boolean;
 }
 
 const CONFIG_FILE = 'app-settings.json';
@@ -21,6 +25,7 @@ const DEFAULTS: AppSettings = {
   statsAlertsEnabled: false,
   statsAlertCpuThreshold: 90,
   statsAlertBatteryThreshold: 15,
+  globalScreenshotHotkeyEnabled: false,
 };
 
 export class AppSettingsStore {
