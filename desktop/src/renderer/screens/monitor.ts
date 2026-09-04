@@ -1,9 +1,12 @@
 import { adbApi, el, errorMessage } from '../api.js';
-import type { DeviceStats, RunningProcess } from '../api.js';
+import type { DeviceStats, RunningProcess, SecurityFinding, AppUsageStat } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 
 const POLL_INTERVAL_MS = 2000;
 const HISTORY_LENGTH = 30;
+/** Сколько точек держим для CSV-экспорта -- при интервале 2с это ~4 минуты,
+ * тот же лимит, что и DeviceStatsViewModel.historyLimit в Swift-версии. */
+const CSV_HISTORY_LIMIT = 120;
 
 let statusEl: HTMLDivElement;
 let cpuValueEl: HTMLDivElement;
@@ -11,9 +14,12 @@ let memValueEl: HTMLDivElement;
 let batteryValueEl: HTMLDivElement;
 let sparklineEl: SVGPolylineElement;
 let processListEl: HTMLUListElement;
+let usageListEl: HTMLUListElement;
+let securityListEl: HTMLUListElement;
 
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let cpuHistory: number[] = [];
+let statsHistory: DeviceStats[] = [];
 
 export function initMonitorScreen(): void {
   statusEl = el<HTMLDivElement>('monitor-status');
@@ -22,17 +28,25 @@ export function initMonitorScreen(): void {
   batteryValueEl = el<HTMLDivElement>('monitor-battery');
   sparklineEl = document.getElementById('monitor-sparkline-points') as unknown as SVGPolylineElement;
   processListEl = el<HTMLUListElement>('monitor-process-list');
+  usageListEl = el<HTMLUListElement>('monitor-usage-list');
+  securityListEl = el<HTMLUListElement>('monitor-security-list');
+  el<HTMLButtonElement>('monitor-export-csv').addEventListener('click', () => void exportCsv());
 
   onDeviceChanged((serial) => {
     stopPolling();
     cpuHistory = [];
+    statsHistory = [];
     updateSparkline();
     cpuValueEl.textContent = '—';
     memValueEl.textContent = '—';
     batteryValueEl.textContent = '—';
     processListEl.innerHTML = '';
+    usageListEl.innerHTML = '';
+    securityListEl.innerHTML = '';
     if (serial) {
       startPolling(serial);
+      void loadSecurity(serial);
+      void loadUsageStats(serial);
     } else {
       statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
     }
@@ -40,6 +54,7 @@ export function initMonitorScreen(): void {
 }
 
 function startPolling(serial: string): void {
+  void adbApi.resetAlertArm();
   void poll(serial);
   pollTimer = setInterval(() => void poll(serial), POLL_INTERVAL_MS);
 }
@@ -58,8 +73,93 @@ async function poll(serial: string): Promise<void> {
     renderStats(stats);
     renderProcesses(processes, serial);
     statusEl.textContent = '';
+
+    statsHistory.push(stats);
+    if (statsHistory.length > CSV_HISTORY_LIMIT) statsHistory.splice(0, statsHistory.length - CSV_HISTORY_LIMIT);
+    adbApi.checkAlertThresholds(stats).catch(() => {});
   } catch (error) {
     if (getCurrentSerial() !== serial) return;
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+async function loadSecurity(serial: string): Promise<void> {
+  try {
+    const findings = await adbApi.securityInfo(serial);
+    if (getCurrentSerial() !== serial) return;
+    renderSecurity(findings);
+  } catch {
+    // Секция вторичная -- молча оставляем пустой список при ошибке.
+  }
+}
+
+function renderSecurity(findings: SecurityFinding[]): void {
+  securityListEl.innerHTML = '';
+  const icon = { ok: '✓', warning: '⚠', critical: '✕' } as const;
+  for (const finding of findings) {
+    const li = document.createElement('li');
+    li.className = 'row';
+    const label = document.createElement('span');
+    label.textContent = `${icon[finding.level]} ${finding.messageKey}`;
+    li.appendChild(label);
+    li.style.color =
+      finding.level === 'critical' ? 'var(--cp-crimson)' : finding.level === 'warning' ? 'var(--cp-gold)' : 'var(--cp-emerald)';
+    securityListEl.appendChild(li);
+  }
+}
+
+async function loadUsageStats(serial: string): Promise<void> {
+  try {
+    const stats = await adbApi.usageStats(serial);
+    if (getCurrentSerial() !== serial) return;
+    renderUsageStats(stats);
+  } catch {
+    // Вторичная секция -- ошибку не показываем поверх основной панели.
+  }
+}
+
+function renderUsageStats(stats: AppUsageStat[]): void {
+  usageListEl.innerHTML = '';
+  const sorted = [...stats].sort((a, b) => b.totalSeconds - a.totalSeconds).slice(0, 15);
+  if (sorted.length === 0) {
+    usageListEl.innerHTML = '<li class="hint">Нет данных экранного времени</li>';
+    return;
+  }
+  for (const stat of sorted) {
+    const li = document.createElement('li');
+    li.className = 'row';
+    const label = document.createElement('span');
+    label.textContent = stat.packageName;
+    li.appendChild(label);
+    const duration = document.createElement('span');
+    duration.className = 'badge';
+    duration.textContent = formatUsageDuration(stat.totalSeconds);
+    li.appendChild(duration);
+    usageListEl.appendChild(li);
+  }
+}
+
+function formatUsageDuration(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${s}s`;
+}
+
+async function exportCsv(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial) return;
+  let csv = 'timestamp,cpu_percent,mem_used_percent,mem_used_kb,mem_total_kb,battery_level,battery_temperature_c,charging\n';
+  for (const point of statsHistory) {
+    const memPercent = point.memTotalKB > 0 ? (point.memUsedKB / point.memTotalKB) * 100 : '';
+    csv += `${new Date(point.timestamp).toISOString()},${point.cpuPercent ?? ''},${memPercent},${point.memUsedKB},${point.memTotalKB},${point.batteryLevel ?? ''},${point.batteryTemperature ?? ''},${point.isCharging}\n`;
+  }
+  try {
+    const saved = await adbApi.saveCsv(`adbshell-stats-${serial}.csv`, csv);
+    if (saved) statusEl.textContent = 'Экспортировано';
+  } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
 }

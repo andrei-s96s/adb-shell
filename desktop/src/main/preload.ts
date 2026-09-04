@@ -4,6 +4,14 @@ import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
 import { UpdateInfo } from './updateChecker';
 import { MdnsDevice } from './adb/types/MdnsDevice';
 import { ConnectionProfile } from './adb/types/ConnectionProfile';
+import { SecurityFinding } from './adb/types/DeviceSecurityInfo';
+import { NetworkUsage } from './adb/parsers/NetworkUsageParser';
+import { AppUsageStat } from './adb/types/AppUsageStat';
+import { CrashTraceFile } from './adb/types/CrashTraceFile';
+import { PackageDiffResult } from './adb/parsers/PackageDiff';
+import { AppSettings } from './settings/AppSettingsStore';
+import { DeviceStats } from './adb/types/DeviceStats';
+import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -105,6 +113,24 @@ contextBridge.exposeInMainWorld('adbApi', {
   deviceStats: (serial: string) => ipcRenderer.invoke('adb:deviceStats', serial),
   runningProcesses: (serial: string) => ipcRenderer.invoke('adb:runningProcesses', serial),
   killProcess: (serial: string, pid: number) => ipcRenderer.invoke('adb:killProcess', serial, pid),
+
+  securityInfo: (serial: string): Promise<SecurityFinding[]> => ipcRenderer.invoke('adb:securityInfo', serial),
+  networkUsage: (serial: string, uid: number): Promise<NetworkUsage> => ipcRenderer.invoke('adb:networkUsage', serial, uid),
+  usageStats: (serial: string): Promise<AppUsageStat[]> => ipcRenderer.invoke('adb:usageStats', serial),
+  crashTraces: (serial: string): Promise<CrashTraceFile[]> => ipcRenderer.invoke('adb:crashTraces', serial),
+  readCrashTrace: (serial: string, filePath: string): Promise<string> =>
+    ipcRenderer.invoke('adb:readCrashTrace', serial, filePath),
+  comparePackages: (serialA: string, serialB: string): Promise<PackageDiffResult> =>
+    ipcRenderer.invoke('adb:comparePackages', serialA, serialB),
+
+  settingsGet: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
+  settingsUpdate: (partial: Partial<AppSettings>): Promise<AppSettings> => ipcRenderer.invoke('settings:update', partial),
+  resetAlertArm: (): Promise<void> => ipcRenderer.invoke('monitoring:resetAlertArm'),
+  checkAlertThresholds: (stats: DeviceStats): Promise<ThresholdCheckResult> =>
+    ipcRenderer.invoke('monitoring:checkThresholds', stats),
+
+  saveCsv: (defaultName: string, content: string): Promise<boolean> =>
+    ipcRenderer.invoke('dialog:saveCsv', defaultName, content),
 
   // Logcat — живой стрим строк через событие, не через invoke
   startLogcat: (serial: string) => ipcRenderer.invoke('adb:startLogcat', serial),

@@ -4,11 +4,13 @@ import { onDeviceChanged, getCurrentSerial } from '../state.js';
 let inputEl: HTMLInputElement;
 let logEl: HTMLDivElement;
 let runBtn: HTMLButtonElement;
+let broadcastEl: HTMLInputElement;
 
 export function initShellScreen(): void {
   inputEl = el<HTMLInputElement>('shell-input');
   logEl = el<HTMLDivElement>('shell-log');
   runBtn = el<HTMLButtonElement>('shell-run');
+  broadcastEl = el<HTMLInputElement>('shell-broadcast');
 
   runBtn.addEventListener('click', () => void runCommand());
   inputEl.addEventListener('keydown', (event) => {
@@ -32,12 +34,38 @@ async function runCommand(): Promise<void> {
   inputEl.value = '';
   runBtn.disabled = true;
   try {
-    const output = await adbApi.shell(serial, command);
-    appendLine(output.length > 0 ? output : '(нет вывода)', 'shell-out');
+    if (broadcastEl.checked) {
+      await runBroadcast(command);
+    } else {
+      const output = await adbApi.shell(serial, command);
+      appendLine(output.length > 0 ? output : '(нет вывода)', 'shell-out');
+    }
   } catch (error) {
     appendLine(`Ошибка: ${errorMessage(error)}`, 'shell-err');
   } finally {
     runBtn.disabled = false;
+  }
+}
+
+/** Порт runBroadcast(_:) из Sources/AdbShell/Views/ShellRunnerView.swift --
+ * прогоняет команду по очереди (не параллельно) на всех подключённых и
+ * готовых устройствах, каждая запись в истории со своим префиксом. */
+async function runBroadcast(command: string): Promise<void> {
+  const devices = (await adbApi.listDevices()).filter((d) => d.state === 'device');
+  if (devices.length === 0) {
+    appendLine('Нет подключённых устройств для broadcast', 'shell-err');
+    return;
+  }
+  for (const device of devices) {
+    const label = device.model ? device.model.replace(/_/g, ' ') : device.serial;
+    try {
+      const output = await adbApi.shell(device.serial, command);
+      appendLine(`[${label}] ${command}`, 'shell-cmd');
+      appendLine(output.length > 0 ? output : '(нет вывода)', 'shell-out');
+    } catch (error) {
+      appendLine(`[${label}] ${command}`, 'shell-cmd');
+      appendLine(errorMessage(error), 'shell-err');
+    }
   }
 }
 

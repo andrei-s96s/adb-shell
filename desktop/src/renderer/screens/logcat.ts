@@ -2,6 +2,7 @@ import { adbApi, el, errorMessage } from '../api.js';
 import type { LogLevel, LogLine } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { parseLogLine, levelLabel } from '../logLineParser.js';
+import { openCrashTracesModal } from './crashTraces.js';
 
 const MAX_LINES = 5000;
 
@@ -34,6 +35,10 @@ export function initLogcatScreen(): void {
   clearBtn.addEventListener('click', () => void clearBuffer());
   filterInput.addEventListener('input', renderLog);
   levelSelect.addEventListener('change', renderLog);
+  el<HTMLButtonElement>('logcat-crashes').addEventListener('click', () => {
+    const serial = getCurrentSerial();
+    if (serial) openCrashTracesModal(serial);
+  });
 
   unsubscribe = adbApi.onLogcatLine((serial, rawLine) => {
     if (serial !== activeSerial) return;

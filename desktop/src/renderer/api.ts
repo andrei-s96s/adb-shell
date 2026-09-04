@@ -118,6 +118,48 @@ export interface ConnectionProfile {
   autoConnect: boolean;
 }
 
+export type SecurityLevel = 'ok' | 'warning' | 'critical';
+
+export interface SecurityFinding {
+  level: SecurityLevel;
+  messageKey: string;
+}
+
+export interface NetworkUsage {
+  rxBytes: number;
+  txBytes: number;
+}
+
+export interface AppUsageStat {
+  packageName: string;
+  totalSeconds: number;
+}
+
+export type CrashTraceKind = 'anr' | 'tombstone';
+
+export interface CrashTraceFile {
+  path: string;
+  name: string;
+  kind: CrashTraceKind;
+}
+
+export interface PackageDiffResult {
+  onlyInA: string[];
+  onlyInB: string[];
+  commonCount: number;
+}
+
+export interface AppSettings {
+  statsAlertsEnabled: boolean;
+  statsAlertCpuThreshold: number;
+  statsAlertBatteryThreshold: number;
+}
+
+export interface ThresholdCheckResult {
+  cpuAlertFired?: { cpuPercent: number };
+  batteryAlertFired?: { batteryLevel: number };
+}
+
 export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface LogLine {
@@ -198,6 +240,20 @@ export interface AdbApi {
   deviceStats(serial: string): Promise<DeviceStats>;
   runningProcesses(serial: string): Promise<RunningProcess[]>;
   killProcess(serial: string, pid: number): Promise<void>;
+
+  securityInfo(serial: string): Promise<SecurityFinding[]>;
+  networkUsage(serial: string, uid: number): Promise<NetworkUsage>;
+  usageStats(serial: string): Promise<AppUsageStat[]>;
+  crashTraces(serial: string): Promise<CrashTraceFile[]>;
+  readCrashTrace(serial: string, filePath: string): Promise<string>;
+  comparePackages(serialA: string, serialB: string): Promise<PackageDiffResult>;
+
+  settingsGet(): Promise<AppSettings>;
+  settingsUpdate(partial: Partial<AppSettings>): Promise<AppSettings>;
+  resetAlertArm(): Promise<void>;
+  checkAlertThresholds(stats: DeviceStats): Promise<ThresholdCheckResult>;
+
+  saveCsv(defaultName: string, content: string): Promise<boolean>;
 
   startLogcat(serial: string): Promise<void>;
   stopLogcat(serial: string): Promise<void>;
