@@ -1,6 +1,9 @@
 import { adbApi, el, errorMessage } from '../api.js';
 import type { InstalledApp, AppDetail } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
+import { openDeviceCompareModal } from './deviceCompare.js';
+
+const NET_POLL_INTERVAL_MS = 3000;
 
 let listEl: HTMLUListElement;
 let detailEl: HTMLDivElement;
@@ -9,6 +12,8 @@ let searchEl: HTMLInputElement;
 let showSystemEl: HTMLInputElement;
 let apps: InstalledApp[] = [];
 let selectedPackage: string | undefined;
+let netPollTimer: ReturnType<typeof setInterval> | undefined;
+let lastNetSample: { rx: number; tx: number; at: number } | undefined;
 
 export function initAppsScreen(): void {
   listEl = el<HTMLUListElement>('apps-list');
@@ -20,6 +25,11 @@ export function initAppsScreen(): void {
   searchEl.addEventListener('input', renderList);
   showSystemEl.addEventListener('change', renderList);
   el<HTMLButtonElement>('apps-install').addEventListener('click', () => void installApk());
+  el<HTMLButtonElement>('apps-export-csv').addEventListener('click', () => void exportCsv());
+  el<HTMLButtonElement>('apps-compare').addEventListener('click', () => {
+    const serial = getCurrentSerial();
+    if (serial) openDeviceCompareModal(serial);
+  });
 
   onDeviceChanged((serial) => {
     selectedPackage = undefined;
@@ -32,6 +42,27 @@ export function initAppsScreen(): void {
       statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
     }
   });
+}
+
+function filteredApps(): InstalledApp[] {
+  const query = searchEl.value.trim().toLowerCase();
+  const showSystem = showSystemEl.checked;
+  return apps.filter((a) => (showSystem || !a.isSystem) && (!query || a.packageName.toLowerCase().includes(query)));
+}
+
+async function exportCsv(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial) return;
+  let csv = 'package_name,is_system,is_enabled\n';
+  for (const app of filteredApps()) {
+    csv += `${app.packageName},${app.isSystem},${app.isEnabled}\n`;
+  }
+  try {
+    const saved = await adbApi.saveCsv(`packages-${serial}.csv`, csv);
+    if (saved) statusEl.textContent = 'Экспортировано';
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
 }
 
 async function installApk(): Promise<void> {
@@ -64,9 +95,7 @@ async function loadApps(serial: string): Promise<void> {
 }
 
 function renderList(): void {
-  const query = searchEl.value.trim().toLowerCase();
-  const showSystem = showSystemEl.checked;
-  const filtered = apps.filter((a) => (showSystem || !a.isSystem) && (!query || a.packageName.toLowerCase().includes(query)));
+  const filtered = filteredApps();
 
   listEl.innerHTML = '';
   for (const app of filtered) {
@@ -84,10 +113,12 @@ function renderList(): void {
 }
 
 async function loadDetail(serial: string, packageName: string): Promise<void> {
+  stopNetPolling();
   detailEl.innerHTML = '<p class="placeholder">Загрузка…</p>';
   try {
     const detail = await adbApi.appDetail(serial, packageName);
     renderDetail(detail, serial);
+    if (detail.uid !== undefined) startNetPolling(serial, detail.uid);
   } catch (error) {
     detailEl.innerHTML = '';
     const p = document.createElement('p');
@@ -97,7 +128,50 @@ async function loadDetail(serial: string, packageName: string): Promise<void> {
   }
 }
 
+function startNetPolling(serial: string, uid: number): void {
+  lastNetSample = undefined;
+  const tick = (): void => {
+    adbApi
+      .networkUsage(serial, uid)
+      .then((usage) => {
+        const now = Date.now();
+        const netLineEl = document.getElementById('apps-detail-net');
+        if (!netLineEl) return;
+        if (lastNetSample) {
+          const dt = (now - lastNetSample.at) / 1000;
+          if (dt > 0) {
+            const rxRate = Math.max(0, (usage.rxBytes - lastNetSample.rx) / dt);
+            const txRate = Math.max(0, (usage.txBytes - lastNetSample.tx) / dt);
+            netLineEl.textContent = `сеть: ↓ ${formatRate(rxRate)} · ↑ ${formatRate(txRate)} (всего ↓ ${formatBytes(usage.rxBytes)} / ↑ ${formatBytes(usage.txBytes)})`;
+          }
+        }
+        lastNetSample = { rx: usage.rxBytes, tx: usage.txBytes, at: now };
+      })
+      // Секция вторичная -- не должна затирать основную панель ошибкой.
+      .catch(() => {});
+  };
+  void tick();
+  netPollTimer = setInterval(tick, NET_POLL_INTERVAL_MS);
+}
+
+function stopNetPolling(): void {
+  if (netPollTimer) clearInterval(netPollTimer);
+  netPollTimer = undefined;
+  lastNetSample = undefined;
+}
+
+function formatRate(bytesPerSec: number): string {
+  return `${formatBytes(bytesPerSec)}/s`;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes.toFixed(0)} B`;
+}
+
 function renderDetail(detail?: AppDetail, serial?: string): void {
+  stopNetPolling();
   if (!detail || !serial) {
     detailEl.innerHTML = '<p class="placeholder">Выберите приложение слева</p>';
     return;
@@ -121,6 +195,14 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
   pathLine.className = 'hint';
   pathLine.textContent = `путь: ${detail.apkPath ?? '—'}`;
   header.appendChild(pathLine);
+
+  if (detail.uid !== undefined) {
+    const netLine = document.createElement('div');
+    netLine.className = 'hint';
+    netLine.id = 'apps-detail-net';
+    netLine.textContent = 'сеть: —';
+    header.appendChild(netLine);
+  }
 
   const datesLine = document.createElement('div');
   datesLine.className = 'hint';

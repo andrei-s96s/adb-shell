@@ -60,6 +60,7 @@
           <button data-tab="tools" type="button">Инструменты</button>
           <button data-tab="monitor" type="button">Мониторинг</button>
           <button data-tab="logcat" type="button">Logcat</button>
+          <button data-tab="settings" type="button">Настройки</button>
         </div>
 
         <section id="tab-apps" class="tab-panel">
@@ -68,7 +69,11 @@
               <div class="toolbar">
                 <input id="apps-search" placeholder="Поиск по package name…" />
                 <label class="checkbox-label"><input id="apps-show-system" type="checkbox" /> системные</label>
+              </div>
+              <div class="toolbar">
                 <button id="apps-install" type="button">Установить APK…</button>
+                <button id="apps-export-csv" type="button">Экспорт CSV</button>
+                <button id="apps-compare" type="button">Сравнить устройства…</button>
               </div>
               <div id="apps-status" class="hint"></div>
               <ul id="apps-list" class="scroll-list"></ul>
@@ -110,6 +115,9 @@
           <div class="toolbar">
             <input id="shell-input" placeholder="adb shell <команда>" />
             <button id="shell-run" type="button">Выполнить</button>
+            <label class="checkbox-label" title="Выполнить команду сразу на всех подключённых устройствах">
+              <input id="shell-broadcast" type="checkbox" /> broadcast
+            </label>
           </div>
         </section>
 
@@ -156,7 +164,10 @@
         </section>
 
         <section id="tab-monitor" class="tab-panel">
-          <div id="monitor-status" class="hint"></div>
+          <div class="toolbar">
+            <div id="monitor-status" class="hint"></div>
+            <button id="monitor-export-csv" type="button">Экспорт CSV</button>
+          </div>
           <div class="monitor-stats">
             <div class="stat-card">
               <div class="stat-label">CPU</div>
@@ -176,6 +187,10 @@
           </div>
           <div class="hint section-title">Процессы (топ-50 по RSS)</div>
           <ul id="monitor-process-list" class="scroll-list"></ul>
+          <div class="hint section-title">Экранное время (топ-15)</div>
+          <ul id="monitor-usage-list" class="scroll-list small"></ul>
+          <div class="hint section-title">Безопасность</div>
+          <ul id="monitor-security-list" class="scroll-list small"></ul>
         </section>
 
         <section id="tab-logcat" class="tab-panel">
@@ -183,6 +198,7 @@
             <button id="logcat-start" type="button">Старт</button>
             <button id="logcat-stop" type="button" disabled>Стоп</button>
             <button id="logcat-clear" type="button">Очистить буфер устройства</button>
+            <button id="logcat-crashes" type="button">Crashes…</button>
           </div>
           <div class="toolbar">
             <input id="logcat-filter" placeholder="Фильтр по тексту/тегу…" />
@@ -197,6 +213,24 @@
           </div>
           <div id="logcat-status" class="hint"></div>
           <div id="logcat-log" class="logcat-log"></div>
+        </section>
+
+        <section id="tab-settings" class="tab-panel">
+          <div class="settings-section">
+            <h3>Уведомления о высокой нагрузке</h3>
+            <div class="settings-row">
+              <label class="checkbox-label"><input id="settings-alerts-enabled" type="checkbox" /> включить</label>
+            </div>
+            <div class="settings-row">
+              <span class="hint">Порог CPU, %</span>
+              <input id="settings-cpu-threshold" type="number" min="1" max="100" />
+            </div>
+            <div class="settings-row">
+              <span class="hint">Порог батареи, %</span>
+              <input id="settings-battery-threshold" type="number" min="1" max="100" />
+            </div>
+            <div id="settings-status" class="hint"></div>
+          </div>
         </section>
       </main>
     </div>

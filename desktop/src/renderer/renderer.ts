@@ -9,6 +9,7 @@ import { initShellScreen } from './screens/shellScreen.js';
 import { initToolsScreen } from './screens/tools.js';
 import { initMonitorScreen } from './screens/monitor.js';
 import { initLogcatScreen } from './screens/logcat.js';
+import { initSettingsScreen } from './screens/settings.js';
 
 const deviceListEl = el<HTMLUListElement>('device-list');
 const statusEl = el<HTMLDivElement>('status');
@@ -397,6 +398,7 @@ initShellScreen();
 initToolsScreen();
 initMonitorScreen();
 initLogcatScreen();
+initSettingsScreen();
 selectDevice(undefined);
 void bootDeviceIdentity();
 void refreshProfiles();

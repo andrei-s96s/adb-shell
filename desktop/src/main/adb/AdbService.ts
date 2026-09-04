@@ -26,6 +26,12 @@ import { parseRemoteFiles } from './parsers/RemoteFileParser';
 import { MdnsDevice } from './types/MdnsDevice';
 import { parseMdnsServices } from './parsers/MdnsParser';
 import { normalizeConnectHost } from './parsers/ConnectHost';
+import { DeviceSecurityInfo } from './types/DeviceSecurityInfo';
+import { NetworkUsage, parseNetworkUsage } from './parsers/NetworkUsageParser';
+import { AppUsageStat } from './types/AppUsageStat';
+import { parseUsageStats } from './parsers/UsageStatsParser';
+import { CrashTraceFile } from './types/CrashTraceFile';
+import { parseCrashTraceListing } from './parsers/CrashTraceParser';
 
 export class AdbCommandError extends Error {}
 
@@ -286,5 +292,82 @@ export class AdbService {
 
   async killProcess(serial: string, pid: number): Promise<void> {
     await this.run(['shell', 'kill', String(pid)], { serial });
+  }
+
+  // MARK: Безопасность устройства
+
+  /** Аналог ADBService.securityInfo(serial:) — локальные признаки
+   * целостности устройства (root/разлочка/debuggable). Полноценный
+   * SafetyNet/Play Integrity с устройства через adb не выполнить, это
+   * удалённая проверка на серверах Google. */
+  async securityInfo(serial: string): Promise<DeviceSecurityInfo> {
+    const [verifiedBoot, flashLocked, debuggable, secure, suCheck, playProtect] = await Promise.all([
+      this.run(['shell', 'getprop', 'ro.boot.verifiedbootstate'], { serial }),
+      this.run(['shell', 'getprop', 'ro.boot.flash.locked'], { serial }),
+      this.run(['shell', 'getprop', 'ro.debuggable'], { serial }),
+      this.run(['shell', 'getprop', 'ro.secure'], { serial }),
+      this.run(['shell', 'which', 'su'], { serial }),
+      this.run(['shell', 'settings', 'get', 'global', 'package_verifier_user_consent'], { serial }),
+    ]);
+    const trim = (r: ProcessResult) => r.stdout.trim();
+
+    const verifiedBootValue = trim(verifiedBoot);
+    const flashLockedValue = trim(flashLocked);
+    const debuggableValue = trim(debuggable);
+    const secureValue = trim(secure);
+    const suValue = trim(suCheck);
+    const playProtectValue = trim(playProtect);
+
+    return {
+      verifiedBootState: verifiedBootValue.length === 0 ? undefined : verifiedBootValue,
+      bootloaderLocked: flashLockedValue.length === 0 ? undefined : flashLockedValue === '1',
+      isDebuggable: debuggableValue === '1',
+      isSecure: secureValue !== '0',
+      suBinaryPresent: suValue.length > 0 && !suValue.toLowerCase().includes('not found'),
+      playProtectConsent:
+        playProtectValue.length === 0 || playProtectValue.toLowerCase() === 'null' ? undefined : playProtectValue,
+    };
+  }
+
+  // MARK: Сетевой трафик по приложению
+
+  async networkUsage(serial: string, uid: number): Promise<NetworkUsage> {
+    const result = await this.run(['shell', 'dumpsys', 'netstats', 'detail'], { serial });
+    return parseNetworkUsage(combinedOutput(result), uid);
+  }
+
+  // MARK: Экранное время приложений
+
+  async usageStats(serial: string): Promise<AppUsageStat[]> {
+    const result = await this.run(['shell', 'dumpsys', 'usagestats'], { serial });
+    return parseUsageStats(combinedOutput(result));
+  }
+
+  // MARK: ANR / tombstones
+
+  /** Список файлов в /data/anr/ и /data/tombstones/. Без root оба каталога
+   * обычно недоступны (Permission denied) — в этом случае просто пропускаем
+   * соответствующую директорию, а не считаем это ошибкой всей операции. */
+  async crashTraces(serial: string): Promise<CrashTraceFile[]> {
+    const [anrResult, tombResult] = await Promise.all([
+      this.run(['shell', 'ls', '-1', '/data/anr/'], { serial }).catch(() => undefined),
+      this.run(['shell', 'ls', '-1', '/data/tombstones/'], { serial }).catch(() => undefined),
+    ]);
+    const files: CrashTraceFile[] = [];
+    if (anrResult && anrResult.exitCode === 0) {
+      files.push(...parseCrashTraceListing(anrResult.stdout, '/data/anr/', 'anr'));
+    }
+    if (tombResult && tombResult.exitCode === 0) {
+      files.push(...parseCrashTraceListing(tombResult.stdout, '/data/tombstones/', 'tombstone'));
+    }
+    return files;
+  }
+
+  /** Хвост файла трейса — полные tombstone-файлы могут быть большими,
+   * показываем последние ~30000 байт, обычно там самое важное (стек, сигнал). */
+  async readCrashTrace(serial: string, filePath: string): Promise<string> {
+    const result = await this.run(['shell', 'tail', '-c', '30000', filePath], { serial });
+    if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
+    return result.stdout;
   }
 }

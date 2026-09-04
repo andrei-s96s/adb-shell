@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, dialog, shell, Notification } from 'electron';
 import * as path from 'node:path';
 import * as fsPromises from 'node:fs/promises';
 import { AdbService } from './adb/AdbService';
@@ -11,12 +11,19 @@ import { checkForDesktopUpdate } from './updateChecker';
 import { ConnectionProfileStore } from './connectionProfiles/ConnectionProfileStore';
 import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
 import { DevicePinStore } from './devicePins/DevicePinStore';
+import { AppSettingsStore } from './settings/AppSettingsStore';
+import { AlertArmState, checkThresholds, initialArmState } from './monitoring/alertThresholdLogic';
+import { DeviceStats } from './adb/types/DeviceStats';
+import { comparePackages } from './adb/parsers/PackageDiff';
+import { analyzeSecurity } from './adb/parsers/DeviceSecurityAnalyzer';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
 const connectionProfiles = new ConnectionProfileStore();
 const deviceNicknames = new DeviceNicknameStore();
 const devicePins = new DevicePinStore();
+const appSettings = new AppSettingsStore();
+let alertArmState: AlertArmState = initialArmState();
 const logcatSessions = new Map<string, LogcatSession>();
 
 function createWindow(): void {
@@ -247,6 +254,76 @@ function registerIpcHandlers(): void {
   ipcMain.handle('adb:deviceStats', (_e, serial: string) => adb.deviceStats(serial));
   ipcMain.handle('adb:runningProcesses', (_e, serial: string) => adb.runningProcesses(serial));
   ipcMain.handle('adb:killProcess', (_e, serial: string, pid: number) => adb.killProcess(serial, pid));
+
+  // Безопасность устройства -- разовая проверка (свойства не меняются на
+  // лету), карточка в Мониторинге.
+  ipcMain.handle('adb:securityInfo', async (_e, serial: string) => analyzeSecurity(await adb.securityInfo(serial)));
+
+  // Сетевой трафик приложения (панель деталей приложения, поллинг 3с на
+  // стороне renderer) и экранное время (разовая загрузка в Мониторинге).
+  ipcMain.handle('adb:networkUsage', (_e, serial: string, uid: number) => adb.networkUsage(serial, uid));
+  ipcMain.handle('adb:usageStats', (_e, serial: string) => adb.usageStats(serial));
+
+  // ANR / tombstones -- кнопка "Crashes" в Logcat.
+  ipcMain.handle('adb:crashTraces', (_e, serial: string) => adb.crashTraces(serial));
+  ipcMain.handle('adb:readCrashTrace', (_e, serial: string, filePath: string) => adb.readCrashTrace(serial, filePath));
+
+  // Сравнение установленных пакетов двух устройств -- сама выборка списков
+  // и diff выполняются здесь же, renderer получает уже готовый результат.
+  ipcMain.handle('adb:comparePackages', async (_e, serialA: string, serialB: string) => {
+    const [appsA, appsB] = await Promise.all([adb.listApps(serialA), adb.listApps(serialB)]);
+    return comparePackages(
+      appsA.map((a) => a.packageName),
+      appsB.map((a) => a.packageName)
+    );
+  });
+
+  // Настройки приложения (пороги CPU/батареи и т.п. -- один общий JSON,
+  // см. AppSettingsStore) и однократные уведомления при пересечении порога.
+  ipcMain.handle('settings:get', () => appSettings.get());
+  ipcMain.handle('settings:update', (_e, partial) => appSettings.update(partial));
+  ipcMain.handle('monitoring:resetAlertArm', () => {
+    alertArmState = initialArmState();
+  });
+  ipcMain.handle('monitoring:checkThresholds', (_e, stats: DeviceStats) => {
+    const settings = appSettings.get();
+    const result = checkThresholds(alertArmState, stats, {
+      enabled: settings.statsAlertsEnabled,
+      cpuThreshold: settings.statsAlertCpuThreshold,
+      batteryThreshold: settings.statsAlertBatteryThreshold,
+    });
+    alertArmState = result.armState;
+    if (result.cpuAlertFired) {
+      new Notification({
+        title: 'Высокая нагрузка CPU',
+        body: `CPU: ${Math.round(result.cpuAlertFired.cpuPercent)}%`,
+      }).show();
+    }
+    if (result.batteryAlertFired) {
+      new Notification({
+        title: 'Низкий заряд батареи',
+        body: `Батарея: ${result.batteryAlertFired.batteryLevel}%`,
+      }).show();
+    }
+    return result;
+  });
+
+  // Экспорт CSV (список пакетов, история мониторинга) -- диалог сохранения
+  // обязан открываться из main (см. dialog:selectApk выше), содержимое CSV
+  // уже готово к записи, приходит от renderer строкой.
+  ipcMain.handle('dialog:saveCsv', async (event: IpcMainInvokeEvent, defaultName: string, content: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Экспорт CSV',
+      defaultPath: defaultName,
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    };
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    await fsPromises.writeFile(result.filePath, content, 'utf8');
+    shell.showItemInFolder(result.filePath);
+    return true;
+  });
 
   // Logcat — живой стрим, строки уходят в renderer как события 'logcat:line',
   // а не через ответ на invoke (сессия долгоживущая, невозможно вернуть
