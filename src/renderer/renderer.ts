@@ -9,7 +9,7 @@ import { initShellScreen } from './screens/shellScreen.js';
 import { initToolsScreen } from './screens/tools.js';
 import { initMonitorScreen } from './screens/monitor.js';
 import { initLogcatScreen } from './screens/logcat.js';
-import { initSettingsScreen } from './screens/settings.js';
+import { initSettingsScreen, applyTheme } from './screens/settings.js';
 import { initMacrosScreen } from './screens/macros.js';
 import { initCommandPalette } from './screens/commandPalette.js';
 
@@ -446,6 +446,18 @@ initGlobalApkDrop();
 selectDevice(undefined);
 void bootDeviceIdentity();
 void refreshProfiles();
+void applyThemeOnBoot();
+
+/** Применяет сохранённый выбор темы сразу при старте — до того, как
+ * пользователь откроет вкладку Настройки, иначе окно на пару кадров
+ * мигнёт системной темой вместо форсированной light/dark. */
+async function applyThemeOnBoot(): Promise<void> {
+  try {
+    applyTheme((await adbApi.settingsGet()).themePreference);
+  } catch {
+    // Не критично — останется системная тема до открытия Настроек.
+  }
+}
 
 /** Порт ContentView.onDrop(of: [.fileURL]) из Sources/AdbShell/Views/ContentView.swift
  * -- drag&drop .apk-файла в любое место окна устанавливает его на выбранное

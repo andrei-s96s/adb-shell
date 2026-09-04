@@ -22,6 +22,10 @@ export interface AppSettings {
   defaultShowSystemApps: boolean;
   /** Проверять обновления приложения при каждом запуске. */
   autoCheckUpdates: boolean;
+  /** Ручной выбор темы поверх системной -- порт ThemePreference.swift.
+   * "system" следует prefers-color-scheme (как было по умолчанию до этого
+   * поля), "light"/"dark" форсируют конкретную тему независимо от ОС. */
+  themePreference: 'system' | 'light' | 'dark';
 }
 
 const CONFIG_FILE = 'app-settings.json';
@@ -33,6 +37,9 @@ const DEFAULTS: AppSettings = {
   globalScreenshotHotkeyEnabled: false,
   defaultShowSystemApps: false,
   autoCheckUpdates: true,
+  // Swift-оригинал по умолчанию форсировал тёмную тему (не "системную") --
+  // тот же выбор здесь, палитра CP.* и задумана в первую очередь как тёмная.
+  themePreference: 'dark',
 };
 
 export class AppSettingsStore {
