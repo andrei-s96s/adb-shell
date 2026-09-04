@@ -9,6 +9,7 @@ import {
   clipboard,
   nativeImage,
   globalShortcut,
+  screen,
 } from 'electron';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -35,6 +36,7 @@ import { MacroStore } from './macros/MacroStore';
 import { runMacro } from './macros/MacroRunner';
 import { exportBundle, importBundle } from './appBundles/AppBundleService';
 import { DeviceSnapshotService } from './deviceSnapshots/DeviceSnapshotService';
+import { ScreenMirrorService } from './screenMirror/ScreenMirrorService';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
@@ -42,6 +44,7 @@ const apkTags = new ApkTagStore();
 const intentPresets = new IntentPresetStore();
 const macroStore = new MacroStore();
 const deviceSnapshots = new DeviceSnapshotService();
+const screenMirror = new ScreenMirrorService();
 const connectionProfiles = new ConnectionProfileStore();
 const deviceNicknames = new DeviceNicknameStore();
 const devicePins = new DevicePinStore();
@@ -372,6 +375,34 @@ function registerIpcHandlers(): void {
   ipcMain.handle('intentPresets:add', (_e, name: string, uri: string) => intentPresets.add(name, uri));
   ipcMain.handle('intentPresets:remove', (_e, id: string) => intentPresets.remove(id));
 
+  // Зеркалирование экрана через scrcpy -- своё окно рисует сам scrcpy,
+  // здесь только запуск процесса и отслеживание, какие serial сейчас
+  // зеркалятся (push-событие 'mirror:stopped', когда окно закрыто -- в т.ч.
+  // если пользователь закрыл его сам, не из ADB Shell).
+  ipcMain.handle('mirror:isAvailable', () => screenMirror.isAvailable());
+  ipcMain.handle('mirror:runningSerials', () => screenMirror.runningSerials());
+  ipcMain.handle('mirror:launch', (event: IpcMainInvokeEvent, serial: string, recordPath?: string) => {
+    screenMirror.launch(serial, adb.adbPath, { recordPath }, (stoppedSerial) => {
+      if (!event.sender.isDestroyed()) event.sender.send('mirror:stopped', stoppedSerial);
+    });
+  });
+  ipcMain.handle('mirror:launchGrid', (event: IpcMainInvokeEvent, serials: string[]) => {
+    const display = screen.getPrimaryDisplay();
+    screenMirror.launchGrid(serials, adb.adbPath, display.workArea, (stoppedSerial) => {
+      if (!event.sender.isDestroyed()) event.sender.send('mirror:stopped', stoppedSerial);
+    });
+  });
+  ipcMain.handle('dialog:selectRecordPath', async (event: IpcMainInvokeEvent, serial: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Записать зеркалирование в файл',
+      defaultPath: `adbshell-${serial.replace(/[:/\\]/g, '-')}-${timestampForFilename(new Date())}.mp4`,
+      filters: [{ name: 'MP4', extensions: ['mp4'] }],
+    };
+    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    return result.canceled ? undefined : result.filePath;
+  });
+
   // Макросы -- именованные последовательности adb-команд.
   ipcMain.handle('macros:list', () => macroStore.list());
   ipcMain.handle(
@@ -602,4 +633,5 @@ app.on('before-quit', () => {
   for (const session of logcatSessions.values()) session.stop();
   logcatSessions.clear();
   globalShortcut.unregisterAll();
+  screenMirror.stopAll();
 });

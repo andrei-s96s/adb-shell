@@ -356,6 +356,13 @@ export interface AdbApi {
   stopLogcat(serial: string): Promise<void>;
   clearLogcatBuffer(serial: string): Promise<void>;
   onLogcatLine(callback: (serial: string, line: string) => void): () => void;
+
+  mirrorIsAvailable(): Promise<boolean>;
+  mirrorRunningSerials(): Promise<string[]>;
+  mirrorLaunch(serial: string, recordPath?: string): Promise<void>;
+  mirrorLaunchGrid(serials: string[]): Promise<void>;
+  selectRecordPath(serial: string): Promise<string | undefined>;
+  onMirrorStopped(callback: (serial: string) => void): () => void;
 }
 
 export const adbApi: AdbApi = (window as unknown as { adbApi: AdbApi }).adbApi;
