@@ -12,6 +12,7 @@ import { PackageDiffResult } from './adb/parsers/PackageDiff';
 import { AppSettings } from './settings/AppSettingsStore';
 import { DeviceStats } from './adb/types/DeviceStats';
 import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
+import { IntentPreset } from './adb/types/IntentPreset';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
 // включённым и nodeIntegration выключенным (см. main.ts) — доступ к adb
@@ -81,6 +82,11 @@ contextBridge.exposeInMainWorld('adbApi', {
     apkPath: string
   ): Promise<{ successCount: number; total: number; failures: string[] }> =>
     ipcRenderer.invoke('apkLibrary:installToAllDevices', apkPath),
+  apkLibraryTagsList: (): Promise<Record<string, string[]>> => ipcRenderer.invoke('apkLibrary:tagsList'),
+  apkLibraryAddTag: (filePath: string, tag: string): Promise<Record<string, string[]>> =>
+    ipcRenderer.invoke('apkLibrary:addTag', filePath, tag),
+  apkLibraryRemoveTag: (filePath: string, tag: string): Promise<Record<string, string[]>> =>
+    ipcRenderer.invoke('apkLibrary:removeTag', filePath, tag),
 
   // Файлы устройства
   listDirectory: (serial: string, dirPath: string) => ipcRenderer.invoke('adb:listDirectory', serial, dirPath),
@@ -90,6 +96,12 @@ contextBridge.exposeInMainWorld('adbApi', {
 
   // Shell
   shell: (serial: string, command: string) => ipcRenderer.invoke('adb:shell', serial, command),
+
+  openDeepLink: (serial: string, uri: string): Promise<string> => ipcRenderer.invoke('adb:openDeepLink', serial, uri),
+  intentPresetsList: (): Promise<IntentPreset[]> => ipcRenderer.invoke('intentPresets:list'),
+  intentPresetsAdd: (name: string, uri: string): Promise<IntentPreset[]> =>
+    ipcRenderer.invoke('intentPresets:add', name, uri),
+  intentPresetsRemove: (id: string): Promise<IntentPreset[]> => ipcRenderer.invoke('intentPresets:remove', id),
 
   // Wi-Fi отладка
   enableWirelessDebugging: (serial: string, port: number) =>

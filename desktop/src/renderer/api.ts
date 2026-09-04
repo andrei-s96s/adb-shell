@@ -161,6 +161,12 @@ export interface ThresholdCheckResult {
   batteryAlertFired?: { batteryLevel: number };
 }
 
+export interface IntentPreset {
+  id: string;
+  name: string;
+  uri: string;
+}
+
 export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface LogLine {
@@ -219,12 +225,19 @@ export interface AdbApi {
   apkLibraryCheckFDroidUpdates(): Promise<Record<string, FDroidUpdateInfo>>;
   apkLibraryDownloadFDroidUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<string>;
   apkLibraryInstallToAllDevices(apkPath: string): Promise<InstallToAllResult>;
+  apkLibraryTagsList(): Promise<Record<string, string[]>>;
+  apkLibraryAddTag(filePath: string, tag: string): Promise<Record<string, string[]>>;
+  apkLibraryRemoveTag(filePath: string, tag: string): Promise<Record<string, string[]>>;
 
   listDirectory(serial: string, dirPath: string): Promise<RemoteFile[]>;
   makeDirectory(serial: string, dirPath: string): Promise<void>;
   removeRemote(serial: string, targetPath: string, recursive: boolean): Promise<void>;
 
   shell(serial: string, command: string): Promise<string>;
+  openDeepLink(serial: string, uri: string): Promise<string>;
+  intentPresetsList(): Promise<IntentPreset[]>;
+  intentPresetsAdd(name: string, uri: string): Promise<IntentPreset[]>;
+  intentPresetsRemove(id: string): Promise<IntentPreset[]>;
 
   enableWirelessDebugging(serial: string, port: number): Promise<string>;
   deviceIPAddress(serial: string): Promise<string | undefined>;

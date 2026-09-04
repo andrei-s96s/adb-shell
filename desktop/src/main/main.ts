@@ -29,9 +29,13 @@ import { DeviceStats } from './adb/types/DeviceStats';
 import { comparePackages } from './adb/parsers/PackageDiff';
 import { analyzeSecurity } from './adb/parsers/DeviceSecurityAnalyzer';
 import { timestampForFilename } from './util/timestamp';
+import { ApkTagStore } from './apkLibrary/ApkTagStore';
+import { IntentPresetStore } from './intentPresets/IntentPresetStore';
 
 const adb = new AdbService();
 const apkLibrary = new ApkLibraryService();
+const apkTags = new ApkTagStore();
+const intentPresets = new IntentPresetStore();
 const connectionProfiles = new ConnectionProfileStore();
 const deviceNicknames = new DeviceNicknameStore();
 const devicePins = new DevicePinStore();
@@ -267,6 +271,12 @@ function registerIpcHandlers(): void {
     return { successCount, total: devices.length, failures };
   });
 
+  // Теги файлов библиотеки APK -- по полному пути на диске (файлы не
+  // хранят метаданные сами по себе).
+  ipcMain.handle('apkLibrary:tagsList', () => apkTags.list());
+  ipcMain.handle('apkLibrary:addTag', (_e, filePath: string, tag: string) => apkTags.addTag(filePath, tag));
+  ipcMain.handle('apkLibrary:removeTag', (_e, filePath: string, tag: string) => apkTags.removeTag(filePath, tag));
+
   // Файлы устройства
   ipcMain.handle('adb:listDirectory', (_e, serial: string, dirPath: string) => adb.listDirectory(serial, dirPath));
   ipcMain.handle('adb:makeDirectory', (_e, serial: string, dirPath: string) => adb.makeDirectory(serial, dirPath));
@@ -276,6 +286,12 @@ function registerIpcHandlers(): void {
 
   // Shell
   ipcMain.handle('adb:shell', (_e, serial: string, command: string) => adb.shell(serial, command));
+
+  // Intent/deep-link тестер + сохранённые пресеты
+  ipcMain.handle('adb:openDeepLink', (_e, serial: string, uri: string) => adb.openDeepLink(serial, uri));
+  ipcMain.handle('intentPresets:list', () => intentPresets.list());
+  ipcMain.handle('intentPresets:add', (_e, name: string, uri: string) => intentPresets.add(name, uri));
+  ipcMain.handle('intentPresets:remove', (_e, id: string) => intentPresets.remove(id));
 
   // Wi-Fi отладка
   ipcMain.handle('adb:enableWirelessDebugging', (_e, serial: string, port: number) =>
