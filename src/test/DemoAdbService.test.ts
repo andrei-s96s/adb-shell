@@ -51,6 +51,21 @@ test('uninstall removes the app from a subsequent listApps', async () => {
   assert.ok(!apps.some((a) => a.packageName === 'com.discord'));
 });
 
+test('install adds a synthetic entry derived from the apk filename to a subsequent listApps', async () => {
+  const adb = new DemoAdbService();
+  await adb.install(DEMO_SERIAL, '/Users/demo/Downloads/MyCoolApp.apk');
+  const apps = await adb.listApps(DEMO_SERIAL);
+  assert.ok(apps.some((a) => a.packageName === 'com.demo.mycoolapp'));
+});
+
+test('install does not duplicate an entry if the same apk is installed twice', async () => {
+  const adb = new DemoAdbService();
+  await adb.install(DEMO_SERIAL, '/tmp/MyCoolApp.apk');
+  await adb.install(DEMO_SERIAL, '/tmp/MyCoolApp.apk');
+  const apps = await adb.listApps(DEMO_SERIAL);
+  assert.equal(apps.filter((a) => a.packageName === 'com.demo.mycoolapp').length, 1);
+});
+
 test('setEnabled(false) then setEnabled(true) round-trips isEnabled', async () => {
   const adb = new DemoAdbService();
   await adb.setEnabled(DEMO_SERIAL, 'com.termux', false);
