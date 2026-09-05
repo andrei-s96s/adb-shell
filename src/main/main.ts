@@ -17,7 +17,8 @@ import * as fsPromises from 'node:fs/promises';
 import { AdbService } from './adb/AdbService';
 import { DemoAdbService } from './adb/demo/DemoAdbService';
 import { DemoLogcatSession } from './adb/demo/DemoLogcatSession';
-import { DEMO_SERIAL } from './adb/demo/demoData';
+import { DEMO_SERIAL, DEMO_APPS } from './adb/demo/demoData';
+import { demoIconDataUri } from './adb/demo/demoIcons';
 import { LogcatSession } from './adb/LogcatSession';
 import { ApkLibraryService } from './apkLibrary/ApkLibraryService';
 import { isReadyState, displayName } from './adb/types/Device';
@@ -106,7 +107,14 @@ function applyHotkeySetting(): void {
 
 function createWindow(): void {
   const win = new BrowserWindow({
-    width: 1200,
+    // 1200 (было) не хватало на полосу вкладок -- 10 вкладок (с "Донат")
+    // при этой ширине переносят "Библиотека APK" на 2 строки, а "Донат"
+    // обрезается за границей #content (у #tabs нет ни переноса, ни
+    // горизонтального скролла). Замерено через getBoundingClientRect на
+    // реальной сборке вкладок: ряду нужно ~930px, при 1300 всё влезает
+    // впритык, 1360 даёт заметный запас на случай чуть более широких
+    // системных шрифтов Windows/Linux относительно macOS.
+    width: 1360,
     height: 760,
     // Без минимума окно можно сжать до ширины, на которой .panel-left
     // (320px, не сжимается) уже не помещается рядом с .panel-right --
@@ -114,6 +122,9 @@ function createWindow(): void {
     // (~650px): .panel-left/.panel-right на вкладке "Приложения" и
     // карточки на "Инструментах" вылезали за границы. При 900px и шире
     // переполнений не возникает ни на одной вкладке -- 920 даёт запас.
+    // (Полоса вкладок при таком сжатии тоже переносится/обрезается — тот
+    // же эффект, что и раньше при дефолтных 1200, отдельная, менее
+    // приоритетная история, чем стартовый размер окна.)
     minWidth: 920,
     minHeight: 600,
     title: 'ADB Shell',
@@ -236,8 +247,17 @@ function registerIpcHandlers(): void {
   // Реальные иконки приложений (aapt2 + adm-zip) -- лениво, по одному
   // запросу на строку списка, см. appIcons/AppIconService.ts.
   ipcMain.handle('icons:get', async (_e, serial: string, packageName: string) => {
-    const data = await appIcons.fetch(serial, packageName, adb);
-    return data ? data.toString('base64') : undefined;
+    // Демо-устройству настоящих .apk не пробуем -- pull дал бы файл-
+    // заглушку, на которой aapt2 закономерно не смог бы ничего прочитать
+    // (тот же итог, пустой плейсхолдер, но лишний спавн процесса и запись
+    // временного файла впустую). Вместо этого -- сразу сгенерированная
+    // цветная иконка с буквой (demoIcons.ts).
+    if (serial === DEMO_SERIAL) {
+      const profile = DEMO_APPS.find((a) => a.packageName === packageName);
+      return profile ? demoIconDataUri(profile.label, profile.packageName) : undefined;
+    }
+    const icon = await appIcons.fetch(serial, packageName, adb);
+    return icon ? `data:${icon.mimeType};base64,${icon.data.toString('base64')}` : undefined;
   });
   ipcMain.handle('adb:appDetail', (_e, serial: string, packageName: string) => adb.appDetail(serial, packageName));
   // Сверка установленных пользовательских приложений с F-Droid: один
@@ -419,6 +439,10 @@ function registerIpcHandlers(): void {
     return apkLibrary.list();
   });
   ipcMain.handle('apkLibrary:inspect', (_e, apkPath: string) => ApkLibraryService.inspect(apkPath));
+  ipcMain.handle('apkLibrary:getIcon', async (_e, apkPath: string) => {
+    const icon = await apkLibrary.extractIcon(apkPath);
+    return icon ? `data:${icon.mimeType};base64,${icon.data.toString('base64')}` : undefined;
+  });
   ipcMain.handle('apkLibrary:deleteFile', (_e, filePath: string) => apkLibrary.deleteFile(filePath));
   ipcMain.handle('apkLibrary:revealInFileManager', () => shell.openPath(apkLibrary.getDirectory()));
   ipcMain.handle('apkLibrary:downloadFromUrl', (_e, url: string, filename?: string) => apkLibrary.downloadFromUrl(url, filename));
