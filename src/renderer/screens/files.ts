@@ -1,6 +1,7 @@
 import { adbApi, el, errorMessage } from '../api.js';
 import type { RemoteFile } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
+import { openTextPromptModal } from '../modal.js';
 
 let pathEl: HTMLInputElement;
 let listEl: HTMLUListElement;
@@ -23,14 +24,16 @@ export function initFilesScreen(): void {
     void refresh();
   });
   el<HTMLButtonElement>('files-mkdir').addEventListener('click', () => {
-    const name = prompt('Имя новой папки:');
-    if (!name) return;
-    const serial = getCurrentSerial();
-    if (!serial) return;
-    run(async () => {
-      await adbApi.makeDirectory(serial, joinPath(currentPath, name));
-      await refresh();
-    });
+    void (async () => {
+      const name = await openTextPromptModal('Новая папка', 'имя папки');
+      if (!name) return;
+      const serial = getCurrentSerial();
+      if (!serial) return;
+      run(async () => {
+        await adbApi.makeDirectory(serial, joinPath(currentPath, name));
+        await refresh();
+      });
+    })();
   });
   el<HTMLButtonElement>('files-push').addEventListener('click', () => void pushViaDialog());
 

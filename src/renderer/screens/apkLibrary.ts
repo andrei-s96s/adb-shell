@@ -13,6 +13,7 @@ import { adbApi, el, errorMessage } from '../api.js';
 import type { ApkFile, FDroidUpdateInfo } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openApkInfoModal } from './apkInfo.js';
+import { openTextPromptModal } from '../modal.js';
 
 let dirEl: HTMLDivElement;
 let statusEl: HTMLDivElement;
@@ -138,9 +139,9 @@ async function addFiles(): Promise<void> {
 }
 
 async function downloadFromUrl(): Promise<void> {
-  const url = prompt('Ссылка на .apk:');
+  const url = await openTextPromptModal('Скачать .apk по ссылке', 'https://example.com/app.apk');
   if (!url) return;
-  const filename = prompt('Имя файла (необязательно, по умолчанию — из ссылки):') ?? undefined;
+  const filename = await openTextPromptModal('Имя файла (необязательно)', 'по умолчанию — из ссылки');
   statusEl.textContent = 'Скачивание…';
   try {
     const name = await adbApi.apkLibraryDownloadFromUrl(url, filename || undefined);
@@ -349,7 +350,7 @@ async function deleteFile(file: ApkFile): Promise<void> {
 }
 
 async function promptAddTag(file: ApkFile): Promise<void> {
-  const tag = prompt('Тег:');
+  const tag = await openTextPromptModal('Добавить тег', 'тег');
   if (!tag || !tag.trim()) return;
   try {
     tagsByPath = await adbApi.apkLibraryAddTag(file.path, tag);
