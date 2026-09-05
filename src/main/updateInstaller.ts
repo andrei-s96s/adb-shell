@@ -41,14 +41,38 @@ function downloadDir(): string {
   return app.getPath('downloads');
 }
 
+// Инсталляторы -- десятки-сотни МБ (вшитые adb/aapt2/scrcpy), а не пара
+// килобайт метаданных релиза (там же, в checkForUpdate(), таймаут 10с) --
+// без отдельного, более щедрого таймаута зависшее соединение оставило бы
+// кнопку в состоянии "Скачивание…" бесконечно, без единого шанса на ошибку
+// и повторную попытку.
+const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
+
 async function downloadToFile(url: string, destPath: string): Promise<void> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new UpdateInstallError(`Не удалось скачать обновление: HTTP ${response.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  try {
+    // fetch() резолвится, как только пришли заголовки -- таймер должен
+    // оставаться активным и через arrayBuffer() тоже (собственно скачивание
+    // тела, самая долгая часть на файле в десятки-сотни МБ), поэтому весь
+    // блок в одном try -- один clearTimeout в finally после ВСЕГО, а не
+    // сразу после await fetch(), как было в первой версии этого фикса
+    // (защищала бы только быстрое установление соединения, не сам трансфер).
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new UpdateInstallError(`Не удалось скачать обновление: HTTP ${response.status}`);
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    await fsPromises.mkdir(path.dirname(destPath), { recursive: true });
+    await fsPromises.writeFile(destPath, buffer);
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') {
+      throw new UpdateInstallError('Скачивание обновления заняло слишком много времени -- проверьте соединение и попробуйте ещё раз');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-  const buffer = Buffer.from(await response.arrayBuffer());
-  await fsPromises.mkdir(path.dirname(destPath), { recursive: true });
-  await fsPromises.writeFile(destPath, buffer);
 }
 
 export async function downloadAndPrepareUpdate(url: string, assetName: string): Promise<PreparedUpdate> {
