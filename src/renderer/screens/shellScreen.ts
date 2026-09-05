@@ -119,6 +119,42 @@ async function mirrorAll(): Promise<void> {
   }
 }
 
+/** Дубликат main/adb/shellCommandLogic.ts (см. комментарий там про то, почему
+ * не импортируется напрямую -- renderer и main собираются раздельными tsc-
+ * проектами с разными rootDir, тот же принцип, что и для multiSelectLogic.ts
+ * / apps.ts). Если ввод начинается с `adb ` -- пользователь набрал команду
+ * целиком, как в терминале (`adb root`, `adb remount`, `adb push ...`), а не
+ * текст, который должен выполниться внутри shell устройства. Возвращает
+ * остаток строки после `adb ` (и явного флага выбора устройства -d/-e/-s
+ * <serial>, если он был указан -- serial всегда берётся от текущей
+ * выбранной вкладки), либо undefined, если это не такой случай. */
+function parseRawAdbCommand(command: string): string | undefined {
+  if (!command.toLowerCase().startsWith('adb ')) return undefined;
+  let line = command.slice(4).trim();
+
+  for (const flag of ['-d ', '-e ']) {
+    if (line.toLowerCase().startsWith(flag)) {
+      line = line.slice(flag.length).trim();
+      break;
+    }
+  }
+  if (line.toLowerCase().startsWith('-s ')) {
+    const rest = line.slice(3).trim();
+    const spaceIdx = rest.search(/\s/);
+    if (spaceIdx === -1) return undefined;
+    line = rest.slice(spaceIdx + 1).trim();
+  }
+
+  return line.length > 0 ? line : undefined;
+}
+
+/** Выполняет одну команду на устройстве -- маршрутизирует между "сырым"
+ * adb (см. parseRawAdbCommand) и обычным adb shell. */
+function runOnDevice(serial: string, command: string): Promise<string> {
+  const rawArgs = parseRawAdbCommand(command);
+  return rawArgs !== undefined ? adbApi.runRaw(serial, rawArgs) : adbApi.shell(serial, command);
+}
+
 async function runCommand(): Promise<void> {
   const serial = getCurrentSerial();
   const command = inputEl.value.trim();
@@ -134,7 +170,7 @@ async function runCommand(): Promise<void> {
     if (broadcastEl.checked) {
       await runBroadcast(command);
     } else {
-      const output = await adbApi.shell(serial, command);
+      const output = await runOnDevice(serial, command);
       appendLine(output.length > 0 ? output : '(нет вывода)', 'shell-out');
     }
   } catch (error) {
@@ -156,7 +192,7 @@ async function runBroadcast(command: string): Promise<void> {
   for (const device of devices) {
     const label = device.model ? device.model.replace(/_/g, ' ') : device.serial;
     try {
-      const output = await adbApi.shell(device.serial, command);
+      const output = await runOnDevice(device.serial, command);
       appendLine(`[${label}] ${command}`, 'shell-cmd');
       appendLine(output.length > 0 ? output : '(нет вывода)', 'shell-out');
     } catch (error) {
