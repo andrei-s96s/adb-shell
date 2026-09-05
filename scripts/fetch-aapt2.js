@@ -17,7 +17,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const AAPT2_VERSION = '9.3.2-15703166';
+const AAPT2_VERSION = '9.4.0-15978811';
 const ROOT = path.join(__dirname, '..');
 const CACHE_DIR = path.join(ROOT, '.cache');
 
