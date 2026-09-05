@@ -127,6 +127,7 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('apkLibrary:removeTag', filePath, tag),
   apkLibraryImportPaths: (paths: string[]): Promise<ApkFile[]> => ipcRenderer.invoke('apkLibrary:importPaths', paths),
   apkLibraryInspect: (apkPath: string): Promise<ApkManifestInfo> => ipcRenderer.invoke('apkLibrary:inspect', apkPath),
+  apkLibraryGetIcon: (apkPath: string): Promise<string | undefined> => ipcRenderer.invoke('apkLibrary:getIcon', apkPath),
 
   // Файлы устройства
   listDirectory: (serial: string, dirPath: string) => ipcRenderer.invoke('adb:listDirectory', serial, dirPath),

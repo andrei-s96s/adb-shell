@@ -376,9 +376,12 @@ function formatBytes(bytes: number): string {
 function loadIcon(icon: HTMLImageElement, serial: string, packageName: string): void {
   adbApi
     .iconGet(serial, packageName)
-    .then((base64) => {
-      if (!base64 || !icon.isConnected) return;
-      icon.src = `data:image/png;base64,${base64}`;
+    .then((dataUri) => {
+      // Полный data: URI, а не голый base64 -- сама иконка может быть и
+      // PNG, и WEBP (см. AppIconService.ts), MIME для <img> собирается на
+      // стороне main, здесь просто присваивается как есть.
+      if (!dataUri || !icon.isConnected) return;
+      icon.src = dataUri;
     })
     .catch(() => {
       // Иконка необязательна -- плейсхолдер остаётся.

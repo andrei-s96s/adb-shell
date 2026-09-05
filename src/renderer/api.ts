@@ -329,6 +329,7 @@ export interface AdbApi {
   apkLibraryRemoveTag(filePath: string, tag: string): Promise<Record<string, string[]>>;
   apkLibraryImportPaths(paths: string[]): Promise<ApkFile[]>;
   apkLibraryInspect(apkPath: string): Promise<ApkManifestInfo>;
+  apkLibraryGetIcon(apkPath: string): Promise<string | undefined>;
 
   listDirectory(serial: string, dirPath: string): Promise<RemoteFile[]>;
   makeDirectory(serial: string, dirPath: string): Promise<void>;

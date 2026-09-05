@@ -18,13 +18,17 @@
 // обновлений.
 
 import { app } from 'electron';
+import AdmZip from 'adm-zip';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn } from 'node:child_process';
 
 import { ApkFile } from '../adb/types/ApkFile';
 import { ApkManifestInfo } from '../adb/types/ApkManifestInfo';
+import { AppIcon } from '../adb/types/AppIcon';
 import { parseApkBadging } from '../adb/parsers/ApkBadgingParser';
+import { parseIconPath } from '../adb/parsers/IconPathParser';
+import { resolveAdaptiveIconFile } from '../adb/parsers/AdaptiveIconResolver';
 import { FDroidUpdateInfo, fdroidDownloadUrl } from '../adb/types/FDroidUpdateInfo';
 import { checkFDroidUpdate } from './FDroidUpdateChecker';
 
@@ -32,6 +36,13 @@ const CONFIG_FILE = 'apk-library-config.json';
 
 export class ApkLibraryService {
   private directory: string;
+  /** Кеш иконок на время жизни процесса, не на диске (в отличие от
+   * AppIconService) -- локальный файл уже лежит на диске у пользователя,
+   * извлечение не требует pull с устройства, так что нет того же повода
+   * переживать повторный запуск aapt2 между запусками приложения. Ключ
+   * включает mtime -- если пользователь заменит файл по тому же пути новой
+   * версией apk, кеш не отдаст иконку от старой. */
+  private iconCache = new Map<string, AppIcon>();
 
   constructor() {
     this.directory = this.loadSavedDirectory() ?? path.join(app.getPath('documents'), 'AdbShell', 'APK');
@@ -168,6 +179,53 @@ export class ApkLibraryService {
     if (!aapt2) throw new Error('aapt2 не найден — сборка без вшитого бинарника');
     const output = await runCapturingStdout(aapt2, ['dump', 'badging', apkPath]);
     return parseApkBadging(output);
+  }
+
+  /** Иконка локального .apk -- та же логика, что и AppIconService (см. там
+   * подробный комментарий про adaptive icons и resolveAdaptiveIconFile),
+   * но без шага pull: файл уже на диске. */
+  async extractIcon(apkPath: string): Promise<AppIcon | undefined> {
+    const aapt2 = ApkLibraryService.locateAapt2();
+    if (!aapt2) return undefined;
+
+    let mtimeMs: number;
+    try {
+      mtimeMs = fs.statSync(apkPath).mtimeMs;
+    } catch {
+      return undefined;
+    }
+    const cacheKey = `${apkPath}:${mtimeMs}`;
+    const cached = this.iconCache.get(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const badging = await runCapturingStdout(aapt2, ['dump', 'badging', apkPath]);
+      const iconEntry = parseIconPath(badging);
+      if (!iconEntry) return undefined;
+
+      let zipEntryPath = iconEntry;
+      let mimeType: AppIcon['mimeType'] = 'image/png';
+      if (iconEntry.toLowerCase().endsWith('.xml')) {
+        const resources = await runCapturingStdout(aapt2, ['dump', 'resources', apkPath]);
+        const resolved = resolveAdaptiveIconFile(resources, iconEntry);
+        if (!resolved) return undefined;
+        zipEntryPath = resolved.zipEntryPath;
+        mimeType = resolved.mimeType;
+      } else if (iconEntry.toLowerCase().endsWith('.webp')) {
+        mimeType = 'image/webp';
+      }
+
+      const zip = new AdmZip(apkPath);
+      const data = zip.readFile(zipEntryPath);
+      if (!data || data.length === 0) return undefined;
+
+      const icon: AppIcon = { data, mimeType };
+      this.iconCache.set(cacheKey, icon);
+      return icon;
+    } catch {
+      // Иконка необязательна -- список файлов остаётся с плейсхолдером.
+      return undefined;
+    }
   }
 
   /** Проверяет обновления с F-Droid для всех файлов библиотеки — ключ
