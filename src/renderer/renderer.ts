@@ -168,7 +168,7 @@ function renderDeviceList(): void {
   }
   for (const device of devices) {
     const li = document.createElement('li');
-    li.className = 'row' + (device.serial === getCurrentSerial() ? ' selected' : '');
+    li.className = 'row' + (device.state === 'device' ? ' ready' : '') + (device.serial === getCurrentSerial() ? ' selected' : '');
 
     const main = document.createElement('div');
     main.className = 'device-row-main';
@@ -621,7 +621,14 @@ async function checkForUpdatesOnce(): Promise<void> {
       adbApi
         .downloadUpdate(update.assets)
         .then(() => {
-          downloadBtn.textContent = 'Готово';
+          // Кнопка остаётся активной, а не залипает на "Готово" навсегда --
+          // launchPreparedUpdate() лишь ЗАПУСКАЕТ установщик/показывает файл
+          // в проводнике, не знает, довёл ли пользователь установку до
+          // конца (закрыл диалог SmartScreen/Gatekeeper, отменил установку)
+          // -- должна быть возможность нажать ещё раз, не перезапуская
+          // приложение целиком.
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = 'Готово — скачать ещё раз';
         })
         .catch((error) => {
           downloadBtn.disabled = false;

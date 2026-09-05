@@ -226,10 +226,35 @@ textarea {
   padding: 8px 10px;
   border-radius: 6px;
   background: var(--cp-bg-panel-alt);
+  /* Прозрачная рамка задана всегда (не только когда .ready) -- так box
+     занимает одинаковое место что до, что после появления цвета (box-sizing:
+     border-box — см. глобальный сброс), без дёргания списка при смене
+     состояния устройства. */
+  border: 1px solid transparent;
   font-size: 12px;
   cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
+/* Готово к работе (state "device") -- изумрудная рамка отличает реально
+   доступное устройство от просто показанного в списке (offline/
+   unauthorized/unknown остаются нейтральными, без рамки). Сплошной цвет
+   (не color-mix с прозрачностью, как было раньше) -- альфа-смешение давало
+   едва заметный контраст в светлой теме (тёмно-зелёный на светлом фоне сам
+   по себе тусклый, да ещё и полупрозрачный поверх такого же зеленоватого
+   фона строки); тот же принцип, что уже надёжно работает у золотого
+   .selected outline ниже -- сплошной цвет, не полупрозрачный. Фоновая
+   подсветка оставлена лёгкой (10%) -- она декоративна, не несёт сигнал
+   сама по себе. */
+#device-list li.ready {
+  border-color: var(--cp-emerald);
+  background: color-mix(in srgb, var(--cp-emerald) 10%, var(--cp-bg-panel-alt));
+}
+
+/* outline (не border) -- рисуется отдельным кольцом СНАРУЖИ уже занятого
+   border-box, поэтому золотое кольцо выбора и изумрудная рамка "готово"
+   спокойно уживаются на одной строке, не конкурируя за одно и то же
+   свойство. */
 #device-list li.selected {
   outline: 1px solid var(--cp-gold);
 }
@@ -526,18 +551,67 @@ select:focus-visible {
 }
 
 /* Без исключения выше чекбоксы внутри .checkbox-label (потомки .toolbar)
-   тоже попадали под ".toolbar input" и получали flex:1 + padding + border +
-   background/border-radius, задуманные для текстовых полей -- вместо
-   маленького нативного чекбокса получалась раздутая плашка, растущая за
-   пространство наравне с соседним input'ом и наезжающая на текст подписи
-   рядом. Явный сброс здесь -- на случай, если что-то ещё попадёт под
-   ".toolbar input" по недосмотру в будущем. */
+   тоже попадали под ".toolbar input" и получали flex:1 + padding +
+   border-radius, задуманные для текстовых полей -- вместо маленького
+   чекбокса получалась раздутая плашка, растущая за пространство наравне с
+   соседним input'ом и наезжающая на текст подписи рядом. flex-shrink:0
+   здесь дублирует то же свойство в базовом input[type='checkbox'] ниже —
+   на случай, если что-то ещё в .toolbar перебьёт его специфичностью в
+   будущем; border/background чекбокса теперь всегда свои (см. там же), в
+   отличие от старой версии этого правила, которая их сбрасывала в none. */
 .toolbar input[type='checkbox'] {
-  flex: none;
-  width: auto;
+  flex-shrink: 0;
+  width: 15px;
   padding: 0;
-  border: none;
-  background: none;
+}
+
+/* Нативный чекбокс раньше рендерился акцентным цветом ОС/Chromium (обычно
+   синим) -- на всех вкладках, где он встречается (Приложения, Shell,
+   Logcat, Настройки, Макросы), это был единственный элемент, никак не
+   связанный с золото-тёмной палитрой остального интерфейса. appearance:
+   none снимает нативный вид полностью -- дальше рисуем сами: квадрат в
+   том же языке, что и остальные поля (hairline-рамка, скругление), золотая
+   заливка с галочкой при отметке. Кольцо фокуса приходит от общего
+   input:focus-visible (см. выше в файле) -- он уже покрывает и чекбоксы,
+   ничего дополнительно тут не нужно. */
+input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  border: 1px solid var(--cp-hairline);
+  border-radius: 4px;
+  background: var(--cp-bg-panel-alt);
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+input[type='checkbox']:hover {
+  border-color: var(--cp-gold);
+}
+
+input[type='checkbox']:checked {
+  background: var(--cp-gold);
+  border-color: var(--cp-gold);
+}
+
+/* Галочка -- классический приём CSS без SVG/иконочного шрифта: правый и
+   нижний край квадрата-псевдоэлемента, повёрнутый на 45°, даёт "✓"-образную
+   форму. var(--cp-bg), а не белый/чёрный напрямую -- тот же контраст
+   "акцент/фон", что уже используется по всему приложению (кнопки, рамки),
+   поэтому одинаково читается что на золоте светлой темы (сам по себе уже
+   тёмный), что на золоте тёмной (более светлый оттенок). */
+input[type='checkbox']:checked::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 7px;
+  margin: 1px auto 0;
+  border: solid var(--cp-bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
 }
 
 /* Специфичность (.toolbar input.input-narrow) намеренно выше, чем у
