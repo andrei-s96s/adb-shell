@@ -7,7 +7,7 @@ import {
   shell,
   Notification,
   clipboard,
-  nativeImage,
+  ClipboardItem,
   globalShortcut,
   screen,
 } from 'electron';
@@ -692,8 +692,15 @@ function registerIpcHandlers(): void {
     const data = await adb.screenshot(serial);
     return data.toString('base64');
   });
-  ipcMain.handle('clipboard:writeImagePng', (_e, base64Png: string) => {
-    clipboard.writeImage(nativeImage.createFromBuffer(Buffer.from(base64Png, 'base64')));
+  // Electron 44 полностью переписал clipboard под W3C Clipboard API --
+  // синхронный clipboard.writeImage(nativeImage) убран без замены,
+  // используем задокументированную миграцию: async clipboard.write() с
+  // ClipboardItem, значение -- Blob с MIME-типом (Buffer сам по себе не
+  // принимается, см. https://www.electronjs.org/docs/latest/breaking-changes
+  // раздел про clipboard).
+  ipcMain.handle('clipboard:writeImagePng', async (_e, base64Png: string) => {
+    const buffer = Buffer.from(base64Png, 'base64');
+    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([buffer], { type: 'image/png' }) })]);
   });
   ipcMain.handle('dialog:saveScreenshot', async (event: IpcMainInvokeEvent, base64Png: string) => {
     const win = BrowserWindow.fromWebContents(event.sender);

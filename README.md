@@ -38,12 +38,12 @@ Android-устройствами через `adb` — по USB или по се�
   платным сертификатом) — «Дополнительно» → «Выполнить в любом случае».
   `adb.exe`, `aapt2.exe` и `scrcpy.exe` вшиты прямо в установщик, отдельно
   ставить Android Platform Tools не нужно.
-- **macOS** — `ADB Shell-X.Y.Z-universal-mac.zip`, один файл для Intel и
-  Apple Silicon. Не подписано платным Apple Developer ID, поэтому при
-  первом запуске Gatekeeper покажет предупреждение — правый клик по
-  `ADB Shell.app` → «Открыть» → «Открыть» в диалоге. `aapt2` и `scrcpy`
-  вшиты в сборку (оба — универсальные бинарники); `adb` берётся из PATH
-  (например, `brew install android-platform-tools`).
+- **macOS 13 (Ventura) и новее** — `ADB Shell-X.Y.Z-universal-mac.zip`, один
+  файл для Intel и Apple Silicon. Не подписано платным Apple Developer ID,
+  поэтому при первом запуске Gatekeeper покажет предупреждение — правый
+  клик по `ADB Shell.app` → «Открыть» → «Открыть» в диалоге. `aapt2` и
+  `scrcpy` вшиты в сборку (оба — универсальные бинарники); `adb` берётся из
+  PATH (например, `brew install android-platform-tools`).
 - **Linux** — `ADB-Shell-X.Y.Z.AppImage` (x86_64). Дать файлу права на
   выполнение (`chmod +x`) и запустить — установка не нужна. `aapt2` и
   `scrcpy` вшиты в сборку; `adb` берётся из PATH (`apt install

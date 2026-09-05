@@ -26,9 +26,9 @@
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
     "@types/node": "^22.10.0",
-    "electron": "^33.0.0",
+    "electron": "^44.2.0",
     "electron-builder": "^26.15.3",
-    "typescript": "^5.7.0"
+    "typescript": "^7.0.2"
   },
   "allowScripts": {
     "electron@33.4.11": true,
@@ -103,6 +103,6 @@
     }
   },
   "dependencies": {
-    "adm-zip": "^0.5.16"
+    "adm-zip": "^0.6.0"
   }
 }
