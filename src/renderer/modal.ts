@@ -71,6 +71,11 @@ export function openTextPromptModal(title: string, placeholder = '', defaultValu
     };
 
     const modal = openModal(title, (body) => {
+      // .modal-panel по умолчанию шириной до 720px -- рассчитан на богатый
+      // контент (редактор макросов, intent-тестер), а не на одно поле и две
+      // кнопки: без этого класса они повисали слева на пустом пространстве.
+      body.parentElement?.classList.add('modal-panel-narrow');
+
       const row = document.createElement('div');
       row.className = 'connect-row';
       const input = document.createElement('input');
@@ -80,7 +85,7 @@ export function openTextPromptModal(title: string, placeholder = '', defaultValu
       body.appendChild(row);
 
       const actions = document.createElement('div');
-      actions.className = 'connect-row';
+      actions.className = 'modal-actions';
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
       cancelBtn.textContent = 'Отмена';

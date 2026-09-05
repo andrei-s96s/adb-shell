@@ -118,9 +118,15 @@ export interface InstallToAllResult {
   failures: string[];
 }
 
+export interface ReleaseAsset {
+  name: string;
+  url: string;
+}
+
 export interface UpdateInfo {
   version: string;
   releaseUrl: string;
+  assets: ReleaseAsset[];
 }
 
 export interface MdnsDevice {
@@ -254,6 +260,7 @@ export interface LogLine {
 
 export interface AdbApi {
   checkForUpdates(): Promise<UpdateInfo | undefined>;
+  downloadUpdate(assets: ReleaseAsset[]): Promise<void>;
   openExternal(url: string): Promise<void>;
 
   demoModeGet(): Promise<boolean>;

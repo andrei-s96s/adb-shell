@@ -24,7 +24,8 @@ import { isReadyState, displayName } from './adb/types/Device';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo, fdroidDownloadUrl } from './adb/types/FDroidUpdateInfo';
 import { checkFDroidUpdate } from './apkLibrary/FDroidUpdateChecker';
-import { checkForUpdate } from './updateChecker';
+import { checkForUpdate, pickAssetForPlatform, ReleaseAsset } from './updateChecker';
+import { downloadAndPrepareUpdate, launchPreparedUpdate } from './updateInstaller';
 import { ConnectionProfileStore } from './connectionProfiles/ConnectionProfileStore';
 import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
 import { DevicePinStore } from './devicePins/DevicePinStore';
@@ -131,6 +132,18 @@ function registerIpcHandlers(): void {
   // Проверка обновлений — только уведомление со ссылкой на релиз, см.
   // updateChecker.ts про то, почему не автозамена файла на лету.
   ipcMain.handle('app:checkForUpdates', () => checkForUpdate(app.getVersion()));
+  // Скачивает и готовит к установке файл под текущую платформу (см.
+  // updateInstaller.ts) -- renderer передаёт весь список ассетов с уже
+  // сделанной ранее проверки (checkForUpdatesOnce), выбор конкретного файла
+  // под платформу -- здесь, не на стороне renderer (там process.platform не
+  // проброшен через contextBridge, да и логика выбора и так уже одна на
+  // main-процесс -- см. pickAssetForPlatform).
+  ipcMain.handle('app:downloadUpdate', async (_e, assets: ReleaseAsset[]) => {
+    const asset = pickAssetForPlatform(assets, process.platform);
+    if (!asset) throw new Error('Не найден подходящий файл обновления для этой платформы в этом релизе');
+    const prepared = await downloadAndPrepareUpdate(asset.url, asset.name);
+    await launchPreparedUpdate(prepared);
+  });
   ipcMain.handle('app:openExternal', (_e, url: string) => {
     // На всякий случай ограничиваем схему -- renderer не грузит внешний
     // контент, но контекстный мост в принципе вызываем из кода страницы.

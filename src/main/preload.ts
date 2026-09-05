@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
-import { UpdateInfo } from './updateChecker';
+import { UpdateInfo, ReleaseAsset } from './updateChecker';
 import { MdnsDevice } from './adb/types/MdnsDevice';
 import { ConnectionProfile } from './adb/types/ConnectionProfile';
 import { SecurityFinding } from './adb/types/DeviceSecurityInfo';
@@ -25,6 +25,7 @@ import { SavedCommand } from './shellHistory/shellHistoryLogic';
 // только через этот явный, узкий API, ничего больше не пробрасывается.
 contextBridge.exposeInMainWorld('adbApi', {
   checkForUpdates: (): Promise<UpdateInfo | undefined> => ipcRenderer.invoke('app:checkForUpdates'),
+  downloadUpdate: (assets: ReleaseAsset[]): Promise<void> => ipcRenderer.invoke('app:downloadUpdate', assets),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),
 
   // Демо-режим -- см. main/adb/demo/DemoAdbService.ts
