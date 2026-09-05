@@ -459,6 +459,7 @@ function registerIpcHandlers(): void {
 
   // Shell
   ipcMain.handle('adb:shell', (_e, serial: string, command: string) => adb.shell(serial, command));
+  ipcMain.handle('adb:runRaw', (_e, serial: string, argsLine: string) => adb.runRaw(serial, argsLine));
 
   // Персистентная история shell-команд + избранное.
   ipcMain.handle('shellHistory:list', () => shellHistory.list());

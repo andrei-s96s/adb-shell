@@ -330,6 +330,7 @@ export interface AdbApi {
   getPathForFile(file: File): string;
 
   shell(serial: string, command: string): Promise<string>;
+  runRaw(serial: string, argsLine: string): Promise<string>;
 
   shellHistoryList(): Promise<SavedCommand[]>;
   shellHistoryRecord(text: string): Promise<SavedCommand[]>;

@@ -143,6 +143,7 @@ contextBridge.exposeInMainWorld('adbApi', {
 
   // Shell
   shell: (serial: string, command: string) => ipcRenderer.invoke('adb:shell', serial, command),
+  runRaw: (serial: string, argsLine: string) => ipcRenderer.invoke('adb:runRaw', serial, argsLine),
 
   shellHistoryList: (): Promise<SavedCommand[]> => ipcRenderer.invoke('shellHistory:list'),
   shellHistoryRecord: (text: string): Promise<SavedCommand[]> => ipcRenderer.invoke('shellHistory:record', text),

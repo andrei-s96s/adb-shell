@@ -127,6 +127,20 @@ export class AdbService {
     return combinedOutput(result);
   }
 
+  /** Выполняет "сырую" adb-команду -- `adb -s <serial> <argsLine>`, а НЕ
+   * `adb -s <serial> shell <argsLine>`. Нужно для команд вроде `root` или
+   * `remount`, которые являются подкомандами самого adb, а не программами
+   * на устройстве -- в отличие от shell(), не заворачивает текст в shell
+   * устройства. Та же токенизация (пробел, без учёта кавычек), что и в
+   * MacroRunner.run() (src/main/macros/MacroRunner.ts) -- используется
+   * вкладкой Shell, когда пользователь набирает команду с префиксом `adb `,
+   * как в терминале. */
+  async runRaw(serial: string, argsLine: string): Promise<string> {
+    const tokens = argsLine.split(' ').filter((t) => t.length > 0);
+    const result = await this.run(tokens, { serial });
+    return combinedOutput(result);
+  }
+
   /** Открывает deep link на устройстве. Используется intent-тестером. */
   async openDeepLink(serial: string, uri: string): Promise<string> {
     return this.shell(serial, `am start -a android.intent.action.VIEW -d ${singleQuoted(uri)}`);
