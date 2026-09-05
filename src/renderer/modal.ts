@@ -55,3 +55,61 @@ export function openModal(title: string, build: (body: HTMLDivElement, modal: Mo
   build(body, handle);
   return handle;
 }
+
+/** Замена window.prompt(), который Electron сознательно не реализует (окно
+ * либо не появляется, либо сразу возвращает null — см.
+ * https://github.com/electron/electron/issues/472). Возвращает введённый
+ * текст, либо null при отмене (кнопка "Отмена", крестик, клик по фону,
+ * Escape) — то есть тот же контракт, что и у window.prompt(). */
+export function openTextPromptModal(title: string, placeholder = '', defaultValue = ''): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (value: string | null): void => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    const modal = openModal(title, (body) => {
+      const row = document.createElement('div');
+      row.className = 'connect-row';
+      const input = document.createElement('input');
+      input.placeholder = placeholder;
+      input.value = defaultValue;
+      row.appendChild(input);
+      body.appendChild(row);
+
+      const actions = document.createElement('div');
+      actions.className = 'connect-row';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.textContent = 'Отмена';
+      const okBtn = document.createElement('button');
+      okBtn.type = 'button';
+      okBtn.textContent = 'ОК';
+      actions.appendChild(cancelBtn);
+      actions.appendChild(okBtn);
+      body.appendChild(actions);
+
+      const confirm = (): void => {
+        settle(input.value.trim());
+        modal.close();
+      };
+      okBtn.addEventListener('click', confirm);
+      cancelBtn.addEventListener('click', () => modal.close());
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') confirm();
+      });
+      queueMicrotask(() => input.focus());
+    });
+
+    // closeBtn/overlay-click/Escape в openModal все вызывают handle.close()
+    // через косвенное обращение к свойству -- переопределение здесь
+    // перехватывает и их, не только кнопку "Отмена".
+    const originalClose = modal.close;
+    modal.close = () => {
+      settle(null);
+      originalClose();
+    };
+  });
+}
