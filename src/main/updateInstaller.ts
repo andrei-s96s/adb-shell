@@ -20,6 +20,7 @@
 
 import { app, shell } from 'electron';
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
@@ -89,9 +90,20 @@ export async function downloadAndPrepareUpdate(url: string, assetName: string): 
   }
 
   if (assetName.endsWith('.zip')) {
-    const extractDir = path.join(downloadDir(), assetName.replace(/\.zip$/, ''));
+    const baseName = assetName.replace(/\.zip$/, '');
+    // Случайный суффикс, а не детерминированное имя -- реальный отчёт:
+    // "ENOENT... chmod app.asar" при повторном нажатии кнопки "Готово —
+    // скачать ещё раз" (см. renderer.ts). adm-zip делает chmod по ПУТИ уже
+    // ПОСЛЕ записи файла (writeFileTo в adm-zip/util/utils.js) -- если
+    // вторая попытка распаковки метится в ТУ ЖЕ директорию, что и первая
+    // (уже открытая в Finder, возможно ещё индексируемая Spotlight/iCloud),
+    // это окно между записью и chmod становится реальной гонкой. Свежая
+    // директория на каждую попытку убирает саму возможность коллизии,
+    // вместо того чтобы гоняться за точным виновником гонки.
+    cleanupPreviousExtractions(baseName);
+    const extractDir = path.join(downloadDir(), `${baseName}-${randomUUID().slice(0, 8)}`);
     const zip = new AdmZip(destPath);
-    zip.extractAllTo(extractDir, true);
+    await extractWithRetry(zip, extractDir);
     const topLevelDirs = new Set(zip.getEntries().map((e) => e.entryName.split('/')[0]));
     const appName = [...topLevelDirs].find((name) => name.endsWith('.app'));
     if (!appName) throw new UpdateInstallError('В скачанном архиве не найдено приложение (.app)');
@@ -114,6 +126,54 @@ export async function downloadAndPrepareUpdate(url: string, assetName: string): 
   }
 
   throw new UpdateInstallError(`Неизвестный тип файла обновления: ${assetName}`);
+}
+
+/** Убирает распаковки предыдущих попыток обновления того же релиза
+ * (`baseName-<uuid>`), оставшиеся от прошлых нажатий кнопки скачивания --
+ * иначе на диске в "Загрузках" копился бы мусор при каждой повторной
+ * попытке. Не трогает сам baseName без суффикса (на случай, если он
+ * когда-то создавался старой версией без randomUUID) и не считается
+ * критичным шагом -- ошибка здесь не должна мешать самому обновлению. */
+function cleanupPreviousExtractions(baseName: string): void {
+  const dir = downloadDir();
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry === baseName || !entry.startsWith(`${baseName}-`)) continue;
+    try {
+      fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
+    } catch {
+      // Не критично -- максимум останется лишняя папка в Загрузках.
+    }
+  }
+}
+
+/** Распаковка с одной повторной попыткой -- сама по себе уникальная
+ * extractDir (см. randomUUID выше) уже исключает гонку с ДРУГИМ процессом
+ * извлечения в тот же путь, но не защищает от прочих переходных сбоев
+ * файловой системы (например, антивирус/Spotlight/iCloud ещё держат
+ * только что созданный путь). Повтор с нуля в ту же директорию после
+ * короткой паузы -- дешёвый и достаточный компромисс, второй раз в этом
+ * же вызове extractDir по-прежнему не пересекается ни с чем другим. */
+async function extractWithRetry(zip: AdmZip, extractDir: string): Promise<void> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      zip.extractAllTo(extractDir, true);
+      return;
+    } catch (error) {
+      if (attempt === 2) throw error;
+      try {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+      } catch {
+        // Не критично -- следующая попытка extractAllTo всё равно перезапишет.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
 }
 
 /** Финальный шаг, который пользователь и так делает при обычной ручной
