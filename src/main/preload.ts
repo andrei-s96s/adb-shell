@@ -27,6 +27,10 @@ contextBridge.exposeInMainWorld('adbApi', {
   checkForUpdates: (): Promise<UpdateInfo | undefined> => ipcRenderer.invoke('app:checkForUpdates'),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),
 
+  // Демо-режим -- см. main/adb/demo/DemoAdbService.ts
+  demoModeGet: (): Promise<boolean> => ipcRenderer.invoke('demoMode:get'),
+  demoModeSet: (enabled: boolean): Promise<boolean> => ipcRenderer.invoke('demoMode:set', enabled),
+
   // Устройства
   listDevices: () => ipcRenderer.invoke('adb:listDevices'),
   connect: (host: string) => ipcRenderer.invoke('adb:connect', host),

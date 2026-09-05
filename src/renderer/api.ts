@@ -256,6 +256,9 @@ export interface AdbApi {
   checkForUpdates(): Promise<UpdateInfo | undefined>;
   openExternal(url: string): Promise<void>;
 
+  demoModeGet(): Promise<boolean>;
+  demoModeSet(enabled: boolean): Promise<boolean>;
+
   listDevices(): Promise<Device[]>;
   connect(host: string): Promise<string>;
   disconnect(serial: string): Promise<void>;
