@@ -2,16 +2,17 @@
 // библиотекой APK, чтобы читать манифест локального .apk (пакет,
 // versionCode) без установки на устройство, для сверки с F-Droid. Тот же
 // официальный бинарник и версия, что build_app.sh вшивает в Swift-версию
-// под macOS — здесь просто плюс классификатор Windows.
+// под macOS — здесь просто плюс классификаторы Windows и Linux.
 //
 // Распаковка через нативный unzip ОС, не npm-пакет — extract-zip@2 в этом
 // окружении молча зависает (см. fetch-windows-adb.js, тот же приём).
 //
-// Целевая платформа передаётся явно первым аргументом (mac|win), а не
+// Целевая платформа передаётся явно первым аргументом (mac|win|linux), а не
 // определяется через process.platform — CI собирает Windows-версию только
-// на windows-latest и macOS-версию только на macos-latest, так что текущий
-// process.platform на раннере и так совпадает с целью; явный аргумент
-// нужен для симметрии с dist:win/dist:mac и для ручного локального запуска.
+// на windows-latest, macOS-версию на macos-latest и Linux-версию на
+// ubuntu-latest, так что текущий process.platform на раннере и так
+// совпадает с целью; явный аргумент нужен для симметрии с dist:win/dist:mac/
+// dist:linux и для ручного локального запуска.
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -23,6 +24,9 @@ const CACHE_DIR = path.join(ROOT, '.cache');
 const TARGETS = {
   mac: { classifier: 'osx', exeName: 'aapt2', vendorDir: path.join(ROOT, 'vendor', 'mac') },
   win: { classifier: 'windows', exeName: 'aapt2.exe', vendorDir: path.join(ROOT, 'vendor', 'win') },
+  // mac-классификатор ("osx") уже universal (x86_64+arm64) в самой maven2-
+  // публикации Google — в отличие от scrcpy ниже, здесь lipo не нужен.
+  linux: { classifier: 'linux', exeName: 'aapt2', vendorDir: path.join(ROOT, 'vendor', 'linux') },
 };
 
 function extractJar(jarPath, destDir) {
@@ -43,7 +47,7 @@ async function main() {
   const targetName = process.argv[2];
   const target = TARGETS[targetName];
   if (!target) {
-    throw new Error(`Использование: node fetch-aapt2.js <mac|win> (получено: ${targetName ?? '(ничего)'})`);
+    throw new Error(`Использование: node fetch-aapt2.js <mac|win|linux> (получено: ${targetName ?? '(ничего)'})`);
   }
 
   const exePath = path.join(target.vendorDir, target.exeName);

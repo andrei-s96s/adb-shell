@@ -155,7 +155,7 @@ export class ApkLibraryService {
       const bundled = path.join(resourcesPath, exeName);
       if (fs.existsSync(bundled)) return bundled;
     }
-    const vendorDir = process.platform === 'win32' ? 'win' : 'mac';
+    const vendorDir = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux';
     const devPath = path.join(__dirname, '..', '..', '..', 'vendor', vendorDir, exeName);
     if (fs.existsSync(devPath)) return devPath;
     return undefined;

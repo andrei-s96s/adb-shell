@@ -12,6 +12,15 @@ import * as path from 'node:path';
 
 import { computeGridLayout, Rect } from './mirrorGridLayout';
 
+/** Имя папки в vendor/ для текущей платформы -- 3 варианта, а не 2 (раньше
+ * было "win32 ? 'win' : 'mac'", молча ломавшееся на Linux, где искало
+ * бинарники в vendor/mac/). */
+function vendorDirName(): 'win' | 'mac' | 'linux' {
+  if (process.platform === 'win32') return 'win';
+  if (process.platform === 'darwin') return 'mac';
+  return 'linux';
+}
+
 export class MirrorError extends Error {}
 
 export interface LaunchOptions {
@@ -22,10 +31,12 @@ export interface LaunchOptions {
 export class ScreenMirrorService {
   private processes = new Map<string, ChildProcess>();
 
-  /** 1) вшитый в приложение бинарник (build.mac/win.extraResources в
+  /** 1) вшитый в приложение бинарник (build.mac/win/linux.extraResources в
    * package.json кладёт его в resources), 2) vendor/<platform>/ для
-   * разработки (npm run fetch:... не через electron-builder), 3) на macOS —
-   * системный scrcpy (brew install scrcpy), для симметрии с оригиналом. */
+   * разработки (npm run fetch:... не через electron-builder), 3) на macOS/
+   * Linux — системный scrcpy (brew install scrcpy / из пакетного менеджера
+   * дистрибутива), для симметрии с оригиналом (свой adb мы точно так же
+   * сознательно не вшиваем на этих двух платформах — см. fetch-scrcpy.js). */
   static locateScrcpy(): string | undefined {
     const exeName = process.platform === 'win32' ? 'scrcpy.exe' : 'scrcpy';
     const resourcesPath = (process as unknown as { resourcesPath?: string }).resourcesPath;
@@ -33,11 +44,16 @@ export class ScreenMirrorService {
       const bundled = path.join(resourcesPath, exeName);
       if (fs.existsSync(bundled)) return bundled;
     }
-    const vendorDir = process.platform === 'win32' ? 'win' : 'mac';
+    const vendorDir = vendorDirName();
     const devPath = path.join(__dirname, '..', '..', '..', 'vendor', vendorDir, exeName);
     if (fs.existsSync(devPath)) return devPath;
     if (process.platform === 'darwin') {
       for (const candidate of ['/opt/homebrew/bin/scrcpy', '/usr/local/bin/scrcpy', '/opt/local/bin/scrcpy']) {
+        if (fs.existsSync(candidate)) return candidate;
+      }
+    }
+    if (process.platform === 'linux') {
+      for (const candidate of ['/usr/bin/scrcpy', '/usr/local/bin/scrcpy']) {
         if (fs.existsSync(candidate)) return candidate;
       }
     }
@@ -52,8 +68,7 @@ export class ScreenMirrorService {
       const bundled = path.join(resourcesPath, 'scrcpy-server');
       if (fs.existsSync(bundled)) return bundled;
     }
-    const vendorDir = process.platform === 'win32' ? 'win' : 'mac';
-    const devPath = path.join(__dirname, '..', '..', '..', 'vendor', vendorDir, 'scrcpy-server');
+    const devPath = path.join(__dirname, '..', '..', '..', 'vendor', vendorDirName(), 'scrcpy-server');
     if (fs.existsSync(devPath)) return devPath;
     return undefined;
   }
