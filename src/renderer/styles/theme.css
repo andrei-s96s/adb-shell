@@ -23,6 +23,12 @@
   --cp-text-muted: rgb(102, 102, 112);
 
   --cp-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  /* Системный UI-шрифт каждой платформы -- основной для всего интерфейса
+     (кнопки, лейблы, текст). Моноширинный (--cp-mono выше) остаётся только
+     там, где на экране буквально код/данные устройства: команды и вывод
+     Shell, Logcat, значения getprop, адрес доната -- не по умолчанию для
+     всего подряд (см. комментарий у body ниже). */
+  --cp-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Roboto, sans-serif;
 
   /* Общая высота "средних" интерактивных элементов -- кнопки в .toolbar/
      .connect-row, их text input/select. Не относится к нав-вкладкам (#tabs
@@ -75,7 +81,7 @@ body {
   margin: 0;
   background: var(--cp-bg);
   color: var(--cp-text-primary);
-  font-family: var(--cp-mono);
+  font-family: var(--cp-sans);
   font-size: 13px;
 }
 
@@ -192,11 +198,17 @@ textarea {
   font-size: 11px;
 }
 
+/* Раньше был text-transform: uppercase + letter-spacing -- нормально для
+   короткого категориального лейбла ("Устройства"), но этим же классом
+   помечены статусы/ошибки (#apps-status и т.п.) и целые предложения-
+   подсказки ("Переключает устройство в сетевой режим...") -- ПРОПИСНЫМИ
+   БУКВАМИ они не читаются, а не воспринимаются как акцент. Один общий
+   регистр на все три случая -- убрано, различие теперь только в размере/
+   цвете; для реальных заголовков разделов есть .hint.section-title ниже
+   (жирнее, без транформации регистра). */
 .hint {
   font-size: 11px;
   color: var(--cp-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 #device-list {
@@ -288,6 +300,29 @@ textarea {
 }
 
 .pinned-strip:not([hidden]) {
+  display: flex;
+}
+
+/* Демо-режим -- в отличие от кнопки-переключателя в сайдбаре (которая может
+   уйти за пределы видимой области при длинном списке устройств), эта
+   полоска всегда над вкладками -- видна с любого экрана приложения, пока
+   демо-режим включён, и не даёт забыть, что данные ненастоящие. Тот же
+   паттерн специфичности [hidden]/:not([hidden]), что и у .update-banner
+   выше -- см. комментарий там. */
+.demo-mode-banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--cp-gold) 16%, var(--cp-bg-panel-alt));
+  border-bottom: 1px solid var(--cp-gold);
+  font-size: 12px;
+  color: var(--cp-gold);
+  flex-shrink: 0;
+}
+
+.demo-mode-banner:not([hidden]) {
   display: flex;
 }
 
@@ -738,7 +773,7 @@ select:focus-visible {
   margin: 0 0 8px;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: inherit;
+  font-family: var(--cp-mono);
   font-size: 12px;
 }
 
@@ -748,6 +783,10 @@ select:focus-visible {
 
 .shell-err {
   color: var(--cp-crimson);
+}
+
+#shell-input {
+  font-family: var(--cp-mono);
 }
 
 /* Инструменты */
@@ -805,11 +844,13 @@ select:focus-visible {
   color: var(--cp-ice);
   flex-shrink: 0;
   min-width: 260px;
+  font-family: var(--cp-mono);
 }
 
 .prop-value {
   color: var(--cp-text-primary);
   word-break: break-all;
+  font-family: var(--cp-mono);
 }
 
 /* Мониторинг */
@@ -876,6 +917,22 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Простые однострочные диалоги (openTextPromptModal -- замена
+   window.prompt(), см. modal.ts) не нуждаются в 720px, рассчитанных на
+   богатый контент вроде редактора макросов -- на такой ширине пустой
+   input и пара кнопок выглядели подвешенными в пустоте слева. */
+.modal-panel-narrow {
+  width: min(420px, 92vw);
+}
+
+/* Ряд кнопок диалога -- прижаты вправо (Отмена/ОК), общепринятое
+   расположение для action-кнопок внизу диалога на всех трёх платформах. */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .modal-header {
@@ -1175,6 +1232,8 @@ select:focus-visible {
   white-space: pre-wrap;
   word-break: break-word;
   padding: 1px 0;
+  font-family: var(--cp-mono);
+  font-size: 12px;
 }
 
 .log-level-0,
