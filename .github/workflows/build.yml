@@ -11,7 +11,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ windows-latest, macos-latest ]
+        os: [ windows-latest, macos-latest, ubuntu-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -39,8 +39,10 @@ jobs:
         run: npm test
 
       # Реальная упаковка (не только tsc) — NSIS-инсталлятор на Windows,
-      # .app в zip на macOS. Без подписи (нет сертификата) — Windows
-      # SmartScreen/macOS Gatekeeper предупредят при первом запуске.
+      # .app в zip (universal x86_64+arm64) на macOS, AppImage на Linux. Без
+      # подписи (нет сертификата) — Windows SmartScreen/macOS Gatekeeper
+      # предупредят при первом запуске (AppImage такого предупреждения не
+      # показывает, у Linux нет аналога Gatekeeper/SmartScreen).
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
         run: npm run dist:win
@@ -49,6 +51,10 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: npm run dist:mac
 
+      - name: Package (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run dist:linux
+
       - name: Upload packaged app
         uses: actions/upload-artifact@v4
         with:
@@ -56,4 +62,5 @@ jobs:
           path: |
             release/*.exe
             release/*.zip
+            release/*.AppImage
           if-no-files-found: error
