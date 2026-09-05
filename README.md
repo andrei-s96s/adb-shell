@@ -2,10 +2,10 @@
 
 [![Build](https://github.com/andrei-s96s/adb-shell/actions/workflows/build.yml/badge.svg)](https://github.com/andrei-s96s/adb-shell/actions/workflows/build.yml)
 [![Последний релиз](https://img.shields.io/github/v/release/andrei-s96s/adb-shell?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7)](https://github.com/andrei-s96s/adb-shell/releases/latest)
-![Платформы](https://img.shields.io/badge/Windows%20%7C%20macOS-Electron-4a4a55)
+![Платформы](https://img.shields.io/badge/Windows%20%7C%20macOS%20%7C%20Linux-Electron-4a4a55)
 ![Язык](https://img.shields.io/badge/TypeScript-Electron-3178c6)
 
-Нативное на вид **Windows- и macOS-приложение** для повседневной работы с
+Нативное на вид **Windows-, macOS- и Linux-приложение** для повседневной работы с
 Android-устройствами через `adb` — по USB или по сети, с одним устройством
 или сразу с несколькими: приложения и разрешения, файлы, shell, макросы,
 мониторинг, зеркалирование экрана и скриншоты в одном окне вместо десятка
@@ -38,16 +38,26 @@ Android-устройствами через `adb` — по USB или по се�
   платным сертификатом) — «Дополнительно» → «Выполнить в любом случае».
   `adb.exe`, `aapt2.exe` и `scrcpy.exe` вшиты прямо в установщик, отдельно
   ставить Android Platform Tools не нужно.
-- **macOS** — `ADB Shell-X.Y.Z-arm64-mac.zip`. Не подписано платным Apple
-  Developer ID, поэтому при первом запуске Gatekeeper покажет
-  предупреждение — правый клик по `ADB Shell.app` → «Открыть» → «Открыть»
-  в диалоге. `aapt2` и `scrcpy` вшиты в сборку.
+- **macOS** — `ADB Shell-X.Y.Z-universal-mac.zip`, один файл для Intel и
+  Apple Silicon. Не подписано платным Apple Developer ID, поэтому при
+  первом запуске Gatekeeper покажет предупреждение — правый клик по
+  `ADB Shell.app` → «Открыть» → «Открыть» в диалоге. `aapt2` и `scrcpy`
+  вшиты в сборку (оба — универсальные бинарники); `adb` берётся из PATH
+  (например, `brew install android-platform-tools`).
+- **Linux** — `ADB-Shell-X.Y.Z.AppImage` (x86_64). Дать файлу права на
+  выполнение (`chmod +x`) и запустить — установка не нужна. `aapt2` и
+  `scrcpy` вшиты в сборку; `adb` берётся из PATH (`apt install
+  android-tools-adb`, `pacman -S android-tools` — по названию пакета в
+  вашем дистрибутиве).
 
 Приложение проверяет наличие новой версии при каждом запуске и показывает
-баннер со ссылкой на страницу релиза — ничего не скачивает и не подменяет
-само, новую версию нужно поставить вручную (не полноценное автообновление —
-сборка не подписана платным сертификатом, Squirrel.Mac/NSIS-автообновления
-без него ненадёжны).
+баннер с кнопкой «Скачать и установить» — скачивает нужный под вашу
+платформу файл релиза и сразу готовит к установке (на Windows — запускает
+установщик, на macOS — распаковывает и снимает карантин с `.app`, на Linux
+— делает `AppImage` исполняемым), последний шаг (подтвердить
+SmartScreen/Gatekeeper, перетащить `.app` в Applications) — по-прежнему
+вручную: полноценное молчаливое автообновление ненадёжно без платного
+сертификата (Squirrel.Mac/NSIS-автообновления рассчитаны на него).
 
 ## Возможности
 
@@ -140,7 +150,11 @@ drag&drop) и pull, создание папок, удаление.
 ### ⚙️ Интерфейс и настройки
 
 - Тема оформления следует системной (светлая/тёмная)
-- Проверка обновлений приложения на GitHub Releases
+- **Демо-режим** — одно виртуальное устройство без реального adb/устройства:
+  посмотреть весь функционал (приложения, файлы, Shell, макросы,
+  мониторинг, Logcat) до того, как под рукой оказался настоящий Android
+- Проверка обновлений приложения на GitHub Releases, с кнопкой «Скачать и
+  установить» прямо из баннера
 - Настройки: автопроверка обновлений, системные приложения по умолчанию,
   быстрая очистка истории shell/профилей подключения
 
@@ -161,8 +175,9 @@ npm test
 **Сборка пакетов** (`electron-builder`):
 
 ```bash
-npm run dist:mac   # ADB Shell-X.Y.Z-arm64-mac.zip
-npm run dist:win   # ADB Shell Setup X.Y.Z.exe (NSIS)
+npm run dist:mac    # ADB Shell-X.Y.Z-universal-mac.zip (x86_64+arm64, один файл)
+npm run dist:win    # ADB Shell Setup X.Y.Z.exe (NSIS)
+npm run dist:linux  # ADB-Shell-X.Y.Z.AppImage (x86_64)
 ```
 
 ## Структура проекта
@@ -170,12 +185,16 @@ npm run dist:win   # ADB Shell Setup X.Y.Z.exe (NSIS)
 ```
 src/
   main/
-    main.ts            — точка входа Electron, окно, IPC-хендлеры,
+    main.ts             — точка входа Electron, окно, IPC-хендлеры,
                           глобальный перехват необработанных ошибок
     preload.ts          — contextBridge, единственный мост renderer → main
     updateChecker.ts    — проверка новых версий по GitHub Releases
+    updateInstaller.ts  — скачивание + подготовка файла обновления к установке
     adb/
       AdbService.ts     — обёртка над CLI adb
+      demo/             — демо-режим: виртуальное устройство без adb
+                          (см. DemoAdbService.ts — единственная точка
+                          перехвата поверх AdbService.run())
       parsers/          — чистые функции парсинга adb-вывода
       types/
     apkLibrary/         — локальный каталог APK, aapt2, F-Droid, теги
@@ -203,19 +222,21 @@ src/
   test/                 — юнит-тесты (node --test)
 scripts/
   fetch-windows-adb.js  — скачивает adb.exe + DLL для Windows-сборки
-  fetch-aapt2.js        — скачивает aapt2 (mac/win) для чтения манифестов
-  fetch-scrcpy.js       — скачивает scrcpy (mac/win) для зеркалирования экрана
+  fetch-aapt2.js        — скачивает aapt2 (mac/win/linux) для чтения манифестов
+  fetch-scrcpy.js       — скачивает scrcpy (mac/win/linux) для зеркалирования
+                          экрана; на macOS дополнительно сшивает x86_64+arm64
+                          в один universal-бинарник через lipo
   afterSign.js          — electron-builder hook: дошивает подпись macOS
                           после упаковки ресурсов (без этого Gatekeeper
                           жёстко отклоняет собранный .app)
-build/                  — иконки (icon.ico/icon.icns)
+build/                  — иконки (icon.ico/icon.icns/icon.png)
 ```
 
 ## Поддержать проект
 
-**[Страница доната](https://andrei-s96s.github.io/adb-shell/)** — адрес USDT
-(BEP20) и QR-код, чтобы не вводить его вручную. То же самое — с прямой
-ссылкой прямо в приложении — есть в Настройках → «О приложении».
+Адрес USDT (BEP20) и QR-код — прямо в приложении, вкладка **«Донат»** (или
+на **[отдельной странице](https://andrei-s96s.github.io/adb-shell/)**, если
+удобнее скопировать адрес без запуска приложения).
 
 ## Лицензии
 
