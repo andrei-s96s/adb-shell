@@ -8,7 +8,6 @@
 import { adbApi, el, errorMessage } from '../api.js';
 
 const REPO_URL = 'https://github.com/andrei-s96s/adb-shell';
-const DONATE_URL = 'https://andrei-s96s.github.io/adb-shell/';
 
 let enabledEl: HTMLInputElement;
 let cpuEl: HTMLInputElement;
@@ -62,7 +61,13 @@ export function initSettingsScreen(): void {
   });
   el<HTMLButtonElement>('settings-open-repo').addEventListener('click', () => void adbApi.openExternal(REPO_URL));
   el<HTMLButtonElement>('settings-open-releases').addEventListener('click', () => void adbApi.openExternal(`${REPO_URL}/releases`));
-  el<HTMLButtonElement>('settings-open-donate').addEventListener('click', () => void adbApi.openExternal(DONATE_URL));
+  // Раньше открывала внешнюю страницу-донор в браузере -- теперь вся её
+  // информация показана прямо в приложении, во вкладке "Донат" (donate.ts),
+  // поэтому кнопка просто переключает на неё (тот же приём, что и переход
+  // по результату вкладки в commandPalette.ts).
+  el<HTMLButtonElement>('settings-open-donate').addEventListener('click', () => {
+    document.querySelector<HTMLButtonElement>('#tabs button[data-tab="donate"]')?.click();
+  });
 }
 
 /** Значение, применённое при загрузке вкладки Приложения по умолчанию --

@@ -19,6 +19,7 @@ const TABS: { id: string; title: string }[] = [
   { id: 'monitor', title: 'Мониторинг' },
   { id: 'logcat', title: 'Logcat' },
   { id: 'settings', title: 'Настройки' },
+  { id: 'donate', title: 'Донат' },
 ];
 
 type PaletteResult =

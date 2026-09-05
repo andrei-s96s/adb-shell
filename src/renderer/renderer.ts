@@ -10,6 +10,7 @@ import { initToolsScreen } from './screens/tools.js';
 import { initMonitorScreen } from './screens/monitor.js';
 import { initLogcatScreen } from './screens/logcat.js';
 import { initSettingsScreen, applyTheme } from './screens/settings.js';
+import { initDonateScreen } from './screens/donate.js';
 import { initMacrosScreen } from './screens/macros.js';
 import { initCommandPalette } from './screens/commandPalette.js';
 
@@ -437,6 +438,7 @@ initMonitorScreen();
 initLogcatScreen();
 initSettingsScreen();
 initMacrosScreen();
+initDonateScreen();
 initCommandPalette();
 // Держим main в курсе выбранного устройства -- нужно глобальному хоткею
 // скриншота (main.ts, HOTKEY_ACCELERATOR), который обязан работать и когда

@@ -23,6 +23,14 @@
   --cp-text-muted: rgb(102, 102, 112);
 
   --cp-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+
+  /* Общая высота "средних" интерактивных элементов -- кнопки в .toolbar/
+     .connect-row, их text input/select. Не относится к нав-вкладкам (#tabs
+     button, своя роль -- полоса навигации, не форма) и к компактным
+     inline-иконкам в строках списков (.device-row-actions button,
+     .pinned-chip button, .modal-header button, .update-banner button) --
+     те намеренно мельче как отдельная, более компактная ступень. */
+  --cp-control-h: 32px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -69,6 +77,17 @@ body {
   color: var(--cp-text-primary);
   font-family: var(--cp-mono);
   font-size: 13px;
+}
+
+/* Плавный переход рамки/кольца фокуса везде -- не трогает цвета/размеры,
+   только тайминг, поэтому безопасно как общее правило для всех полей сразу,
+   вместо дублирования в каждом .connect-row input / .toolbar select и т.д. */
+input,
+select,
+textarea {
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 /* Тонкий скроллбар везде вместо толстого непрозрачного Windows-гаттера
@@ -155,6 +174,7 @@ body {
 }
 
 .update-banner button {
+  height: auto;
   padding: 4px 8px;
   font-size: 11px;
 }
@@ -217,6 +237,7 @@ body {
 }
 
 .device-row-actions button {
+  height: auto;
   padding: 2px 6px;
   font-size: 11px;
 }
@@ -277,26 +298,59 @@ body {
 }
 
 .pinned-chip button {
+  height: auto;
   padding: 0 4px;
   font-size: 11px;
   background: none;
   border: none;
 }
 
+/* display:inline-flex + height:var(--cp-control-h) -- без этого высота
+   кнопки зависела от line-box конкретного символа внутри (например, "⏺" в
+   #shell-mirror-record рендерился на 1.5px выше соседних текстовых кнопок
+   в той же .toolbar-строке из-за метрик глифа) -- с явной высотой и
+   flex-центрированием высота кнопки детерминирована и одинакова независимо
+   от того, что внутри: текст, "☆" или "⏺" -- и совпадает с высотой text
+   input/select (.connect-row input, .toolbar select и т.д.), которые дают
+   те же 32px через padding + собственный line-height браузера. */
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--cp-control-h);
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  padding: 8px 12px;
+  line-height: 1;
+  padding: 0 12px;
   border-radius: 8px;
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
   cursor: pointer;
+  transition:
+    filter 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 button:hover {
   filter: brightness(1.08);
+}
+
+button:active {
+  filter: brightness(0.94);
+}
+
+/* :focus-visible, а не :focus -- кольцо фокуса нужно при навигации с
+   клавиатуры (Tab), а не при обычном клике мышью, иначе оно мигает на
+   каждый клик и выглядит шумно. Золотой цвет вместо дефолтного синего
+   Chromium-outline -- чтобы фокус не выбивался из палитры приложения. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cp-gold) 45%, transparent);
 }
 
 .connect-row {
@@ -508,6 +562,7 @@ button:hover {
 }
 
 .row button {
+  height: auto;
   padding: 4px 8px;
   font-size: 11px;
 }
@@ -649,6 +704,7 @@ button:hover {
 }
 
 .tag-add-btn {
+  height: auto;
   padding: 2px 6px;
   font-size: 10px;
 }
@@ -825,6 +881,7 @@ button:hover {
 }
 
 .modal-header button {
+  height: auto;
   padding: 4px 8px;
   font-size: 11px;
 }
@@ -860,12 +917,17 @@ button:hover {
   margin-bottom: 8px;
 }
 
+/* padding здесь раньше был 6px 8px / border-radius 6px -- на 1 значение
+   меньше, чем у всех остальных text input/select в приложении (.connect-row
+   input, .toolbar input, .toolbar select: padding 7-8px / radius 8px), из-за
+   чего высота поля была 28px вместо общих 32px. Приведено к тому же
+   паттерну, что и везде. */
 .settings-row input[type='number'] {
   width: 70px;
   font-family: inherit;
   font-size: 12px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 8px;
+  border-radius: 8px;
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
@@ -874,11 +936,89 @@ button:hover {
 .settings-row select {
   font-family: inherit;
   font-size: 12px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 7px;
+  border-radius: 8px;
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
+}
+
+/* Донат -- те же данные, что на отдельной странице
+   https://andrei-s96s.github.io/adb-shell/, но показаны прямо в приложении,
+   без похода во внешний браузер. */
+
+.donate-card {
+  max-width: 420px;
+  width: 100%;
+  margin: 24px auto;
+  background: var(--cp-bg-panel);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 16px;
+  padding: 32px 28px 28px;
+  text-align: center;
+}
+
+.donate-card h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.donate-lede {
+  margin: 0 0 24px;
+  color: var(--cp-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.donate-qr {
+  /* Белый фон вне зависимости от темы -- QR должен читаться сканером и в
+     тёмной теме приложения. */
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  display: inline-block;
+  line-height: 0;
+}
+
+.donate-qr svg {
+  width: 180px;
+  height: 180px;
+  display: block;
+}
+
+.donate-network {
+  margin-top: 18px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--cp-gold);
+}
+
+.donate-address {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--cp-bg-panel-alt);
+  border: 1px solid var(--cp-hairline);
+  border-radius: 8px;
+  font-family: var(--cp-mono);
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--cp-text-primary);
+  user-select: all;
+}
+
+.donate-card button {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.donate-copied {
+  margin-top: 10px;
+  min-height: 16px;
+  font-size: 12px;
+  color: var(--cp-emerald);
 }
 
 /* Сравнение устройств */
@@ -946,6 +1086,14 @@ button:hover {
 
 .palette-input:focus {
   outline: none;
+}
+
+/* Глобальное input:focus-visible (выше по каскаду) добавляет золотое кольцо
+   через box-shadow -- здесь оно ни к чему: это открытое (без своей рамки)
+   поле, растянутое на всю ширину модалки и получающее фокус автоматически
+   при открытии палитры, так что кольцо мигало бы сразу при каждом ⌘K. */
+.palette-input:focus-visible {
+  box-shadow: none;
 }
 
 .palette-results {
