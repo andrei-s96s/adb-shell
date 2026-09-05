@@ -42,6 +42,7 @@ import {
 import { demoScreenshotPng } from './demoScreenshot';
 import { DemoFileSystem } from './DemoFileSystem';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 interface AppState {
   profile: DemoAppProfile;
@@ -110,14 +111,47 @@ export class DemoAdbService extends AdbService {
 
       case 'connect':
         return ok(`already connected to ${DEMO_SERIAL} (демо-режим)`);
-      case 'disconnect':
       case 'pair':
         return ok(`connected to ${DEMO_SERIAL} (демо-режим)`);
+      case 'disconnect':
+        return ok(`disconnected ${DEMO_SERIAL} (демо-режим)`);
       case 'mdns':
         return ok('List of discovered mdns services\n');
 
-      case 'install':
+      case 'install': {
+        // Раньше просто рапортовал успех, ничего не добавляя в каталог --
+        // "Установлено" в тулбаре Библиотеки APK, а в Приложениях пакета
+        // как не было, так и нет. Пакетное имя не приходит параметром (adb
+        // install принимает только путь к файлу), поэтому берём его из
+        // имени файла -- не настоящий манифест, но после install пакет
+        // реально появляется в списке, как и ожидается от демо.
+        const apkPath = rest[rest.length - 1];
+        const packageName = demoPackageNameFromApkPath(apkPath);
+        if (packageName && !this.apps.has(packageName)) {
+          const now = currentTimestamp();
+          this.apps.set(packageName, {
+            profile: {
+              packageName,
+              label: packageName,
+              isSystem: false,
+              disabledByDefault: false,
+              versionName: '1.0',
+              versionCode: 1,
+              targetSdk: 34,
+              firstInstallTime: now,
+              lastUpdateTime: now,
+              uid: 10300 + this.apps.size,
+              requestedPermissions: ['android.permission.INTERNET'],
+              runtimePermissions: {},
+              installPermissions: { 'android.permission.INTERNET': true },
+            },
+            installed: true,
+            enabled: true,
+            runtimeGranted: {},
+          });
+        }
         return ok('Success\n');
+      }
       case 'uninstall': {
         const pkg = rest[rest.length - 1];
         const state = this.apps.get(pkg);
@@ -347,6 +381,25 @@ export class DemoAdbService extends AdbService {
 function fakeBytesFor(uid: number, salt: number): number {
   const seed = uid * 2654435761 * salt;
   return Math.abs(seed % 50_000_000);
+}
+
+/** Имя пакета для install() из имени локального файла -- adb install
+ * принимает только путь к .apk, реального имени пакета без разбора
+ * манифеста (aapt2) не узнать, а тянуть его сюда ради демо-режима
+ * избыточно. "com.demo." префиксом -- честно помечает запись как
+ * синтетическую, а не как будто это распознанный реальный пакет. undefined
+ * для пустого/нечитаемого имени файла -- вызывающая сторона тогда просто
+ * не добавляет ничего в каталог (adb install всё равно вернёт "Success"). */
+function demoPackageNameFromApkPath(apkPath: string): string | undefined {
+  const base = path.basename(apkPath).replace(/\.apk$/i, '');
+  const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return slug.length > 0 ? `com.demo.${slug}` : undefined;
+}
+
+function currentTimestamp(): string {
+  const now = new Date();
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
 const FAKE_ANR_TRACE = `----- pid 2143 at 2025-08-15 10:30:00 -----
