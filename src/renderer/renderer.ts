@@ -32,6 +32,8 @@ const profileAddBtn = el<HTMLButtonElement>('profile-add');
 const profileExportBtn = el<HTMLButtonElement>('profile-export');
 const profileImportBtn = el<HTMLButtonElement>('profile-import');
 const demoModeToggleBtn = el<HTMLButtonElement>('demo-mode-toggle');
+const demoModeBannerEl = el<HTMLDivElement>('demo-mode-banner');
+const demoModeBannerOffBtn = el<HTMLButtonElement>('demo-mode-banner-off');
 
 let devices: Device[] = [];
 let nicknames: Record<string, string> = {};
@@ -63,6 +65,16 @@ async function refreshDevices(): Promise<void> {
     }
     void triggerAutorunMacros(devices);
   } catch (error) {
+    // Раньше при ошибке (например, adb не найден на PATH -- ровно тот
+    // случай, ради которого существует демо-режим) devices оставался
+    // прежним значением, и список продолжал показывать уже отключённое
+    // демо-устройство как ни в чём не бывало. Явно чистим список и
+    // перерисовываем -- лучше честный "нет устройств", чем зависшие
+    // устаревшие данные.
+    devices = [];
+    renderDeviceList();
+    renderPinnedStrip();
+    selectDevice(undefined);
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
 }
@@ -73,6 +85,10 @@ function renderDemoModeButton(): void {
   demoModeToggleBtn.title = demoModeOn
     ? 'Выключить демо-режим и вернуться к реальным устройствам'
     : 'Демо-устройство без реального adb — посмотреть весь функционал';
+  // Полоска над вкладками -- в отличие от кнопки в сайдбаре, видна с
+  // любой вкладки, не только со списком устройств (см. комментарий в
+  // theme.css у .demo-mode-banner).
+  demoModeBannerEl.hidden = !demoModeOn;
 }
 
 /** Полная замена, а не дополнение к реальным устройствам — пока демо-режим
@@ -419,6 +435,7 @@ profileImportBtn.addEventListener('click', () => {
 });
 
 demoModeToggleBtn.addEventListener('click', () => void toggleDemoMode());
+demoModeBannerOffBtn.addEventListener('click', () => void toggleDemoMode());
 
 function selectDevice(serial: string | undefined): void {
   // #content (вкладки) видны ВСЕГДА, вне зависимости от выбора устройства —
@@ -579,9 +596,11 @@ async function bootDeviceIdentity(): Promise<void> {
 }
 
 // Раз за запуск, не периодический опрос -- обычному пользователю этого
-// достаточно, а GitHub API не дёргается лишний раз. Только уведомление +
-// ссылка на страницу релиза, ничего не скачивает и не подменяет само —
-// см. updateChecker.ts про то, почему не полноценное автообновление.
+// достаточно, а GitHub API не дёргается лишний раз. Баннер даёт скачать и
+// подготовить нужный файл прямо из приложения (adbApi.downloadUpdate) —
+// см. updateChecker.ts/updateInstaller.ts про то, почему это не
+// полноценное молчаливое автообновление, а финальный шаг всё равно за
+// пользователем.
 async function checkForUpdatesOnce(): Promise<void> {
   try {
     const settings = await adbApi.settingsGet();
@@ -589,7 +608,27 @@ async function checkForUpdatesOnce(): Promise<void> {
     const update = await adbApi.checkForUpdates();
     if (!update) return;
     const banner = el<HTMLDivElement>('update-banner');
-    el<HTMLSpanElement>('update-banner-text').textContent = `Доступна версия ${update.version}`;
+    const textEl = el<HTMLSpanElement>('update-banner-text');
+    const downloadBtn = el<HTMLButtonElement>('update-banner-download');
+    textEl.textContent = `Доступна версия ${update.version}`;
+    // Кнопки под конкретный релиз без подходящего ассета (например, сборка
+    // под эту платформу ещё не готова на CI в момент проверки) -- скрываем,
+    // а не показываем нерабочую кнопку, "Открыть релиз" всё ещё работает.
+    downloadBtn.hidden = update.assets.length === 0;
+    downloadBtn.addEventListener('click', () => {
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = 'Скачивание…';
+      adbApi
+        .downloadUpdate(update.assets)
+        .then(() => {
+          downloadBtn.textContent = 'Готово';
+        })
+        .catch((error) => {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = 'Скачать и установить';
+          textEl.textContent = `Ошибка скачивания: ${errorMessage(error)}`;
+        });
+    });
     el<HTMLButtonElement>('update-banner-open').addEventListener('click', () => void adbApi.openExternal(update.releaseUrl));
     el<HTMLButtonElement>('update-banner-dismiss').addEventListener('click', () => {
       banner.hidden = true;
