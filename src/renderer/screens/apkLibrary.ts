@@ -15,6 +15,15 @@ import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openApkInfoModal } from './apkInfo.js';
 import { openTextPromptModal } from '../modal.js';
 
+// Дубликат PLACEHOLDER_ICON из apps.ts (см. комментарий там) -- тот же
+// нейтральный плейсхолдер для локального файла, пока (или если) реальная
+// иконка из .apk не пришла.
+const PLACEHOLDER_ICON =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="7" fill="#8886"/></svg>'
+  );
+
 let dirEl: HTMLDivElement;
 let statusEl: HTMLDivElement;
 let listEl: HTMLUListElement;
@@ -189,6 +198,12 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   const li = document.createElement('li');
   li.className = 'row';
 
+  const icon = document.createElement('img');
+  icon.className = 'app-icon';
+  icon.src = PLACEHOLDER_ICON;
+  li.appendChild(icon);
+  loadIcon(icon, file.path);
+
   const main = document.createElement('div');
   main.className = 'apk-row-main';
 
@@ -271,6 +286,18 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
 
   li.appendChild(actions);
   return li;
+}
+
+function loadIcon(icon: HTMLImageElement, apkPath: string): void {
+  adbApi
+    .apkLibraryGetIcon(apkPath)
+    .then((dataUri) => {
+      if (!dataUri || !icon.isConnected) return;
+      icon.src = dataUri;
+    })
+    .catch(() => {
+      // Иконка необязательна -- плейсхолдер остаётся.
+    });
 }
 
 async function installOne(file: ApkFile, serial: string | undefined): Promise<void> {
