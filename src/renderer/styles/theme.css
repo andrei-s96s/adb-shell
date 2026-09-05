@@ -145,6 +145,19 @@ textarea {
   margin: 0;
 }
 
+/* Демо-режим -- см. renderer.ts initDemoModeToggle() / adb/demo/DemoAdbService.ts. */
+.demo-mode-toggle {
+  width: 100%;
+  font-size: 11px;
+  color: var(--cp-text-muted);
+}
+
+.demo-mode-toggle.active {
+  border-color: var(--cp-gold);
+  color: var(--cp-gold);
+  background: color-mix(in srgb, var(--cp-gold) 14%, var(--cp-bg-panel-alt));
+}
+
 /* [hidden] (атрибут HTML) и ".update-banner { display: flex }" имеют
    ОДИНАКОВУЮ специфичность (0,1,0) -- при равенстве побеждает более
    поздний по каскаду, а авторский theme.css идёт после UA-стиля браузера,

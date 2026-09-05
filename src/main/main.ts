@@ -15,6 +15,9 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as fsPromises from 'node:fs/promises';
 import { AdbService } from './adb/AdbService';
+import { DemoAdbService } from './adb/demo/DemoAdbService';
+import { DemoLogcatSession } from './adb/demo/DemoLogcatSession';
+import { DEMO_SERIAL } from './adb/demo/demoData';
 import { LogcatSession } from './adb/LogcatSession';
 import { ApkLibraryService } from './apkLibrary/ApkLibraryService';
 import { isReadyState, displayName } from './adb/types/Device';
@@ -37,11 +40,19 @@ import { MacroStore } from './macros/MacroStore';
 import { runMacro } from './macros/MacroRunner';
 import { exportBundle, importBundle } from './appBundles/AppBundleService';
 import { DeviceSnapshotService } from './deviceSnapshots/DeviceSnapshotService';
-import { ScreenMirrorService } from './screenMirror/ScreenMirrorService';
+import { ScreenMirrorService, MirrorError } from './screenMirror/ScreenMirrorService';
 import { AppIconService } from './appIcons/AppIconService';
 import { ShellHistoryStore } from './shellHistory/ShellHistoryStore';
 
-const adb = new AdbService();
+// Демо-режим переключается через мутацию этой переменной (demoMode:set,
+// см. ниже) -- все `ipcMain.handle(...)` ниже читают `adb` из замыкания
+// каждый раз, когда реально выполняются (а не один раз при регистрации),
+// поэтому реассайн здесь мгновенно меняет поведение ВСЕХ уже
+// зарегистрированных обработчиков без необходимости их пересоздавать.
+const realAdb = new AdbService();
+const demoAdb = new DemoAdbService();
+let adb: AdbService = realAdb;
+let demoModeEnabled = false;
 const apkLibrary = new ApkLibraryService();
 const apkTags = new ApkTagStore();
 const intentPresets = new IntentPresetStore();
@@ -55,7 +66,7 @@ const deviceNicknames = new DeviceNicknameStore();
 const devicePins = new DevicePinStore();
 const appSettings = new AppSettingsStore();
 let alertArmState: AlertArmState = initialArmState();
-const logcatSessions = new Map<string, LogcatSession>();
+const logcatSessions = new Map<string, LogcatSession | DemoLogcatSession>();
 /** Serial выбранного в renderer устройства -- renderer сообщает о каждой
  * смене через hotkey:setSelectedSerial, потому что глобальный хоткей
  * (см. registerScreenshotHotkey ниже) обязан работать и когда окно не в
@@ -127,6 +138,17 @@ function registerIpcHandlers(): void {
       return shell.openExternal(url);
     }
     return undefined;
+  });
+
+  // Демо-режим -- одно виртуальное устройство без реального adb/устройства
+  // (см. adb/demo/DemoAdbService.ts). set() переключает и `adb`, и то,
+  // какой класс сессии logcat:start создаёт ниже; mirror:launch отдельно
+  // отказывает для demo-serial (зеркалить нечего, реального экрана нет).
+  ipcMain.handle('demoMode:get', () => demoModeEnabled);
+  ipcMain.handle('demoMode:set', (_e, enabled: boolean) => {
+    demoModeEnabled = enabled;
+    adb = enabled ? demoAdb : realAdb;
+    return demoModeEnabled;
   });
 
   // Устройства
@@ -482,11 +504,13 @@ function registerIpcHandlers(): void {
   ipcMain.handle('mirror:isAvailable', () => screenMirror.isAvailable());
   ipcMain.handle('mirror:runningSerials', () => screenMirror.runningSerials());
   ipcMain.handle('mirror:launch', (event: IpcMainInvokeEvent, serial: string, recordPath?: string) => {
+    if (serial === DEMO_SERIAL) throw new MirrorError('Зеркалирование недоступно для демо-устройства — у него нет настоящего экрана');
     screenMirror.launch(serial, adb.adbPath, { recordPath }, (stoppedSerial) => {
       if (!event.sender.isDestroyed()) event.sender.send('mirror:stopped', stoppedSerial);
     });
   });
   ipcMain.handle('mirror:launchGrid', (event: IpcMainInvokeEvent, serials: string[]) => {
+    if (serials.includes(DEMO_SERIAL)) throw new MirrorError('Зеркалирование недоступно для демо-устройства — у него нет настоящего экрана');
     const display = screen.getPrimaryDisplay();
     screenMirror.launchGrid(serials, adb.adbPath, display.workArea, (stoppedSerial) => {
       if (!event.sender.isDestroyed()) event.sender.send('mirror:stopped', stoppedSerial);
@@ -683,7 +707,7 @@ function registerIpcHandlers(): void {
   // одно значение).
   ipcMain.handle('adb:startLogcat', (event: IpcMainInvokeEvent, serial: string) => {
     logcatSessions.get(serial)?.stop();
-    const session = new LogcatSession(adb.adbPath, serial);
+    const session = serial === DEMO_SERIAL ? new DemoLogcatSession(adb.adbPath, serial) : new LogcatSession(adb.adbPath, serial);
     logcatSessions.set(serial, session);
     session.start((line) => {
       if (!event.sender.isDestroyed()) {
@@ -697,7 +721,7 @@ function registerIpcHandlers(): void {
   });
   ipcMain.handle('adb:clearLogcatBuffer', (_e, serial: string) => {
     // Работает и без активного стрима — просто спавнит `adb logcat -c` разово.
-    const session = logcatSessions.get(serial) ?? new LogcatSession(adb.adbPath, serial);
+    const session = logcatSessions.get(serial) ?? (serial === DEMO_SERIAL ? new DemoLogcatSession(adb.adbPath, serial) : new LogcatSession(adb.adbPath, serial));
     session.clearDeviceBuffer();
   });
 }

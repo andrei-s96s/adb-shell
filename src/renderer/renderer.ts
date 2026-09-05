@@ -31,12 +31,18 @@ const profileHostInput = el<HTMLInputElement>('profile-host');
 const profileAddBtn = el<HTMLButtonElement>('profile-add');
 const profileExportBtn = el<HTMLButtonElement>('profile-export');
 const profileImportBtn = el<HTMLButtonElement>('profile-import');
+const demoModeToggleBtn = el<HTMLButtonElement>('demo-mode-toggle');
 
 let devices: Device[] = [];
 let nicknames: Record<string, string> = {};
 let pinnedSerials: string[] = [];
 let mdnsDevices: MdnsDevice[] = [];
 let profiles: ConnectionProfile[] = [];
+/** Демо-режим -- одно виртуальное устройство без реального adb, см.
+ * main/adb/demo/DemoAdbService.ts. Состояние живёт в main-процессе
+ * (demoMode:get/set) — здесь только зеркало для отрисовки кнопки/пустого
+ * состояния списка устройств. */
+let demoModeOn = false;
 /** serial устройства, для которого сейчас открыт инлайн-редактор имени —
  * не больше одного одновременно, повторный клик на другую строку закрывает
  * предыдущий редактор без сохранения (как blur). */
@@ -58,6 +64,32 @@ async function refreshDevices(): Promise<void> {
     void triggerAutorunMacros(devices);
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+function renderDemoModeButton(): void {
+  demoModeToggleBtn.textContent = demoModeOn ? '🎭 Демо-режим (вкл)' : '🎭 Демо-режим';
+  demoModeToggleBtn.classList.toggle('active', demoModeOn);
+  demoModeToggleBtn.title = demoModeOn
+    ? 'Выключить демо-режим и вернуться к реальным устройствам'
+    : 'Демо-устройство без реального adb — посмотреть весь функционал';
+}
+
+/** Полная замена, а не дополнение к реальным устройствам — пока демо-режим
+ * включён, adb:listDevices в main-процессе отдаёт ТОЛЬКО демо-устройство
+ * (см. DemoAdbService), поэтому после переключения обязательно
+ * перезапрашиваем список, а не просто дорисовываем кнопку. */
+async function toggleDemoMode(): Promise<void> {
+  demoModeToggleBtn.disabled = true;
+  try {
+    demoModeOn = await adbApi.demoModeSet(!demoModeOn);
+    renderDemoModeButton();
+    await refreshDevices();
+    if (demoModeOn && devices.length > 0) selectDevice(devices[0].serial);
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  } finally {
+    demoModeToggleBtn.disabled = false;
   }
 }
 
@@ -105,6 +137,17 @@ function renderDeviceList(): void {
     li.className = 'empty';
     li.textContent = 'Нет подключённых устройств';
     deviceListEl.appendChild(li);
+
+    if (!demoModeOn) {
+      const tryDemoBtn = document.createElement('button');
+      tryDemoBtn.type = 'button';
+      tryDemoBtn.textContent = 'Включить демо-режим';
+      tryDemoBtn.addEventListener('click', () => void toggleDemoMode());
+      const hintLi = document.createElement('li');
+      hintLi.className = 'empty';
+      hintLi.appendChild(tryDemoBtn);
+      deviceListEl.appendChild(hintLi);
+    }
     return;
   }
   for (const device of devices) {
@@ -375,6 +418,8 @@ profileImportBtn.addEventListener('click', () => {
   })();
 });
 
+demoModeToggleBtn.addEventListener('click', () => void toggleDemoMode());
+
 function selectDevice(serial: string | undefined): void {
   // #content (вкладки) видны ВСЕГДА, вне зависимости от выбора устройства —
   // раньше вся навигация блокировалась до выбора устройства, тот же класс
@@ -505,6 +550,12 @@ async function bootDeviceIdentity(): Promise<void> {
     [nicknames, pinnedSerials] = await Promise.all([adbApi.deviceNicknamesList(), adbApi.devicePinsList()]);
   } catch {
     // Не критично — список устройств отрисуется без никнеймов/пинов.
+  }
+  try {
+    demoModeOn = await adbApi.demoModeGet();
+    renderDemoModeButton();
+  } catch {
+    // Не критично — кнопка останется в состоянии "выключено" по умолчанию.
   }
   await refreshDevices();
   renderDeviceList();
