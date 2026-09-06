@@ -13,18 +13,18 @@
 // финальный шаг -- но не должен идти в браузер и искать нужный файл под
 // свою ОС вручную.
 //
-// Скачивание -- целиком в память и один writeFile, без потокового прогресса
-// (тот же приём, что уже используется для скачивания APK по ссылке, см.
-// ApkLibraryService.downloadFromUrl -- тот же порядок величины файлов,
-// то же "Скачивание…" без процента в UI).
+// Скачивание -- потоковое, через util/download.ts, с отчётом о прогрессе
+// по мере получения байт (файл в десятки-сотни МБ иначе выглядит как
+// зависшее "Скачивание…" без единого признака жизни, особенно на медленном
+// интернете).
 
 import { app, shell } from 'electron';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
-import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import AdmZip from 'adm-zip';
+import { downloadWithProgress, DownloadProgress } from './util/download';
 
 export class UpdateInstallError extends Error {}
 
@@ -49,36 +49,19 @@ function downloadDir(): string {
 // и повторную попытку.
 const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
 
-async function downloadToFile(url: string, destPath: string): Promise<void> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-  try {
-    // fetch() резолвится, как только пришли заголовки -- таймер должен
-    // оставаться активным и через arrayBuffer() тоже (собственно скачивание
-    // тела, самая долгая часть на файле в десятки-сотни МБ), поэтому весь
-    // блок в одном try -- один clearTimeout в finally после ВСЕГО, а не
-    // сразу после await fetch(), как было в первой версии этого фикса
-    // (защищала бы только быстрое установление соединения, не сам трансфер).
-    const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) {
-      throw new UpdateInstallError(`Не удалось скачать обновление: HTTP ${response.status}`);
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    await fsPromises.mkdir(path.dirname(destPath), { recursive: true });
-    await fsPromises.writeFile(destPath, buffer);
-  } catch (error) {
-    if ((error as Error).name === 'AbortError') {
-      throw new UpdateInstallError('Скачивание обновления заняло слишком много времени -- проверьте соединение и попробуйте ещё раз');
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-export async function downloadAndPrepareUpdate(url: string, assetName: string): Promise<PreparedUpdate> {
+export async function downloadAndPrepareUpdate(
+  url: string,
+  assetName: string,
+  onProgress?: (progress: DownloadProgress) => void
+): Promise<PreparedUpdate> {
   const destPath = path.join(downloadDir(), assetName);
-  await downloadToFile(url, destPath);
+  try {
+    await downloadWithProgress(url, destPath, { timeoutMs: DOWNLOAD_TIMEOUT_MS, onProgress });
+  } catch (error) {
+    // Перебрасываем как UpdateInstallError -- вызывающий код (main.ts)
+    // и раньше ожидал именно этот тип для сообщения об ошибке скачивания.
+    throw new UpdateInstallError((error as Error).message);
+  }
 
   if (assetName.endsWith('.exe')) {
     return { kind: 'run-installer', path: destPath };

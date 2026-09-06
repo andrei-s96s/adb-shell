@@ -149,10 +149,12 @@ function registerIpcHandlers(): void {
   // под платформу -- здесь, не на стороне renderer (там process.platform не
   // проброшен через contextBridge, да и логика выбора и так уже одна на
   // main-процесс -- см. pickAssetForPlatform).
-  ipcMain.handle('app:downloadUpdate', async (_e, assets: ReleaseAsset[]) => {
+  ipcMain.handle('app:downloadUpdate', async (event: IpcMainInvokeEvent, assets: ReleaseAsset[]) => {
     const asset = pickAssetForPlatform(assets, process.platform);
     if (!asset) throw new Error('Не найден подходящий файл обновления для этой платформы в этом релизе');
-    const prepared = await downloadAndPrepareUpdate(asset.url, asset.name);
+    const prepared = await downloadAndPrepareUpdate(asset.url, asset.name, (progress) => {
+      if (!event.sender.isDestroyed()) event.sender.send('app:downloadProgress', progress);
+    });
     await launchPreparedUpdate(prepared);
   });
   ipcMain.handle('app:openExternal', (_e, url: string) => {
@@ -184,6 +186,13 @@ function registerIpcHandlers(): void {
   // renderer сам опрашивает раз в 5с (см. startMdnsPolling в renderer.ts),
   // отдельного долгоживущего процесса в main для этого не требуется.
   ipcMain.handle('adb:discoverMdns', () => adb.discoverMdnsDevices());
+  // Намеренно realAdb, а не переключаемый `adb` -- эта кнопка лечит
+  // НАСТОЯЩИЙ adb-сервер (см. AdbService.restartServer()), у демо-режима
+  // никакого своего процесса нет и лечить нечего, но пользователь мог
+  // включить демо именно ПОТОМУ, что настоящий adb сломан (ровно так и
+  // начиналась эта история) -- кнопка должна работать независимо от того,
+  // какой режим сейчас выбран в UI.
+  ipcMain.handle('adb:restartServer', () => realAdb.restartServer());
 
   // Никнеймы устройств — по serial, не зависят от adb model.
   ipcMain.handle('deviceNicknames:list', () => deviceNicknames.list());
@@ -445,7 +454,11 @@ function registerIpcHandlers(): void {
   });
   ipcMain.handle('apkLibrary:deleteFile', (_e, filePath: string) => apkLibrary.deleteFile(filePath));
   ipcMain.handle('apkLibrary:revealInFileManager', () => shell.openPath(apkLibrary.getDirectory()));
-  ipcMain.handle('apkLibrary:downloadFromUrl', (_e, url: string, filename?: string) => apkLibrary.downloadFromUrl(url, filename));
+  ipcMain.handle('apkLibrary:downloadFromUrl', (event: IpcMainInvokeEvent, url: string, filename?: string) =>
+    apkLibrary.downloadFromUrl(url, filename, (progress) => {
+      if (!event.sender.isDestroyed()) event.sender.send('apkLibrary:downloadProgress', progress);
+    })
+  );
   ipcMain.handle('apkLibrary:checkFDroidUpdates', () => apkLibrary.checkFDroidUpdates());
   ipcMain.handle('apkLibrary:downloadFDroidUpdate', (_e, file: ApkFile, update: FDroidUpdateInfo) =>
     apkLibrary.downloadFDroidUpdate(file, update)

@@ -17,6 +17,7 @@ import { initCommandPalette } from './screens/commandPalette.js';
 const deviceListEl = el<HTMLUListElement>('device-list');
 const statusEl = el<HTMLDivElement>('status');
 const refreshBtn = el<HTMLButtonElement>('refresh-btn');
+const restartAdbBtn = el<HTMLButtonElement>('restart-adb-btn');
 const connectBtn = el<HTMLButtonElement>('connect-btn');
 const connectHostInput = el<HTMLInputElement>('connect-host');
 const pairBtn = el<HTMLButtonElement>('pair-btn');
@@ -458,6 +459,22 @@ export function selectDeviceFromPalette(serial: string): void {
 
 refreshBtn.addEventListener('click', () => void refreshDevices());
 
+restartAdbBtn.addEventListener('click', () => {
+  void (async () => {
+    restartAdbBtn.disabled = true;
+    statusEl.textContent = 'Перезапуск adb-сервера…';
+    try {
+      await adbApi.restartAdbServer();
+      statusEl.textContent = 'adb-сервер перезапущен';
+      await refreshDevices();
+    } catch (error) {
+      statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    } finally {
+      restartAdbBtn.disabled = false;
+    }
+  })();
+});
+
 connectBtn.addEventListener('click', () => {
   void (async () => {
     const host = connectHostInput.value.trim();
@@ -590,10 +607,44 @@ async function bootDeviceIdentity(): Promise<void> {
   // Периодический опрос устройств и mDNS-находок — то же поведение, что и
   // в Swift-версии (DevicesViewModel.startPolling — 3с; startMdnsDiscovery —
   // 5с), раньше в desktop-версии обновление было только по кнопке.
-  setInterval(() => void refreshDevices(), 3000);
-  setInterval(() => void refreshMdns(), 5000);
+  startPolling();
   void refreshMdns();
 }
+
+let devicePollTimer: ReturnType<typeof setInterval> | undefined;
+let mdnsPollTimer: ReturnType<typeof setInterval> | undefined;
+
+function startPolling(): void {
+  if (devicePollTimer === undefined) devicePollTimer = setInterval(() => void refreshDevices(), 3000);
+  if (mdnsPollTimer === undefined) mdnsPollTimer = setInterval(() => void refreshMdns(), 5000);
+}
+
+function stopPolling(): void {
+  if (devicePollTimer !== undefined) {
+    clearInterval(devicePollTimer);
+    devicePollTimer = undefined;
+  }
+  if (mdnsPollTimer !== undefined) {
+    clearInterval(mdnsPollTimer);
+    mdnsPollTimer = undefined;
+  }
+}
+
+// Свёрнутое/невидимое окно раньше всё равно продолжало спавнить `adb
+// devices -l` каждые 3с и mDNS-опрос каждые 5с бесконечно -- чистый расход
+// CPU/батареи, когда результат никто не видит. Останавливаем таймеры по
+// visibilitychange и сразу же обновляем список при возврате в фокус (а не
+// ждём до 3с следующего тика) -- то же ощущение "актуально", но без фоновой
+// траты ресурсов, пока окно свёрнуто.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopPolling();
+    return;
+  }
+  startPolling();
+  void refreshDevices();
+  void refreshMdns();
+});
 
 // Раз за запуск, не периодический опрос -- обычному пользователю этого
 // достаточно, а GitHub API не дёргается лишний раз. Баннер даёт скачать и
@@ -618,6 +669,11 @@ async function checkForUpdatesOnce(): Promise<void> {
     downloadBtn.addEventListener('click', () => {
       downloadBtn.disabled = true;
       downloadBtn.textContent = 'Скачивание…';
+      // Подписка только на время конкретного скачивания -- симметрично
+      // apkLibrary.ts (см. комментарий там), отписка в .finally ниже.
+      const unsubscribe = adbApi.onDownloadUpdateProgress((progress) => {
+        downloadBtn.textContent = `Скачивание… ${formatDownloadProgress(progress)}`;
+      });
       adbApi
         .downloadUpdate(update.assets)
         .then(() => {
@@ -634,7 +690,8 @@ async function checkForUpdatesOnce(): Promise<void> {
           downloadBtn.disabled = false;
           downloadBtn.textContent = 'Скачать и установить';
           textEl.textContent = `Ошибка скачивания: ${errorMessage(error)}`;
-        });
+        })
+        .finally(() => unsubscribe());
     });
     el<HTMLButtonElement>('update-banner-open').addEventListener('click', () => void adbApi.openExternal(update.releaseUrl));
     el<HTMLButtonElement>('update-banner-dismiss').addEventListener('click', () => {
@@ -644,4 +701,28 @@ async function checkForUpdatesOnce(): Promise<void> {
   } catch {
     // Тихо игнорируем -- проверка обновлений не должна мешать обычной работе.
   }
+}
+
+/** Дубликат formatBytes из screens/apkLibrary.ts (renderer.ts сам не входит
+ * в screens/*, но тот же принцип "каждый файл самодостаточен, без общего
+ * utils-модуля" уже применяется по всему рендереру). "42%" при известном
+ * общем размере (Content-Length от сервера), иначе просто скачанный объём. */
+function formatDownloadProgress(progress: { receivedBytes: number; totalBytes?: number }): string {
+  if (progress.totalBytes) {
+    const percent = Math.min(100, Math.round((progress.receivedBytes / progress.totalBytes) * 100));
+    return `${percent}%`;
+  }
+  return formatBytes(progress.receivedBytes);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1000) return `${bytes} Б`;
+  const units = ['КБ', 'МБ', 'ГБ'];
+  let value = bytes / 1000;
+  let unitIndex = 0;
+  while (value >= 1000 && unitIndex < units.length - 1) {
+    value /= 1000;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
 }

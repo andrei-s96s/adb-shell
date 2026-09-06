@@ -152,13 +152,33 @@ async function downloadFromUrl(): Promise<void> {
   if (!url) return;
   const filename = await openTextPromptModal('Имя файла (необязательно)', 'по умолчанию — из ссылки');
   statusEl.textContent = 'Скачивание…';
+  // Подписка только на время самого скачивания -- иначе прогресс ДРУГОГО,
+  // более раннего скачивания (если пользователь как-то умудрился запустить
+  // второе, не дождавшись первого) продолжал бы перезаписывать statusEl
+  // и после того, как этот конкретный вызов уже завершился.
+  const unsubscribe = adbApi.onApkLibraryDownloadProgress((progress) => {
+    statusEl.textContent = `Скачивание… ${formatProgress(progress)}`;
+  });
   try {
     const name = await adbApi.apkLibraryDownloadFromUrl(url, filename || undefined);
     statusEl.textContent = `Скачано: ${name}`;
     await refresh();
   } catch (error) {
     statusEl.textContent = `Ошибка скачивания: ${errorMessage(error)}`;
+  } finally {
+    unsubscribe();
   }
+}
+
+/** "42%" при известном общем размере (Content-Length от сервера), иначе
+ * просто скачанный объём -- врать про процент от неизвестного целого хуже,
+ * чем не показывать его вовсе. */
+function formatProgress(progress: { receivedBytes: number; totalBytes?: number }): string {
+  if (progress.totalBytes) {
+    const percent = Math.min(100, Math.round((progress.receivedBytes / progress.totalBytes) * 100));
+    return `${percent}%`;
+  }
+  return formatBytes(progress.receivedBytes);
 }
 
 async function checkForUpdates(): Promise<void> {

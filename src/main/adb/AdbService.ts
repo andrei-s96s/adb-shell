@@ -38,6 +38,19 @@ import { parseVersionCodes } from './parsers/VersionCodeParser';
 
 export class AdbCommandError extends Error {}
 
+// Раньше почти все методы ниже не передавали timeoutMs вовсе -- если
+// устройство подвисало на команде (заблокированный экран, ожидающий
+// системный диалог, отвалившийся Wi-Fi у беспроводного adb...), конкретное
+// действие в UI просто крутилось бесконечно без единого шанса на ошибку.
+// run() ниже применяет это значение САМ, когда вызывающий код не передал
+// options.timeoutMs явно -- поэтому большинству методов не нужно менять
+// ничего специально, они получают защиту "бесплатно". У кого таймаут уже
+// был длиннее (install/push/pull/installedVersionCodes) -- он остаётся
+// длиннее. shell()/runRaw() -- ЕДИНСТВЕННОЕ намеренное исключение
+// (timeoutMs: 0, см. комментарий там): это сырой ввод пользователя во
+// вкладке Shell/макросах, который вправе выполняться сколько угодно.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export class AdbService {
   readonly adbPath: string;
 
@@ -59,6 +72,10 @@ export class AdbService {
 
   run(args: string[], options: { serial?: string; timeoutMs?: number } = {}): Promise<ProcessResult> {
     const allArgs = options.serial ? ['-s', options.serial, ...args] : args;
+    // timeoutMs: 0 -- явное "без таймаута" (см. shell()/runRaw()), undefined --
+    // "вызывающий код не думал об этом", получает разумный дефолт (см.
+    // DEFAULT_TIMEOUT_MS выше). Любое другое число -- используется как есть.
+    const timeoutMs = options.timeoutMs === 0 ? undefined : options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     return new Promise((resolve, reject) => {
       let child;
       try {
@@ -71,10 +88,13 @@ export class AdbService {
       let stdout = '';
       let stderr = '';
       let settled = false;
-      const timer = options.timeoutMs
+      let timedOut = false;
+      const timer = timeoutMs
         ? setTimeout(() => {
-            if (!settled) child.kill();
-          }, options.timeoutMs)
+            if (settled) return;
+            timedOut = true;
+            child.kill();
+          }, timeoutMs)
         : undefined;
 
       child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString('utf8')));
@@ -89,6 +109,15 @@ export class AdbService {
         if (settled) return;
         settled = true;
         if (timer) clearTimeout(timer);
+        // Раньше kill() по таймауту всё равно резолвил close как обычное
+        // завершение -- пользователь видел невнятную ошибку про пустой
+        // вывод (или вообще ничего) вместо понятной причины. Явно
+        // отклоняем с сообщением, объясняющим, что произошло, а не что
+        // именно устройство ответило (оно ничего не успело ответить).
+        if (timedOut) {
+          reject(new AdbCommandError(`adb не ответил за ${Math.round(timeoutMs! / 1000)}с -- устройство могло зависнуть, потерять соединение или ждать системный диалог на экране`));
+          return;
+        }
         resolve({ stdout, stderr, exitCode: code });
       });
     });
@@ -122,6 +151,19 @@ export class AdbService {
     return parseMdnsServices(result.stdout);
   }
 
+  /** `adb kill-server && adb start-server` -- самое частое реальное лекарство
+   * от "adb: inaccessible or not found" / устройство пропало из списка без
+   * видимой причины / несколько параллельных adb-серверов на разных портах
+   * мешают друг другу. Раньше единственный способ был идти в терминал --
+   * кнопка в UI (см. main.ts) делает то же самое в один клик. start-server
+   * технически необязателен (adb сам поднимет сервер при следующей же
+   * команде), но явный вызов возвращает уже готовый к работе adb сразу,
+   * а не откладывает задержку старта на первый следующий клик пользователя. */
+  async restartServer(): Promise<void> {
+    await this.run(['kill-server'], { timeoutMs: 10_000 });
+    await this.run(['start-server'], { timeoutMs: 10_000 });
+  }
+
   // ВАЖНО про все методы ниже, вызывающие run(['shell', ...]) с одним из
   // своих аргументов (dirPath/targetPath/filePath/packageName/permission):
   // `adb shell a b c` не выполняет `a`, `b`, `c` как отдельные argv-элементы
@@ -139,7 +181,12 @@ export class AdbService {
   // пользователя (вкладка Shell) -- это и есть вся суть команды, а не
   // "путь", оборачивать там нечего и незачем.
   async shell(serial: string, command: string): Promise<string> {
-    const result = await this.run(['shell', command], { serial });
+    // timeoutMs: 0 -- вкладка Shell это фактически терминал, пользователь
+    // вправе сам запустить что-то долгое (`sleep 30 && ...`, ожидание
+    // загрузки и т.п.) -- в отличие от структурированных методов ниже
+    // (у них есть DEFAULT_TIMEOUT_MS, см. комментарий над классом), здесь
+    // нет заранее известного "должно быть быстро".
+    const result = await this.run(['shell', command], { serial, timeoutMs: 0 });
     return combinedOutput(result);
   }
 
@@ -153,7 +200,10 @@ export class AdbService {
    * как в терминале. */
   async runRaw(serial: string, argsLine: string): Promise<string> {
     const tokens = argsLine.split(' ').filter((t) => t.length > 0);
-    const result = await this.run(tokens, { serial });
+    // timeoutMs: 0 -- та же причина, что и в shell() выше (в т.ч. используется
+    // макросами, где отдельный шаг вроде `adb wait-for-device` намеренно
+    // ждёт неопределённое время).
+    const result = await this.run(tokens, { serial, timeoutMs: 0 });
     return combinedOutput(result);
   }
 

@@ -31,6 +31,7 @@ import { parseIconPath } from '../adb/parsers/IconPathParser';
 import { resolveAdaptiveIconFile } from '../adb/parsers/AdaptiveIconResolver';
 import { FDroidUpdateInfo, fdroidDownloadUrl } from '../adb/types/FDroidUpdateInfo';
 import { checkFDroidUpdate } from './FDroidUpdateChecker';
+import { downloadWithProgress, DownloadProgress } from '../util/download';
 
 const CONFIG_FILE = 'apk-library-config.json';
 
@@ -137,7 +138,7 @@ export class ApkLibraryService {
   /** Скачивает .apk по прямой ссылке в текущую библиотеку. Не проверяет
    * Content-Type (некоторые CI/artifact-серверы отдают его неправильно) —
    * полагается на то, что ссылка действительно отдаёт APK. */
-  async downloadFromUrl(urlString: string, filename?: string): Promise<string> {
+  async downloadFromUrl(urlString: string, filename?: string, onProgress?: (progress: DownloadProgress) => void): Promise<string> {
     let url: URL;
     try {
       url = new URL(urlString.trim());
@@ -153,12 +154,7 @@ export class ApkLibraryService {
     const finalName = path.basename(withExtension);
     const destination = path.join(this.directory, finalName);
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} при скачивании`);
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    fs.writeFileSync(destination, buffer);
+    await downloadWithProgress(url.toString(), destination, { onProgress });
     return finalName;
   }
 

@@ -26,7 +26,10 @@
         </div>
         <div class="hint section-title">Устройства</div>
         <ul id="device-list"></ul>
-        <button id="refresh-btn" type="button">Обновить</button>
+        <div class="connect-row">
+          <button id="refresh-btn" type="button">Обновить</button>
+          <button id="restart-adb-btn" type="button" title="adb kill-server && adb start-server — помогает, когда adb не видит устройства или ведёт себя странно">Перезапуск adb</button>
+        </div>
         <div class="connect-row">
           <input id="connect-host" placeholder="192.168.1.50:5555" />
           <button id="connect-btn" type="button">Подключить</button>
@@ -129,6 +132,13 @@
             <button id="files-go" type="button">Перейти</button>
             <button id="files-mkdir" type="button">Новая папка</button>
             <button id="files-push" type="button">Отправить файл…</button>
+          </div>
+          <div class="toolbar">
+            <input id="files-search" placeholder="Поиск по имени в этой папке…" />
+          </div>
+          <div id="files-batch-toolbar" class="toolbar" hidden>
+            <span id="files-selected-count" class="hint"></span>
+            <button id="files-delete-selected" type="button">Удалить выбранные</button>
           </div>
           <div id="files-status" class="hint"></div>
           <ul id="files-list" class="scroll-list"></ul>

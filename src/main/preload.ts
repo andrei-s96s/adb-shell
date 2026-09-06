@@ -18,6 +18,7 @@ import { MacroRunOutcome } from './macros/MacroRunner';
 import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
 import { DeviceSnapshotInfo } from './deviceSnapshots/DeviceSnapshotService';
 import { ApkManifestInfo } from './adb/types/ApkManifestInfo';
+import { DownloadProgress } from './util/download';
 import { SavedCommand } from './shellHistory/shellHistoryLogic';
 
 // Единственный мост renderer -> main; renderer работает с contextIsolation
@@ -38,6 +39,17 @@ contextBridge.exposeInMainWorld('adbApi', {
   disconnect: (serial: string) => ipcRenderer.invoke('adb:disconnect', serial),
   pair: (hostPort: string, code: string) => ipcRenderer.invoke('adb:pair', hostPort, code),
   discoverMdns: (): Promise<MdnsDevice[]> => ipcRenderer.invoke('adb:discoverMdns'),
+  restartAdbServer: (): Promise<void> => ipcRenderer.invoke('adb:restartServer'),
+  onDownloadUpdateProgress: (callback: (progress: DownloadProgress) => void) => {
+    const listener = (_event: IpcRendererEvent, progress: DownloadProgress) => callback(progress);
+    ipcRenderer.on('app:downloadProgress', listener);
+    return () => ipcRenderer.removeListener('app:downloadProgress', listener);
+  },
+  onApkLibraryDownloadProgress: (callback: (progress: DownloadProgress) => void) => {
+    const listener = (_event: IpcRendererEvent, progress: DownloadProgress) => callback(progress);
+    ipcRenderer.on('apkLibrary:downloadProgress', listener);
+    return () => ipcRenderer.removeListener('apkLibrary:downloadProgress', listener);
+  },
 
   // Никнеймы устройств
   deviceNicknamesList: (): Promise<Record<string, string>> => ipcRenderer.invoke('deviceNicknames:list'),

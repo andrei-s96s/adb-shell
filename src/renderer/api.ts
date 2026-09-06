@@ -135,6 +135,13 @@ export interface MdnsDevice {
   address: string;
 }
 
+export interface DownloadProgress {
+  receivedBytes: number;
+  /** undefined -- сервер не прислал Content-Length, показываем только
+   * скачанный объём без процента (см. main/util/download.ts). */
+  totalBytes?: number;
+}
+
 export interface ConnectionProfile {
   id: string;
   name: string;
@@ -271,6 +278,10 @@ export interface AdbApi {
   disconnect(serial: string): Promise<void>;
   pair(hostPort: string, code: string): Promise<string>;
   discoverMdns(): Promise<MdnsDevice[]>;
+  restartAdbServer(): Promise<void>;
+  onDownloadUpdateProgress(callback: (progress: DownloadProgress) => void): () => void;
+  onApkLibraryDownloadProgress(callback: (progress: DownloadProgress) => void): () => void;
+  restartAdbServer(): Promise<void>;
 
   deviceNicknamesList(): Promise<Record<string, string>>;
   deviceNicknamesSet(serial: string, name: string): Promise<Record<string, string>>;
