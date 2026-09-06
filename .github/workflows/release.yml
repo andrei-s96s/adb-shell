@@ -60,7 +60,14 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ADB Shell ${{ steps.tag.outputs.tag }}
-          generate_release_notes: true
+          # Три ОС в матрице -- три отдельные джобы, каждая по очереди вызывает
+          # этот шаг. При generate_release_notes: true на всех трёх экшен
+          # каждый раз подтягивает уже обновлённое предыдущей джобой тело
+          # релиза и дописывает сгенерированные заметки заново -- в итоге
+          # "Full Changelog: ..." повторялся в теле релиза 3 раза (по разу на
+          # ОС). Генерируем заметки только на одном плече матрицы -- этого
+          # достаточно, заметки не зависят от того, под какой ОС собран файл.
+          generate_release_notes: ${{ matrix.os == 'ubuntu-latest' }}
           files: |
             release/*.exe
             release/*.zip
