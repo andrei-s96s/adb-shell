@@ -774,6 +774,13 @@ input[type='checkbox']:checked::after {
   letter-spacing: 0;
 }
 
+.apk-row-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .apk-row-main {
   display: flex;
   flex-direction: column;

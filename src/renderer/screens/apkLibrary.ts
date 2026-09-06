@@ -28,24 +28,34 @@ let dirEl: HTMLDivElement;
 let statusEl: HTMLDivElement;
 let listEl: HTMLUListElement;
 let tagFilterEl: HTMLDivElement;
+let batchToolbarEl: HTMLDivElement;
 let files: ApkFile[] = [];
 let fdroidUpdates: Record<string, FDroidUpdateInfo> = {};
 let tagsByPath: Record<string, string[]> = {};
 let activeTagFilter: string | undefined;
 let installingPath: string | undefined;
 let isCheckingUpdates = false;
+/** Мультивыбор чекбоксами -- "на все устройства" перенесено сюда из
+ * действия на каждой строке (было редкое действие, занимавшее место на
+ * каждой строке списка постоянно) -- теперь общая панель массовых
+ * действий, тот же паттерн, что и в apps.ts/files.ts. */
+let selectedPaths = new Set<string>();
 
 export function initApkLibraryScreen(): void {
   dirEl = el<HTMLDivElement>('apklibrary-dir');
   statusEl = el<HTMLDivElement>('apklibrary-status');
   listEl = el<HTMLUListElement>('apklibrary-list');
   tagFilterEl = el<HTMLDivElement>('apklibrary-tag-filter');
+  batchToolbarEl = el<HTMLDivElement>('apklibrary-batch-toolbar');
 
   el<HTMLButtonElement>('apklibrary-choose-dir').addEventListener('click', () => void chooseDirectory());
   el<HTMLButtonElement>('apklibrary-reveal').addEventListener('click', () => void revealInFileManager());
   el<HTMLButtonElement>('apklibrary-add').addEventListener('click', () => void addFiles());
   el<HTMLButtonElement>('apklibrary-download').addEventListener('click', () => void downloadFromUrl());
   el<HTMLButtonElement>('apklibrary-check-updates').addEventListener('click', () => void checkForUpdates());
+  el<HTMLButtonElement>('apklibrary-install-selected').addEventListener('click', () => void installSelectedToCurrent());
+  el<HTMLButtonElement>('apklibrary-install-selected-all').addEventListener('click', () => void installSelectedToAll());
+  el<HTMLButtonElement>('apklibrary-delete-selected').addEventListener('click', () => void deleteSelected());
 
   // Drag&drop .apk прямо в эту вкладку импортирует в библиотеку -- своя,
   // более специфичная обработка, чем глобальный drop в renderer.ts
@@ -88,11 +98,25 @@ async function refresh(): Promise<void> {
     dirEl.title = dir;
     files = list;
     tagsByPath = tags;
+    // Список файлов на диске мог измениться (добавили/удалили извне) --
+    // старый выбор по путям, которых больше нет в списке, только бы путал.
+    clearSelection();
     renderTagFilter();
     renderList();
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
+}
+
+function clearSelection(): void {
+  selectedPaths = new Set();
+  renderBatchToolbar();
+}
+
+function renderBatchToolbar(): void {
+  batchToolbarEl.hidden = selectedPaths.size === 0;
+  const countEl = document.getElementById('apklibrary-selected-count');
+  if (countEl) countEl.textContent = `Выбрано: ${selectedPaths.size}`;
 }
 
 function renderTagFilter(): void {
@@ -205,6 +229,7 @@ function renderList(): void {
     li.className = 'row empty';
     li.textContent = files.length === 0 ? 'Библиотека пуста — добавьте .apk кнопкой выше' : 'Нет файлов с этим тегом';
     listEl.appendChild(li);
+    renderBatchToolbar();
     return;
   }
 
@@ -212,16 +237,38 @@ function renderList(): void {
   for (const file of visible) {
     listEl.appendChild(renderRow(file, serial));
   }
+  renderBatchToolbar();
 }
 
 function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   const li = document.createElement('li');
   li.className = 'row';
 
+  // Иконка + текстовый блок в ОДНОЙ группе -- иначе при 3 прямых детях li
+  // (иконка / main / actions) .row (justify-content: space-between,
+  // theme.css) раскидывал бы зазор между ними в зависимости от того,
+  // сколько места осталось после самой длинной строки в main -- реальный
+  // баг, пойманный вживую ("информация об apk плывёт"): весь текстовый
+  // блок (имя/размер/дата/теги) сдвигался по горизонтали от строки к
+  // строке. Тот же принцип, что уже применён в apps.ts (.apps-row-main)
+  // и files.ts (.files-row-main).
+  const info = document.createElement('div');
+  info.className = 'apk-row-info';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = selectedPaths.has(file.path);
+  checkbox.addEventListener('change', () => {
+    if (checkbox.checked) selectedPaths.add(file.path);
+    else selectedPaths.delete(file.path);
+    renderBatchToolbar();
+  });
+  info.appendChild(checkbox);
+
   const icon = document.createElement('img');
   icon.className = 'app-icon';
   icon.src = PLACEHOLDER_ICON;
-  li.appendChild(icon);
+  info.appendChild(icon);
   loadIcon(icon, file.path);
 
   const main = document.createElement('div');
@@ -268,7 +315,8 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   tagsRow.appendChild(addTagBtn);
   main.appendChild(tagsRow);
 
-  li.appendChild(main);
+  info.appendChild(main);
+  li.appendChild(info);
 
   const actions = document.createElement('div');
   actions.className = 'apk-row-actions';
@@ -287,12 +335,6 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   installBtn.title = serial ? '' : 'Нет подключённого устройства';
   installBtn.addEventListener('click', () => void installOne(file, serial));
   actions.appendChild(installBtn);
-
-  const installAllBtn = document.createElement('button');
-  installAllBtn.textContent = 'На все устройства';
-  installAllBtn.disabled = installingPath === file.path;
-  installAllBtn.addEventListener('click', () => void installToAll(file));
-  actions.appendChild(installAllBtn);
 
   const infoBtn = document.createElement('button');
   infoBtn.textContent = 'Инфо';
@@ -336,37 +378,90 @@ async function installOne(file: ApkFile, serial: string | undefined): Promise<vo
   }
 }
 
-async function installToAll(file: ApkFile): Promise<void> {
-  installingPath = file.path;
-  renderList();
-  statusEl.textContent = `Установка ${file.name} на все готовые устройства…`;
-  try {
-    const result = await adbApi.apkLibraryInstallToAllDevices(file.path);
-    if (result.total === 0) {
-      statusEl.textContent = 'Нет готовых устройств';
-    } else if (result.failures.length === 0) {
-      statusEl.textContent = `Установлено на ${result.successCount} из ${result.total}`;
-    } else {
-      statusEl.textContent = `Установлено на ${result.successCount} из ${result.total}. Ошибки: ${result.failures.join('; ')}`;
-    }
-    // Порт NotificationService.notify(...) из ApkLibraryViewModel.installToAllDevices
-    // (Sources/AdbShell/ViewModels/ApkLibraryViewModel.swift) -- всегда, не
-    // только при count>1, в отличие от пакетной установки/удаления в apps.ts.
-    if (result.total > 0) {
-      try {
-        new Notification('Установка на все устройства', {
-          body: result.failures.length === 0 ? `${file.name}: установлено на ${result.successCount}` : `${file.name}: установлено на ${result.successCount} из ${result.total}`,
-        });
-      } catch {
-        // Не критично.
-      }
-    }
-  } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
-  } finally {
-    installingPath = undefined;
-    renderList();
+/** Устанавливает все отмеченные чекбоксом файлы на выбранное устройство по
+ * очереди -- та же логика "продолжаем остальные при одной неудаче", что и
+ * везде в пакетных операциях (apps.ts/files.ts). */
+async function installSelectedToCurrent(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (selectedPaths.size === 0) return;
+  if (!serial) {
+    statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    return;
   }
+  const targets = files.filter((f) => selectedPaths.has(f.path));
+  statusEl.textContent = `Установка ${targets.length}…`;
+  let success = 0;
+  for (const file of targets) {
+    try {
+      await adbApi.install(serial, file.path);
+      success += 1;
+    } catch {
+      // Продолжаем остальные -- одна неудача не должна прерывать пакет.
+    }
+  }
+  statusEl.textContent = `Установлено: ${success}/${targets.length}`;
+}
+
+/** Устанавливает каждый выбранный файл на все готовые устройства по
+ * очереди -- раньше это была кнопка "На все устройства" на КАЖДОЙ строке
+ * списка (редкое действие, лишний элемент почти всегда) -- теперь общая
+ * кнопка панели массовых действий, применяется к любому числу отмеченных
+ * файлов разом. Одно системное уведомление по завершении всего пакета, а
+ * не по одному на файл -- иначе при нескольких выбранных файлах
+ * пользователя завалило бы уведомлениями. */
+async function installSelectedToAll(): Promise<void> {
+  if (selectedPaths.size === 0) return;
+  const targets = files.filter((f) => selectedPaths.has(f.path));
+  statusEl.textContent = `Установка ${targets.length} файлов на все готовые устройства…`;
+  let successCount = 0;
+  let totalAttempts = 0;
+  const failures: string[] = [];
+  for (const file of targets) {
+    try {
+      const result = await adbApi.apkLibraryInstallToAllDevices(file.path);
+      totalAttempts += result.total;
+      successCount += result.successCount;
+      failures.push(...result.failures);
+    } catch (error) {
+      failures.push(`${file.name}: ${errorMessage(error)}`);
+    }
+  }
+  statusEl.textContent =
+    totalAttempts === 0
+      ? 'Нет готовых устройств'
+      : failures.length === 0
+        ? `Установлено: ${successCount}/${totalAttempts}`
+        : `Установлено: ${successCount}/${totalAttempts}. Ошибки: ${failures.join('; ')}`;
+  if (totalAttempts > 0) {
+    try {
+      new Notification('Установка на все устройства', {
+        body: `${targets.length} файлов: успешно ${successCount} из ${totalAttempts} попыток`,
+      });
+    } catch {
+      // Не критично.
+    }
+  }
+}
+
+/** Удаляет все отмеченные чекбоксом файлы -- та же логика "продолжаем
+ * остальные при одной неудаче", что и в files.ts deleteSelected(). */
+async function deleteSelected(): Promise<void> {
+  if (selectedPaths.size === 0) return;
+  const targets = files.filter((f) => selectedPaths.has(f.path));
+  statusEl.textContent = `Удаление ${targets.length}…`;
+  let deleted = 0;
+  for (const file of targets) {
+    try {
+      await adbApi.apkLibraryDeleteFile(file.path);
+      delete fdroidUpdates[file.path];
+      deleted += 1;
+    } catch {
+      // Продолжаем остальные.
+    }
+  }
+  clearSelection();
+  statusEl.textContent = `Удалено: ${deleted}/${targets.length}`;
+  await refresh();
 }
 
 async function downloadUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<void> {
