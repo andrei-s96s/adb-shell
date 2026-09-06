@@ -167,6 +167,19 @@ test('crashTraces returns the seeded fake ANR entry', async () => {
   assert.ok(traces.some((t) => t.kind === 'anr'));
 });
 
+test('readCrashTrace reads the seeded ANR file by path -- regression for singleQuoted() wrapping', async () => {
+  // AdbService.readCrashTrace() оборачивает filePath в singleQuoted() перед
+  // подстановкой в `adb shell tail -c 30000 <path>` (защита от command-
+  // инъекции через имя файла) -- этот тест проверяет, что демо-режим
+  // по-прежнему узнаёт путь ПОСЛЕ этого оборачивания, а не просто не падает.
+  const adb = new DemoAdbService();
+  const traces = await adb.crashTraces(DEMO_SERIAL);
+  const anr = traces.find((t) => t.kind === 'anr');
+  assert.ok(anr);
+  const content = await adb.readCrashTrace(DEMO_SERIAL, anr!.path);
+  assert.match(content, /\S/);
+});
+
 test('securityInfo reports a plausible, non-rooted, locked profile', async () => {
   const adb = new DemoAdbService();
   const info = await adb.securityInfo(DEMO_SERIAL);

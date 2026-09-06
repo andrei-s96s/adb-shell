@@ -68,6 +68,20 @@ function fail(stderr: string): ProcessResult {
 
 const NOT_SIMULATED_NOTE = '(демо-режим: эта команда не эмулируется)';
 
+/** Снимает ОДИН слой одинарных кавычек, поставленных singleQuoted()
+ * (см. ShellQuoting.ts и комментарий над AdbService.shell()) -- начиная с
+ * фикса command-инъекции через имена файлов/пакетов, AdbService сам
+ * оборачивает такие аргументы в кавычки перед тем, как они попадут в
+ * `adb shell ...`. Реальное устройство эти кавычки снял бы своим шеллом;
+ * runShell() здесь никакого шелла не запускает, а разбирает cmdLine
+ * строковыми методами -- поэтому обязан сам вернуть значение к тому виду,
+ * в котором его ожидают this.apps/this.fileSystem (без кавычек). */
+function unquote(text: string): string {
+  const match = /^'([\s\S]*)'$/.exec(text);
+  if (!match) return text;
+  return match[1].replace(/'\\''/g, "'");
+}
+
 export class DemoAdbService extends AdbService {
   private apps = new Map<string, AppState>(
     DEMO_APPS.map((profile) => [
@@ -243,14 +257,14 @@ export class DemoAdbService extends AdbService {
 
     if (cmdLine === 'dumpsys package') return ok(formatDumpsysPackageBulk(this.installedApps()));
     if (cmdLine.startsWith('dumpsys package ')) {
-      const pkg = cmdLine.slice('dumpsys package '.length).trim();
+      const pkg = unquote(cmdLine.slice('dumpsys package '.length).trim());
       const state = this.apps.get(pkg);
       if (!state || !state.installed) return ok('');
       return ok(formatDumpsysPackageDetail(state.profile, state.enabled, state.runtimeGranted));
     }
 
     if (cmdLine.startsWith('pm path ')) {
-      const pkg = cmdLine.slice('pm path '.length).trim();
+      const pkg = unquote(cmdLine.slice('pm path '.length).trim());
       const state = this.apps.get(pkg);
       if (!state || !state.installed) return fail(`package ${pkg} not found`);
       return ok(formatPmPath(state.profile));
@@ -260,13 +274,13 @@ export class DemoAdbService extends AdbService {
     if (cmdLine.startsWith('pm clear ')) return ok('Success\n');
 
     if (cmdLine.startsWith('pm enable ')) {
-      const pkg = cmdLine.slice('pm enable '.length).trim();
+      const pkg = unquote(cmdLine.slice('pm enable '.length).trim());
       const state = this.apps.get(pkg);
       if (state) state.enabled = true;
       return ok(`Package ${pkg} enabled\n`);
     }
     if (cmdLine.startsWith('pm disable-user --user 0 ')) {
-      const pkg = cmdLine.slice('pm disable-user --user 0 '.length).trim();
+      const pkg = unquote(cmdLine.slice('pm disable-user --user 0 '.length).trim());
       const state = this.apps.get(pkg);
       if (state) state.enabled = false;
       return ok(`Package ${pkg} new state: disabled-user\n`);
@@ -275,25 +289,25 @@ export class DemoAdbService extends AdbService {
     if (cmdLine.startsWith('pm grant ') || cmdLine.startsWith('pm revoke ')) {
       const granted = cmdLine.startsWith('pm grant ');
       const rest = cmdLine.slice(cmdLine.indexOf(' ', 'pm '.length) + 1).trim();
-      const [pkg, permission] = rest.split(' ');
+      const [pkg, permission] = rest.split(' ').map(unquote);
       const state = this.apps.get(pkg);
       if (state) state.runtimeGranted[permission] = granted;
       return ok('');
     }
 
     if (cmdLine.startsWith('ls -la ')) {
-      const path = cmdLine.slice('ls -la '.length).trim();
+      const path = unquote(cmdLine.slice('ls -la '.length).trim());
       const entries = this.fileSystem.list(path);
       if (!entries) return fail(`ls: ${path}: No such file or directory`);
       return ok(formatLsLa(entries));
     }
     if (cmdLine.startsWith('mkdir -p ')) {
-      this.fileSystem.mkdir(cmdLine.slice('mkdir -p '.length).trim());
+      this.fileSystem.mkdir(unquote(cmdLine.slice('mkdir -p '.length).trim()));
       return ok('');
     }
     if (cmdLine.startsWith('rm -rf ') || cmdLine.startsWith('rm -f ')) {
       const recursive = cmdLine.startsWith('rm -rf ');
-      const path = cmdLine.slice(recursive ? 'rm -rf '.length : 'rm -f '.length).trim();
+      const path = unquote(cmdLine.slice(recursive ? 'rm -rf '.length : 'rm -f '.length).trim());
       this.fileSystem.remove(path, recursive);
       return ok('');
     }
@@ -324,7 +338,7 @@ export class DemoAdbService extends AdbService {
     if (cmdLine === 'ls -1 /data/anr/') return ok(formatCrashListing(['anr_2025-08-15-10-30-00.txt']));
     if (cmdLine === 'ls -1 /data/tombstones/') return ok('');
     if (cmdLine.startsWith('tail -c 30000 ')) {
-      const path = cmdLine.slice('tail -c 30000 '.length).trim();
+      const path = unquote(cmdLine.slice('tail -c 30000 '.length).trim());
       if (path.includes('anr_2025-08-15-10-30-00.txt')) return ok(FAKE_ANR_TRACE);
       return fail(`${path}: No such file or directory`);
     }

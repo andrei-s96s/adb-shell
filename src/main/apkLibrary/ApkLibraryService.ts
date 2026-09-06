@@ -145,7 +145,12 @@ export class ApkLibraryService {
       throw new Error('Некорректная ссылка');
     }
     const rawName = filename?.trim() || path.basename(url.pathname) || 'download.apk';
-    const finalName = rawName.toLowerCase().endsWith('.apk') ? rawName : `${rawName}.apk`;
+    const withExtension = rawName.toLowerCase().endsWith('.apk') ? rawName : `${rawName}.apk`;
+    // basename -- filename в теории всегда вводит сам пользователь в этом
+    // же диалоге, но на всякий случай не позволяем "../../.."  в нём
+    // вырваться из директории библиотеки (тот же принцип, что и в
+    // downloadFDroidUpdate ниже и importBundle в AppBundleService.ts).
+    const finalName = path.basename(withExtension);
     const destination = path.join(this.directory, finalName);
 
     const response = await fetch(url);
@@ -260,7 +265,13 @@ export class ApkLibraryService {
   /** Скачивает более новую версию с F-Droid в библиотеку и удаляет старый
    * файл. Выполняется только по явному нажатию пользователя. */
   async downloadFDroidUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<string> {
-    const destName = `${update.packageName}_${update.latestVersionCode}.apk`;
+    // basename -- update.packageName приходит из JSON-ответа F-Droid API
+    // (см. FDroidUpdateChecker.ts), т.е. это сетевые данные, а не то, что
+    // приложение само проверило/сгенерировало. Без этого скомпрометированный
+    // сервер/MITM мог бы прислать packageName вроде "../../../../любой/файл"
+    // и указать, куда именно на диске пользователя писать -- ровно тот же
+    // класс проблемы, что и в importBundle (AppBundleService.ts).
+    const destName = path.basename(`${update.packageName}_${update.latestVersionCode}.apk`);
     const destination = path.join(this.directory, destName);
     const response = await fetch(fdroidDownloadUrl(update));
     if (!response.ok) throw new Error(`HTTP ${response.status} при скачивании обновления`);

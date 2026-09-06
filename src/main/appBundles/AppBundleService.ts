@@ -116,7 +116,15 @@ export async function importBundle(
     for (let i = 0; i < manifest.entries.length; i++) {
       const entry = manifest.entries[i];
       onProgress?.(i + 1, manifest.entries.length, entry.packageName);
-      const apkPath = path.join(workDir, APKS_SUBDIRECTORY, entry.apkFileName);
+      // path.basename -- entry.apkFileName приходит из manifest.json ВНУТРИ
+      // импортируемого .zip, то есть это данные из файла, который мог
+      // прислать кто угодно (а не только сам ADB Shell при экспорте).
+      // Без этого "../../../../любой/файл.apk" в manifest.json позволил бы
+      // вредоносному "набору приложений" не распаковаться в apks/, а
+      // указать на ПРОИЗВОЛЬНЫЙ файл на диске пользователя -- adb.install()
+      // ниже поставил бы именно его на подключённое устройство. basename()
+      // убирает любые "../" и разделители пути, оставляя только имя файла.
+      const apkPath = path.join(workDir, APKS_SUBDIRECTORY, path.basename(entry.apkFileName));
       if (!fs.existsSync(apkPath)) {
         results.push({ packageName: entry.packageName, success: false, message: 'APK отсутствует в наборе' });
         continue;

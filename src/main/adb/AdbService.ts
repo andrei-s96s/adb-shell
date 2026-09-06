@@ -122,6 +122,22 @@ export class AdbService {
     return parseMdnsServices(result.stdout);
   }
 
+  // ВАЖНО про все методы ниже, вызывающие run(['shell', ...]) с одним из
+  // своих аргументов (dirPath/targetPath/filePath/packageName/permission):
+  // `adb shell a b c` не выполняет `a`, `b`, `c` как отдельные argv-элементы
+  // на устройстве -- adb склеивает всё после `shell` ПРОБЕЛОМ в одну строку
+  // и отдаёт её на исполнение shell'у устройства (то же, что уже объяснено
+  // в ShellQuoting.ts и учтено в openDeepLink() ниже). Значит любой такой
+  // аргумент, содержащий пробел или спецсимвол shell'а (`;`, `` ` ``, `$()`,
+  // `|`, `&&`...), не остаётся "просто путём/строкой" -- он меняет саму
+  // структуру команды. Практический сценарий: приложение на телефоне
+  // создаёт файл/папку с именем вроде "a; rm -rf /sdcard" -- пользователь,
+  // ничего не подозревая, просто открывает эту папку во вкладке "Файлы",
+  // и `ls -la a; rm -rf /sdcard` выполняется на устройстве целиком.
+  // Поэтому такие значения оборачиваются в singleQuoted() перед подстановкой
+  // -- ЕДИНСТВЕННОЕ исключение: shell()/runRaw() ниже, где сырой ввод
+  // пользователя (вкладка Shell) -- это и есть вся суть команды, а не
+  // "путь", оборачивать там нечего и незачем.
   async shell(serial: string, command: string): Promise<string> {
     const result = await this.run(['shell', command], { serial });
     return combinedOutput(result);
@@ -210,7 +226,7 @@ export class AdbService {
   }
 
   async appDetail(serial: string, packageName: string): Promise<AppDetail> {
-    const result = await this.run(['shell', 'dumpsys', 'package', packageName], { serial });
+    const result = await this.run(['shell', 'dumpsys', 'package', singleQuoted(packageName)], { serial });
     return parseAppDetail(packageName, result.stdout);
   }
 
@@ -225,7 +241,7 @@ export class AdbService {
   /** Аналог ADBService.apkPaths(serial:packageName:) -- пути к установленным
    * APK пакета на устройстве (split APK может дать несколько строк). */
   async apkPaths(serial: string, packageName: string): Promise<string[]> {
-    const result = await this.run(['shell', 'pm', 'path', packageName], { serial });
+    const result = await this.run(['shell', 'pm', 'path', singleQuoted(packageName)], { serial });
     const paths = parseApkPaths(result.stdout);
     if (paths.length === 0) {
       throw new AdbCommandError(combinedOutput(result).length > 0 ? combinedOutput(result) : 'Путь к APK не найден');
@@ -251,11 +267,11 @@ export class AdbService {
   }
 
   async forceStop(serial: string, packageName: string): Promise<void> {
-    await this.run(['shell', 'am', 'force-stop', packageName], { serial });
+    await this.run(['shell', 'am', 'force-stop', singleQuoted(packageName)], { serial });
   }
 
   async clearData(serial: string, packageName: string): Promise<void> {
-    const result = await this.run(['shell', 'pm', 'clear', packageName], { serial });
+    const result = await this.run(['shell', 'pm', 'clear', singleQuoted(packageName)], { serial });
     if (result.stdout.includes('Failed')) {
       throw new AdbCommandError(combinedOutput(result));
     }
@@ -265,20 +281,20 @@ export class AdbService {
     const subcommand = enabled ? 'enable' : 'disable-user';
     const args = ['shell', 'pm', subcommand];
     if (!enabled) args.push('--user', '0');
-    args.push(packageName);
+    args.push(singleQuoted(packageName));
     const result = await this.run(args, { serial });
     if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
   }
 
   async grantPermission(serial: string, packageName: string, permission: string): Promise<void> {
-    const result = await this.run(['shell', 'pm', 'grant', packageName, permission], { serial });
+    const result = await this.run(['shell', 'pm', 'grant', singleQuoted(packageName), singleQuoted(permission)], { serial });
     if (result.exitCode !== 0 || result.stderr.length > 0) {
       throw new AdbCommandError(combinedOutput(result));
     }
   }
 
   async revokePermission(serial: string, packageName: string, permission: string): Promise<void> {
-    const result = await this.run(['shell', 'pm', 'revoke', packageName, permission], { serial });
+    const result = await this.run(['shell', 'pm', 'revoke', singleQuoted(packageName), singleQuoted(permission)], { serial });
     if (result.exitCode !== 0 || result.stderr.length > 0) {
       throw new AdbCommandError(combinedOutput(result));
     }
@@ -287,7 +303,7 @@ export class AdbService {
   // MARK: Файлы устройства
 
   async listDirectory(serial: string, dirPath: string): Promise<RemoteFile[]> {
-    const result = await this.run(['shell', 'ls', '-la', dirPath], { serial });
+    const result = await this.run(['shell', 'ls', '-la', singleQuoted(dirPath)], { serial });
     if (result.stdout.length === 0 && result.stderr.length > 0) {
       throw new AdbCommandError(result.stderr);
     }
@@ -305,12 +321,12 @@ export class AdbService {
   }
 
   async makeDirectory(serial: string, dirPath: string): Promise<void> {
-    const result = await this.run(['shell', 'mkdir', '-p', dirPath], { serial });
+    const result = await this.run(['shell', 'mkdir', '-p', singleQuoted(dirPath)], { serial });
     if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
   }
 
   async removeRemote(serial: string, targetPath: string, recursive: boolean): Promise<void> {
-    const args = ['shell', 'rm', recursive ? '-rf' : '-f', targetPath];
+    const args = ['shell', 'rm', recursive ? '-rf' : '-f', singleQuoted(targetPath)];
     const result = await this.run(args, { serial });
     if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
   }
@@ -407,7 +423,7 @@ export class AdbService {
   /** Хвост файла трейса — полные tombstone-файлы могут быть большими,
    * показываем последние ~30000 байт, обычно там самое важное (стек, сигнал). */
   async readCrashTrace(serial: string, filePath: string): Promise<string> {
-    const result = await this.run(['shell', 'tail', '-c', '30000', filePath], { serial });
+    const result = await this.run(['shell', 'tail', '-c', '30000', singleQuoted(filePath)], { serial });
     if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
     return result.stdout;
   }
