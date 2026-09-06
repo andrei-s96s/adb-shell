@@ -74,19 +74,26 @@ export async function downloadAndPrepareUpdate(
 
   if (assetName.endsWith('.zip')) {
     const baseName = assetName.replace(/\.zip$/, '');
-    // Случайный суффикс, а не детерминированное имя -- реальный отчёт:
-    // "ENOENT... chmod app.asar" при повторном нажатии кнопки "Готово —
-    // скачать ещё раз" (см. renderer.ts). adm-zip делает chmod по ПУТИ уже
-    // ПОСЛЕ записи файла (writeFileTo в adm-zip/util/utils.js) -- если
-    // вторая попытка распаковки метится в ТУ ЖЕ директорию, что и первая
-    // (уже открытая в Finder, возможно ещё индексируемая Spotlight/iCloud),
-    // это окно между записью и chmod становится реальной гонкой. Свежая
-    // директория на каждую попытку убирает саму возможность коллизии,
-    // вместо того чтобы гоняться за точным виновником гонки.
+    // Случайный суффикс на каждую попытку скачивания -- убирает саму
+    // возможность коллизии с папкой предыдущей попытки (уже открытой в
+    // Finder, возможно ещё индексируемой Spotlight/iCloud).
     cleanupPreviousExtractions(baseName);
     const extractDir = path.join(downloadDir(), `${baseName}-${randomUUID().slice(0, 8)}`);
+    // Реальный отчёт: "ENOENT... chmod .../app.asar" внутри распаковки --
+    // воспроизводился даже с уникальной extractDir на каждую попытку (см.
+    // выше), то есть дело не в гонке МЕЖДУ попытками, а в самой распаковке
+    // ЭТОГО архива через adm-zip (чистый JS-парсер zip). macOS .app-бандлы
+    // содержат symlink'и (Contents/Frameworks/*.framework/Versions/Current
+    // и т.п.) -- adm-zip, в отличие от системных инструментов, не всегда
+    // корректно переживает их порядок при распаковке, отсюда и ENOENT на
+    // chmod уже вроде бы записанного файла. Заменено на `ditto` -- ровно
+    // тот инструмент, который Apple официально рекомендует для распаковки
+    // .zip именно с .app внутри (тот же, которым пользуется notarization
+    // tooling/Xcode), см. extractZipToDirectory ниже. AdmZip оставлен
+    // только для ЧТЕНИЯ списка записей (getEntries -- не пишет на диск),
+    // чтобы узнать имя .app-папки внутри архива.
+    await extractZipToDirectory(destPath, extractDir);
     const zip = new AdmZip(destPath);
-    await extractWithRetry(zip, extractDir);
     const topLevelDirs = new Set(zip.getEntries().map((e) => e.entryName.split('/')[0]));
     const appName = [...topLevelDirs].find((name) => name.endsWith('.app'));
     if (!appName) throw new UpdateInstallError('В скачанном архиве не найдено приложение (.app)');
@@ -135,24 +142,34 @@ function cleanupPreviousExtractions(baseName: string): void {
   }
 }
 
-/** Распаковка с одной повторной попыткой -- сама по себе уникальная
- * extractDir (см. randomUUID выше) уже исключает гонку с ДРУГИМ процессом
- * извлечения в тот же путь, но не защищает от прочих переходных сбоев
- * файловой системы (например, антивирус/Spotlight/iCloud ещё держат
- * только что созданный путь). Повтор с нуля в ту же директорию после
- * короткой паузы -- дешёвый и достаточный компромисс, второй раз в этом
- * же вызове extractDir по-прежнему не пересекается ни с чем другим. */
-async function extractWithRetry(zip: AdmZip, extractDir: string): Promise<void> {
+/** Распаковывает .zip в extractDir через системный `ditto -x -k` -- эта
+ * ветка (assetName.endsWith('.zip')) в принципе достижима только на macOS
+ * (Windows/Linux скачивают .exe/.AppImage, см. pickAssetForPlatform), так
+ * что platform-проверка здесь не нужна. Одна повторная попытка на прочие
+ * переходные сбои файловой системы (антивирус/Spotlight/iCloud ещё держат
+ * только что созданный путь); AdmZip.extractAllTo -- последний резерв на
+ * случай, если ditto почему-то недоступен (не должно случаться на
+ * настоящем macOS, но не должно и блокировать обновление полностью). */
+async function extractZipToDirectory(zipPath: string, extractDir: string): Promise<void> {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      zip.extractAllTo(extractDir, true);
+      fs.mkdirSync(extractDir, { recursive: true });
+      execFileSync('ditto', ['-x', '-k', zipPath, extractDir]);
       return;
     } catch (error) {
-      if (attempt === 2) throw error;
+      if (attempt === 2) {
+        try {
+          fs.rmSync(extractDir, { recursive: true, force: true });
+          new AdmZip(zipPath).extractAllTo(extractDir, true);
+          return;
+        } catch {
+          throw error;
+        }
+      }
       try {
         fs.rmSync(extractDir, { recursive: true, force: true });
       } catch {
-        // Не критично -- следующая попытка extractAllTo всё равно перезапишет.
+        // Не критично -- следующая попытка всё равно перезапишет.
       }
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
