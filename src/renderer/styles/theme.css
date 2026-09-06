@@ -37,13 +37,71 @@
      .pinned-chip button, .modal-header button, .update-banner button) --
      те намеренно мельче как отдельная, более компактная ступень. */
   --cp-control-h: 32px;
+
+  /* Шкала отступов -- та же лестница значений, что уже сложилась по всему
+     файлу (аудит: padding/margin/gap были последовательными по факту, но
+     нигде не были формализованы как переменные -- любое отклонение от
+     негласного ритма 2px раньше ничем не отлавливалось). Имя = само
+     значение в px, без семантических названий (sm/md/lg): здесь нет
+     единой "шкалы t-shirt размеров", это просто набор уже проверенных
+     конкретных чисел, которые встречаются в разных местах интерфейса --
+     называть --space-8 "маленьким", а --space-32 "большим" было бы враньём
+     вне контекста конкретного места. */
+  --space-1: 1px;
+  --space-2: 2px;
+  --space-3: 3px;
+  --space-4: 4px;
+  --space-5: 5px;
+  --space-6: 6px;
+  --space-7: 7px;
+  --space-8: 8px;
+  --space-9: 9px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-18: 18px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-32: 32px;
+
+  /* Шкала размеров шрифта -- по тому же принципу и с той же оговоркой,
+     что и у --space-* выше: имя = значение, не роль. 13px (--fs-13)
+     совпадает с font-size у body -- используется там, где нужно ЯВНО
+     вернуться к базовому размеру внутри более мелкого по умолчанию блока
+     (а не потому что 13px это "средний" размер шкалы). */
+  --fs-9: 9px;
+  --fs-10: 10px;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-18: 18px;
+
+  /* Шкала скруглений -- было 8 разных значений (4/5/6/8/10/12/16px) без
+     единой системы, аудит явно указал на сократить до нескольких явных
+     ступеней. 5px слит с 6px (иконка строки списка -- разница неразличима
+     на глаз), 10px и 16px слиты с 12px (карточки/панели -- 2-4px разницы
+     на таком размере не читаются, а число ступеней падает втрое). Пилюля
+     (999px, полностью скруглённые чипы/бейджи) -- отдельная категория, не
+     часть числовой лестницы: это не "самый большой радиус", а другая
+     форма (скругление к высоте элемента, а не фиксированное число). */
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-pill: 999px;
 }
 
 @media (prefers-color-scheme: dark) {
+  /* Тёплый почти-чёрный (R>G>B), а не нейтральный/холодный -- перекликается
+     с латунным золотом акцента вместо случайного совпадения с нейтральным
+     #0B0B0B, который равномерно всплывает в сгенерированных тёмных темах.
+     Светлота (сумма каналов) осталась той же, поменялся только оттенок. */
   :root:not([data-theme="light"]) {
-    --cp-bg: rgb(11, 11, 13);
-    --cp-bg-panel: rgb(22, 22, 25);
-    --cp-bg-panel-alt: rgb(32, 32, 36);
+    --cp-bg: rgb(13, 12, 11);
+    --cp-bg-panel: rgb(24, 23, 21);
+    --cp-bg-panel-alt: rgb(34, 33, 30);
     --cp-hairline: rgba(255, 255, 255, 0.08);
 
     --cp-gold: rgb(212, 176, 102);
@@ -58,9 +116,9 @@
 }
 
 :root[data-theme="dark"] {
-  --cp-bg: rgb(11, 11, 13);
-  --cp-bg-panel: rgb(22, 22, 25);
-  --cp-bg-panel-alt: rgb(32, 32, 36);
+  --cp-bg: rgb(13, 12, 11);
+  --cp-bg-panel: rgb(24, 23, 21);
+  --cp-bg-panel-alt: rgb(34, 33, 30);
   --cp-hairline: rgba(255, 255, 255, 0.08);
 
   --cp-gold: rgb(212, 176, 102);
@@ -82,7 +140,7 @@ body {
   background: var(--cp-bg);
   color: var(--cp-text-primary);
   font-family: var(--cp-sans);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 /* Плавный переход рамки/кольца фокуса везде -- не трогает цвета/размеры,
@@ -116,7 +174,7 @@ textarea {
 
 *::-webkit-scrollbar-thumb {
   background: var(--cp-hairline);
-  border-radius: 4px;
+  border-radius: var(--radius-4);
 }
 
 *::-webkit-scrollbar-thumb:hover {
@@ -133,10 +191,10 @@ textarea {
   flex-shrink: 0;
   background: var(--cp-bg-panel);
   border-right: 1px solid var(--cp-hairline);
-  padding: 16px;
+  padding: var(--space-16);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
   /* Профили/mDNS/никнеймы добавили сайдбару больше секций, чем помещается
      по высоте на невысоких окнах -- без overflow контент просто обрезался
      бы снизу без скролла. #device-list ниже сохраняет свой собственный
@@ -145,7 +203,7 @@ textarea {
 }
 
 #sidebar h1 {
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 600;
   color: var(--cp-gold);
   margin: 0;
@@ -154,7 +212,7 @@ textarea {
 /* Демо-режим -- см. renderer.ts initDemoModeToggle() / adb/demo/DemoAdbService.ts. */
 .demo-mode-toggle {
   width: 100%;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--cp-text-muted);
 }
 
@@ -174,12 +232,12 @@ textarea {
   display: none;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-8);
   background: color-mix(in srgb, var(--cp-gold) 16%, var(--cp-bg-panel-alt));
   border: 1px solid var(--cp-gold);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 .update-banner:not([hidden]) {
@@ -194,8 +252,8 @@ textarea {
 
 .update-banner button {
   height: auto;
-  padding: 4px 8px;
-  font-size: 11px;
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--fs-11);
 }
 
 /* Раньше был text-transform: uppercase + letter-spacing -- нормально для
@@ -207,7 +265,7 @@ textarea {
    цвете; для реальных заголовков разделов есть .hint.section-title ниже
    (жирнее, без транформации регистра). */
 .hint {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--cp-text-muted);
 }
 
@@ -217,21 +275,21 @@ textarea {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-4);
   flex: 1;
   overflow-y: auto;
 }
 
 #device-list li {
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-6);
   background: var(--cp-bg-panel-alt);
   /* Прозрачная рамка задана всегда (не только когда .ready) -- так box
      занимает одинаковое место что до, что после появления цвета (box-sizing:
      border-box — см. глобальный сброс), без дёргания списка при смене
      состояния устройства. */
   border: 1px solid transparent;
-  font-size: 12px;
+  font-size: var(--fs-12);
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
@@ -268,7 +326,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .device-row-label {
@@ -282,14 +340,14 @@ textarea {
 
 .device-row-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-4);
   flex-shrink: 0;
 }
 
 .device-row-actions button {
   height: auto;
-  padding: 2px 6px;
-  font-size: 11px;
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--fs-11);
 }
 
 .device-row-actions button.active {
@@ -301,9 +359,9 @@ textarea {
   flex: 1;
   min-width: 0;
   font-family: inherit;
-  font-size: 12px;
-  padding: 2px 4px;
-  border-radius: 4px;
+  font-size: var(--fs-12);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-4);
   border: 1px solid var(--cp-gold);
   background: var(--cp-bg-panel);
   color: var(--cp-text-primary);
@@ -318,8 +376,8 @@ textarea {
    даже без единого закреплённого устройства. */
 .pinned-strip {
   display: none;
-  gap: 6px;
-  padding: 8px 16px 0;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-16) 0;
   flex-shrink: 0;
   overflow-x: auto;
 }
@@ -338,11 +396,11 @@ textarea {
   display: none;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16);
   background: color-mix(in srgb, var(--cp-gold) 16%, var(--cp-bg-panel-alt));
   border-bottom: 1px solid var(--cp-gold);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--cp-gold);
   flex-shrink: 0;
 }
@@ -354,12 +412,12 @@ textarea {
 .pinned-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 999px;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-10);
+  border-radius: var(--radius-pill);
   background: var(--cp-bg-panel-alt);
   border: 1px solid var(--cp-hairline);
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
@@ -372,8 +430,8 @@ textarea {
 
 .pinned-chip button {
   height: auto;
-  padding: 0 4px;
-  font-size: 11px;
+  padding: 0 var(--space-4);
+  font-size: var(--fs-11);
   background: none;
   border: none;
 }
@@ -392,11 +450,11 @@ button {
   justify-content: center;
   height: var(--cp-control-h);
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   line-height: 1;
-  padding: 0 12px;
-  border-radius: 8px;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-8);
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
@@ -428,7 +486,7 @@ select:focus-visible {
 
 .connect-row {
   display: flex;
-  gap: 6px;
+  gap: var(--space-6);
   /* flex-wrap -- .panel-left фиксирован в 320px (см. комментарий у
      .panel-left ниже про уже пойманные переполнения в этой колонке);
      "Обновить" + "Перезапуск adb" рядом впритык, чуть более широкий
@@ -440,16 +498,16 @@ select:focus-visible {
 .connect-row input {
   flex: 1;
   font-family: inherit;
-  font-size: 12px;
-  padding: 8px;
-  border-radius: 8px;
+  font-size: var(--fs-12);
+  padding: var(--space-8);
+  border-radius: var(--radius-8);
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
 }
 
 #status {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--cp-text-muted);
   min-height: 14px;
 }
@@ -474,8 +532,8 @@ select:focus-visible {
 
 #tabs {
   display: flex;
-  gap: 4px;
-  padding: 12px 16px 0;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-16) 0;
   border-bottom: 1px solid var(--cp-hairline);
   flex-shrink: 0;
 }
@@ -483,8 +541,8 @@ select:focus-visible {
 #tabs button {
   background: none;
   border: none;
-  border-radius: 6px 6px 0 0;
-  padding: 8px 14px;
+  border-radius: var(--radius-6) var(--radius-6) 0 0;
+  padding: var(--space-8) var(--space-14);
   color: var(--cp-text-muted);
 }
 
@@ -497,7 +555,7 @@ select:focus-visible {
   display: none;
   flex: 1;
   min-height: 0;
-  padding: 16px;
+  padding: var(--space-16);
   overflow-y: auto;
 }
 
@@ -524,9 +582,9 @@ select:focus-visible {
 .toolbar {
   display: none;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-8);
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-10);
   flex-shrink: 0;
 }
 
@@ -536,9 +594,9 @@ select:focus-visible {
 
 .toolbar select {
   font-family: inherit;
-  font-size: 12px;
-  padding: 7px;
-  border-radius: 8px;
+  font-size: var(--fs-12);
+  padding: var(--space-7);
+  border-radius: var(--radius-8);
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
@@ -548,9 +606,9 @@ select:focus-visible {
   flex: 1;
   min-width: 80px;
   font-family: inherit;
-  font-size: 12px;
-  padding: 8px;
-  border-radius: 8px;
+  font-size: var(--fs-12);
+  padding: var(--space-8);
+  border-radius: var(--radius-8);
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
@@ -588,7 +646,7 @@ input[type='checkbox'] {
   height: 15px;
   margin: 0;
   border: 1px solid var(--cp-hairline);
-  border-radius: 4px;
+  border-radius: var(--radius-4);
   background: var(--cp-bg-panel-alt);
   cursor: pointer;
   transition: background-color 0.12s ease, border-color 0.12s ease;
@@ -614,7 +672,7 @@ input[type='checkbox']:checked::after {
   display: block;
   width: 4px;
   height: 7px;
-  margin: 1px auto 0;
+  margin: var(--space-1) auto 0;
   border: solid var(--cp-bg);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg) translate(-1px, -1px);
@@ -633,8 +691,8 @@ input[type='checkbox']:checked::after {
 .checkbox-label {
   display: flex;
   align-items: flex-start;
-  gap: 4px;
-  font-size: 11px;
+  gap: var(--space-4);
+  font-size: var(--fs-11);
   color: var(--cp-text-muted);
   /* Без nowrap -- короткие подписи (типа "системные") и так помещаются в
      одну строку, а длинные (описание хоткея в Настройках) переносятся,
@@ -651,7 +709,7 @@ input[type='checkbox']:checked::after {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .scroll-list.small {
@@ -663,31 +721,31 @@ input[type='checkbox']:checked::after {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 6px;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-6);
   background: var(--cp-bg-panel-alt);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .apps-row-main,
 .files-row-main {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   min-width: 0;
 }
 
 .files-row-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-6);
   flex-shrink: 0;
 }
 
 .app-icon {
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: var(--radius-6);
   flex-shrink: 0;
   object-fit: cover;
 }
@@ -698,12 +756,12 @@ input[type='checkbox']:checked::after {
 
 .row button {
   height: auto;
-  padding: 4px 8px;
-  font-size: 11px;
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--fs-11);
 }
 
 .hint.section-title {
-  margin-top: 10px;
+  margin-top: var(--space-10);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
@@ -713,7 +771,7 @@ input[type='checkbox']:checked::after {
 
 .panel-split {
   display: flex;
-  gap: 16px;
+  gap: var(--space-16);
   flex: 1;
   min-height: 0;
 }
@@ -732,16 +790,16 @@ input[type='checkbox']:checked::after {
 }
 
 .detail-header h2 {
-  font-size: 14px;
-  margin: 0 0 6px;
+  font-size: var(--fs-14);
+  margin: 0 0 var(--space-6);
   color: var(--cp-gold);
 }
 
 .actions-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
   flex-wrap: wrap;
-  margin: 12px 0;
+  margin: var(--space-12) 0;
 }
 
 .perms-list {
@@ -750,11 +808,11 @@ input[type='checkbox']:checked::after {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .badge {
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--cp-text-muted);
 }
 
@@ -777,26 +835,32 @@ input[type='checkbox']:checked::after {
 .apk-row-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   min-width: 0;
 }
 
-.apk-row-main {
+/* apk-row-text, а не apk-row-main -- в отличие от .apps-row-main/
+   .files-row-main/.device-row-main (там "-row-main" -- это ВСЯ группа
+   иконка+текст), у Библиотеки APK эта роль занята .apk-row-info выше
+   (иконка+текстовый блок), а внутри неё ещё один уровень вложенности --
+   сам текстовый блок (имя/размер/дата/теги), у которого своя роль:
+   вертикальный стек строк, а не "иконка+подпись". */
+.apk-row-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .apk-update-badge {
-  font-size: 9px;
+  font-size: var(--fs-9);
   font-weight: 600;
   color: var(--cp-gold);
 }
 
 .apk-row-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-6);
   align-items: center;
   flex-shrink: 0;
 }
@@ -804,19 +868,19 @@ input[type='checkbox']:checked::after {
 .tag-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
 }
 
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 9px;
-  border-radius: 999px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-9);
+  border-radius: var(--radius-pill);
   background: var(--cp-bg-panel-alt);
   border: 1px solid var(--cp-hairline);
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--cp-text-muted);
   cursor: pointer;
 }
@@ -829,8 +893,8 @@ input[type='checkbox']:checked::after {
 .apk-row-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 2px;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
 }
 
 .apk-row-tags .tag-chip {
@@ -838,17 +902,17 @@ input[type='checkbox']:checked::after {
 }
 
 .apk-row-tags .tag-chip button {
-  padding: 0 2px;
+  padding: 0 var(--space-2);
   background: none;
   border: none;
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: inherit;
 }
 
 .tag-add-btn {
   height: auto;
-  padding: 2px 6px;
-  font-size: 10px;
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--fs-10);
 }
 
 /* Shell */
@@ -858,17 +922,17 @@ input[type='checkbox']:checked::after {
   min-height: 0;
   overflow-y: auto;
   background: var(--cp-bg-panel-alt);
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 10px;
+  border-radius: var(--radius-8);
+  padding: var(--space-10);
+  margin-bottom: var(--space-10);
 }
 
 .shell-log pre {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-8);
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--cp-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .shell-cmd {
@@ -894,14 +958,14 @@ input[type='checkbox']:checked::after {
 .tools-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .tool-card {
   background: var(--cp-bg-panel);
   border: 1px solid var(--cp-hairline);
-  border-radius: 10px;
-  padding: 14px;
+  border-radius: var(--radius-12);
+  padding: var(--space-14);
 }
 
 .tool-card.wide {
@@ -909,8 +973,8 @@ input[type='checkbox']:checked::after {
 }
 
 .tool-card h3 {
-  margin: 0 0 6px;
-  font-size: 13px;
+  margin: 0 0 var(--space-6);
+  font-size: var(--fs-13);
   color: var(--cp-ice);
 }
 
@@ -919,15 +983,15 @@ input[type='checkbox']:checked::after {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
 }
 
 .prop-row {
   display: flex;
-  gap: 10px;
-  font-size: 11px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  gap: var(--space-10);
+  font-size: var(--fs-11);
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-4);
 }
 
 .prop-row:hover {
@@ -952,28 +1016,28 @@ input[type='checkbox']:checked::after {
 .monitor-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: var(--space-16);
+  margin-bottom: var(--space-16);
   flex-shrink: 0;
 }
 
 .stat-card {
   background: var(--cp-bg-panel);
   border: 1px solid var(--cp-hairline);
-  border-radius: 10px;
-  padding: 14px;
+  border-radius: var(--radius-12);
+  padding: var(--space-14);
 }
 
 .stat-label {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--cp-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-4);
 }
 
 .stat-value {
-  font-size: 18px;
+  font-size: var(--fs-18);
   font-weight: 600;
   color: var(--cp-gold);
 }
@@ -981,7 +1045,7 @@ input[type='checkbox']:checked::after {
 .sparkline {
   width: 100%;
   height: 40px;
-  margin-top: 8px;
+  margin-top: var(--space-8);
 }
 
 .sparkline polyline {
@@ -1007,7 +1071,7 @@ input[type='checkbox']:checked::after {
   max-height: 85vh;
   background: var(--cp-bg-panel);
   border: 1px solid var(--cp-hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1026,32 +1090,32 @@ input[type='checkbox']:checked::after {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: var(--space-14) var(--space-16);
   border-bottom: 1px solid var(--cp-hairline);
   flex-shrink: 0;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--cp-gold);
 }
 
 .modal-header button {
   height: auto;
-  padding: 4px 8px;
-  font-size: 11px;
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--fs-11);
 }
 
 .modal-body {
-  padding: 16px;
+  padding: var(--space-16);
   overflow-y: auto;
   min-height: 0;
 }
@@ -1061,15 +1125,15 @@ input[type='checkbox']:checked::after {
 .settings-section {
   background: var(--cp-bg-panel);
   border: 1px solid var(--cp-hairline);
-  border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 16px;
+  border-radius: var(--radius-12);
+  padding: var(--space-14);
+  margin-bottom: var(--space-16);
   max-width: 460px;
 }
 
 .settings-section h3 {
-  margin: 0 0 10px;
-  font-size: 13px;
+  margin: 0 0 var(--space-10);
+  font-size: var(--fs-13);
   color: var(--cp-ice);
 }
 
@@ -1077,8 +1141,8 @@ input[type='checkbox']:checked::after {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: var(--space-10);
+  margin-bottom: var(--space-8);
 }
 
 /* padding здесь раньше был 6px 8px / border-radius 6px -- на 1 значение
@@ -1089,9 +1153,9 @@ input[type='checkbox']:checked::after {
 .settings-row input[type='number'] {
   width: 70px;
   font-family: inherit;
-  font-size: 12px;
-  padding: 8px;
-  border-radius: 8px;
+  font-size: var(--fs-12);
+  padding: var(--space-8);
+  border-radius: var(--radius-8);
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
@@ -1099,9 +1163,9 @@ input[type='checkbox']:checked::after {
 
 .settings-row select {
   font-family: inherit;
-  font-size: 12px;
-  padding: 7px;
-  border-radius: 8px;
+  font-size: var(--fs-12);
+  padding: var(--space-7);
+  border-radius: var(--radius-8);
   border: 1px solid var(--cp-hairline);
   background: var(--cp-bg-panel-alt);
   color: var(--cp-text-primary);
@@ -1114,24 +1178,24 @@ input[type='checkbox']:checked::after {
 .donate-card {
   max-width: 420px;
   width: 100%;
-  margin: 24px auto;
+  margin: var(--space-24) auto;
   background: var(--cp-bg-panel);
   border: 1px solid var(--cp-hairline);
-  border-radius: 16px;
-  padding: 32px 28px 28px;
+  border-radius: var(--radius-12);
+  padding: var(--space-32) var(--space-28) var(--space-28);
   text-align: center;
 }
 
 .donate-card h2 {
-  margin: 0 0 6px;
-  font-size: 18px;
+  margin: 0 0 var(--space-6);
+  font-size: var(--fs-18);
   font-weight: 600;
 }
 
 .donate-lede {
-  margin: 0 0 24px;
+  margin: 0 0 var(--space-24);
   color: var(--cp-text-muted);
-  font-size: 13px;
+  font-size: var(--fs-13);
   line-height: 1.5;
 }
 
@@ -1139,8 +1203,8 @@ input[type='checkbox']:checked::after {
   /* Белый фон вне зависимости от темы -- QR должен читаться сканером и в
      тёмной теме приложения. */
   background: #fff;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: var(--radius-12);
+  padding: var(--space-16);
   display: inline-block;
   line-height: 0;
 }
@@ -1152,8 +1216,8 @@ input[type='checkbox']:checked::after {
 }
 
 .donate-network {
-  margin-top: 18px;
-  font-size: 11px;
+  margin-top: var(--space-18);
+  font-size: var(--fs-11);
   font-weight: 600;
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -1161,27 +1225,27 @@ input[type='checkbox']:checked::after {
 }
 
 .donate-address {
-  margin-top: 10px;
-  padding: 12px 14px;
+  margin-top: var(--space-10);
+  padding: var(--space-12) var(--space-14);
   background: var(--cp-bg-panel-alt);
   border: 1px solid var(--cp-hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   font-family: var(--cp-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   word-break: break-all;
   color: var(--cp-text-primary);
   user-select: all;
 }
 
 .donate-card button {
-  margin-top: 14px;
+  margin-top: var(--space-14);
   width: 100%;
 }
 
 .donate-copied {
-  margin-top: 10px;
+  margin-top: var(--space-10);
   min-height: 16px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--cp-emerald);
 }
 
@@ -1190,12 +1254,12 @@ input[type='checkbox']:checked::after {
 .compare-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .compare-column h4 {
-  margin: 0 0 8px;
-  font-size: 12px;
+  margin: 0 0 var(--space-8);
+  font-size: var(--fs-12);
 }
 
 .compare-column ul {
@@ -1206,13 +1270,13 @@ input[type='checkbox']:checked::after {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
 }
 
 .compare-column li {
-  font-size: 11px;
-  padding: 3px 6px;
-  border-radius: 4px;
+  font-size: var(--fs-11);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-4);
 }
 
 .compare-column li:hover {
@@ -1231,7 +1295,7 @@ input[type='checkbox']:checked::after {
   max-height: 60vh;
   background: var(--cp-bg-panel);
   border: 1px solid var(--cp-hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1240,8 +1304,8 @@ input[type='checkbox']:checked::after {
 
 .palette-input {
   font-family: inherit;
-  font-size: 14px;
-  padding: 14px;
+  font-size: var(--fs-14);
+  padding: var(--space-14);
   border: none;
   border-bottom: 1px solid var(--cp-hairline);
   background: none;
@@ -1268,10 +1332,10 @@ input[type='checkbox']:checked::after {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 9px 14px;
+  gap: var(--space-10);
+  padding: var(--space-9) var(--space-14);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .palette-row:hover {
@@ -1282,7 +1346,7 @@ input[type='checkbox']:checked::after {
 
 .trace-layout {
   display: flex;
-  gap: 12px;
+  gap: var(--space-12);
   height: 60vh;
 }
 
@@ -1295,7 +1359,7 @@ input[type='checkbox']:checked::after {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .trace-content {
@@ -1303,9 +1367,9 @@ input[type='checkbox']:checked::after {
   min-width: 0;
   overflow: auto;
   background: var(--cp-bg-panel-alt);
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 11px;
+  border-radius: var(--radius-8);
+  padding: var(--space-10);
+  font-size: var(--fs-11);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -1317,17 +1381,17 @@ input[type='checkbox']:checked::after {
   min-height: 0;
   overflow-y: auto;
   background: var(--cp-bg-panel-alt);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 11px;
+  border-radius: var(--radius-8);
+  padding: var(--space-8) var(--space-10);
+  font-size: var(--fs-11);
 }
 
 .log-row {
   white-space: pre-wrap;
   word-break: break-word;
-  padding: 1px 0;
+  padding: var(--space-1) 0;
   font-family: var(--cp-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .log-level-0,

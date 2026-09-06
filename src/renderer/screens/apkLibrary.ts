@@ -272,7 +272,7 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   loadIcon(icon, file.path);
 
   const main = document.createElement('div');
-  main.className = 'apk-row-main';
+  main.className = 'apk-row-text';
 
   const name = document.createElement('span');
   name.textContent = file.name;
