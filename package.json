@@ -1,7 +1,7 @@
 {
   "name": "adb-shell",
   "private": true,
-  "version": "1.4.5",
+  "version": "1.5.0",
   "description": "Nativelike macOS/Windows/Linux app for everyday work with Android devices over adb.",
   "main": "dist/main/main.js",
   "author": "andrei-s96s",
