@@ -1273,6 +1273,36 @@ input[type='checkbox']:checked::after {
 
 /* Сравнение устройств */
 
+/* Сводка по getprop (модель/Android/SDK/патч безопасности) над списком
+   пакетов -- строки с расходящимися значениями (.differs) подсвечены тем
+   же золотом, что и остальные "требует внимания" акценты в приложении
+   (например .state-offline у списка устройств) -- не ошибка, а просто
+   то, ради чего вообще открывают сравнение: увидеть разницу. */
+.compare-summary {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-16);
+  font-size: var(--fs-11);
+}
+
+.compare-summary th,
+.compare-summary td {
+  text-align: left;
+  padding: var(--space-4) var(--space-8);
+  border-bottom: 1px solid var(--cp-hairline);
+}
+
+.compare-summary th {
+  color: var(--cp-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.compare-summary tr.differs td {
+  color: var(--cp-gold);
+  font-weight: 600;
+}
+
 .compare-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
