@@ -42,12 +42,13 @@ export function addMacro(
   rawText: string,
   autorunOnConnect: boolean,
   abortOnFirstFailure: boolean,
-  makeId: () => string
+  makeId: () => string,
+  hotkeyAccelerator?: string
 ): Macro[] {
   const trimmedName = name.trim();
   const steps = parseSteps(rawText, makeId);
   if (trimmedName.length === 0 || steps.length === 0) return macros;
-  return [...macros, { id: makeId(), name: trimmedName, steps, autorunOnConnect, abortOnFirstFailure }];
+  return [...macros, { id: makeId(), name: trimmedName, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator }];
 }
 
 export function updateMacro(
@@ -57,12 +58,13 @@ export function updateMacro(
   rawText: string,
   autorunOnConnect: boolean,
   abortOnFirstFailure: boolean,
-  makeId: () => string
+  makeId: () => string,
+  hotkeyAccelerator?: string
 ): Macro[] {
   const trimmedName = name.trim();
   const steps = parseSteps(rawText, makeId);
   if (trimmedName.length === 0 || steps.length === 0) return macros;
-  return macros.map((m) => (m.id === id ? { ...m, name: trimmedName, steps, autorunOnConnect, abortOnFirstFailure } : m));
+  return macros.map((m) => (m.id === id ? { ...m, name: trimmedName, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator } : m));
 }
 
 export function removeMacro(macros: Macro[], id: string): Macro[] {

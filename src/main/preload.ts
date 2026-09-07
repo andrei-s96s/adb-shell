@@ -203,16 +203,24 @@ contextBridge.exposeInMainWorld('adbApi', {
   intentPresetsRemove: (id: string): Promise<IntentPreset[]> => ipcRenderer.invoke('intentPresets:remove', id),
 
   macrosList: (): Promise<Macro[]> => ipcRenderer.invoke('macros:list'),
-  macrosAdd: (name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean): Promise<Macro[]> =>
-    ipcRenderer.invoke('macros:add', name, rawText, autorunOnConnect, abortOnFirstFailure),
+  macrosAdd: (
+    name: string,
+    rawText: string,
+    autorunOnConnect: boolean,
+    abortOnFirstFailure: boolean,
+    hotkeyAccelerator?: string
+  ): Promise<Macro[]> => ipcRenderer.invoke('macros:add', name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
   macrosUpdate: (
     id: string,
     name: string,
     rawText: string,
     autorunOnConnect: boolean,
-    abortOnFirstFailure: boolean
-  ): Promise<Macro[]> => ipcRenderer.invoke('macros:update', id, name, rawText, autorunOnConnect, abortOnFirstFailure),
+    abortOnFirstFailure: boolean,
+    hotkeyAccelerator?: string
+  ): Promise<Macro[]> =>
+    ipcRenderer.invoke('macros:update', id, name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
   macrosRemove: (id: string): Promise<Macro[]> => ipcRenderer.invoke('macros:remove', id),
+  macrosActiveHotkeys: (): Promise<string[]> => ipcRenderer.invoke('macros:activeHotkeys'),
   macrosRun: (macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome> =>
     ipcRenderer.invoke('macros:run', macroId, serial, variables, runId),
   onMacroStepResult: (callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void) => {

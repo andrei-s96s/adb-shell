@@ -21,6 +21,8 @@ import { sanitizeDeviceLabel } from './deviceSnapshots/deviceSnapshotLogic';
 import { ApkTagStore } from './apkLibrary/ApkTagStore';
 import { IntentPresetStore } from './intentPresets/IntentPresetStore';
 import { MacroStore } from './macros/MacroStore';
+import { runMacro } from './macros/MacroRunner';
+import { variableNames } from './macros/macroRunnerLogic';
 import { DeviceSnapshotService } from './deviceSnapshots/DeviceSnapshotService';
 import { ScreenMirrorService } from './screenMirror/ScreenMirrorService';
 import { AppIconService } from './appIcons/AppIconService';
@@ -76,6 +78,8 @@ const ctx: IpcContext = {
   appSettings,
   logcatSessions: new Map<string, LogcatSession | DemoLogcatSession>(),
   applyHotkeySetting: () => applyHotkeySetting(),
+  applyMacroHotkeys: () => applyMacroHotkeys(),
+  activeMacroHotkeyAccelerators: () => [...registeredMacroAccelerators],
 };
 
 /** Serial выбранного в renderer устройства -- renderer сообщает о каждой
@@ -111,6 +115,56 @@ function applyHotkeySetting(): void {
     // register() возвращает false, если сочетание уже занято другим
     // приложением/системой -- не бросает исключение, тихо не активируется.
     globalShortcut.register(HOTKEY_ACCELERATOR, () => void captureScreenshotToDesktop());
+  }
+}
+
+/** Запускает макрос по глобальному хоткею на hotkeySelectedSerial (то же
+ * значение, что уже использует captureScreenshotToDesktop выше) -- работает
+ * и когда окно не в фокусе, поэтому переменные ${ИМЯ} здесь не спросить:
+ * applyMacroHotkeys() ниже вообще не регистрирует хоткей для макроса с
+ * переменными. Результат -- только системным уведомлением, макрос мог
+ * запуститься, пока пользователь работает в другом приложении и не видит
+ * вкладку "Макросы". */
+async function runMacroFromHotkey(macroId: string): Promise<void> {
+  const serial = hotkeySelectedSerial;
+  if (!serial) return;
+  const macro = ctx.macroStore.get(macroId);
+  if (!macro) return;
+  try {
+    const outcome = await runMacro(macro, serial, ctx.adb, {});
+    new Notification({
+      title: `Макрос «${macro.name}» (хоткей)`,
+      body: outcome.completedFully ? 'Выполнен полностью' : 'Остановлен на ошибке',
+    }).show();
+  } catch (error) {
+    new Notification({ title: `Макрос «${macro.name}» — ошибка`, body: (error as Error).message }).show();
+  }
+}
+
+/** Аккселераторы макросов, зарегистрированные ПРЯМО СЕЙЧАС -- отдельно от
+ * HOTKEY_ACCELERATOR (скриншот, свой unregister по имени) и друг от друга,
+ * чтобы applyMacroHotkeys() ниже мог явно снять именно macro-хоткеи перед
+ * перерегистрацией, не трогая скриншот-хоткей. */
+let registeredMacroAccelerators: string[] = [];
+
+/** Перерегистрирует глобальные хоткеи всех макросов -- вызывается при
+ * старте приложения и при каждом add/update/remove/import макросов
+ * (см. IpcContext.applyMacroHotkeys), т.к. набор аккселераторов мог
+ * измениться. Явно пропускает точное совпадение с HOTKEY_ACCELERATOR
+ * (скриншот) -- Electron иначе тихо отдал бы этот аккселератор макросу,
+ * унеся с собой уже работавший хоткей скриншота без единого предупреждения.
+ * Макрос-vs-макрос коллизии (два макроса с одним и тем же сочетанием)
+ * Electron тоже не разруливает -- в списке макросов (macros.ts) такой
+ * макрос помечается как "хоткей не активен" через macros:activeHotkeys. */
+function applyMacroHotkeys(): void {
+  for (const accelerator of registeredMacroAccelerators) globalShortcut.unregister(accelerator);
+  registeredMacroAccelerators = [];
+  for (const macro of ctx.macroStore.list()) {
+    const accelerator = macro.hotkeyAccelerator;
+    if (!accelerator || accelerator === HOTKEY_ACCELERATOR) continue;
+    if (variableNames(macro).length > 0) continue;
+    const ok = globalShortcut.register(accelerator, () => void runMacroFromHotkey(macro.id));
+    if (ok) registeredMacroAccelerators.push(accelerator);
   }
 }
 
@@ -335,6 +389,7 @@ app.whenReady().then(() => {
   registerIpcHandlers();
   createWindow();
   applyHotkeySetting();
+  applyMacroHotkeys();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

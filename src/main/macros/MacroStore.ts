@@ -34,14 +34,21 @@ export class MacroStore {
     return this.macros.find((m) => m.id === id);
   }
 
-  add(name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean): Macro[] {
-    this.macros = addMacro(this.macros, name, rawText, autorunOnConnect, abortOnFirstFailure, () => randomUUID());
+  add(name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean, hotkeyAccelerator?: string): Macro[] {
+    this.macros = addMacro(this.macros, name, rawText, autorunOnConnect, abortOnFirstFailure, () => randomUUID(), hotkeyAccelerator);
     this.save();
     return this.macros;
   }
 
-  update(id: string, name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean): Macro[] {
-    this.macros = updateMacro(this.macros, id, name, rawText, autorunOnConnect, abortOnFirstFailure, () => randomUUID());
+  update(
+    id: string,
+    name: string,
+    rawText: string,
+    autorunOnConnect: boolean,
+    abortOnFirstFailure: boolean,
+    hotkeyAccelerator?: string
+  ): Macro[] {
+    this.macros = updateMacro(this.macros, id, name, rawText, autorunOnConnect, abortOnFirstFailure, () => randomUUID(), hotkeyAccelerator);
     this.save();
     return this.macros;
   }

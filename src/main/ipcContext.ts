@@ -50,4 +50,11 @@ export interface IpcContext {
    * которые остаются там же) -- settings:update (settings/registerIpc.ts)
    * вызывает её при изменении globalScreenshotHotkeyEnabled. */
   readonly applyHotkeySetting: () => void;
+  /** Тоже определена в main.ts (нужны globalShortcut/hotkeySelectedSerial) --
+   * macros:add/update/remove/import (macros/registerIpc.ts) вызывают её,
+   * когда набор аккселераторов макросов мог измениться. */
+  readonly applyMacroHotkeys: () => void;
+  /** Снимок того, какие аккселераторы макросов реально зарегистрированы
+   * прямо сейчас -- см. macros:activeHotkeys. */
+  readonly activeMacroHotkeyAccelerators: () => string[];
 }

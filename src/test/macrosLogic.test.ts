@@ -69,6 +69,22 @@ test('updateMacro replaces name/steps/flags for the matching id, leaves others u
   assert.equal(macros[1].name, 'Other');
 });
 
+test('addMacro stores an optional hotkeyAccelerator, undefined when omitted', () => {
+  const withHotkey = addMacro([], 'Flash', 'adb root', false, false, makeId, 'CommandOrControl+Alt+M');
+  assert.equal(withHotkey[0].hotkeyAccelerator, 'CommandOrControl+Alt+M');
+  const withoutHotkey = addMacro([], 'Other', 'adb root', false, false, makeId);
+  assert.equal(withoutHotkey[0].hotkeyAccelerator, undefined);
+});
+
+test('updateMacro can change or clear an existing hotkeyAccelerator', () => {
+  let macros = addMacro([], 'Flash', 'adb root', false, false, makeId, 'CommandOrControl+Alt+M');
+  const id = macros[0].id;
+  macros = updateMacro(macros, id, 'Flash', 'adb root', false, false, makeId, 'CommandOrControl+Alt+N');
+  assert.equal(macros[0].hotkeyAccelerator, 'CommandOrControl+Alt+N');
+  macros = updateMacro(macros, id, 'Flash', 'adb root', false, false, makeId);
+  assert.equal(macros[0].hotkeyAccelerator, undefined);
+});
+
 test('removeMacro deletes by id', () => {
   let macros = addMacro([], 'Flash', 'adb root', false, false, makeId);
   macros = removeMacro(macros, macros[0].id);

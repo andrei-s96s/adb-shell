@@ -25,6 +25,20 @@ let expandedMacroId: string | undefined;
  * "Запустить" здесь) от другого запуска того же macroId, случайно
  * совпавшего по времени (автозапуск на другом устройстве). */
 let currentRunId: string | undefined;
+/** Аккселераторы, реально зарегистрированные ПРЯМО СЕЙЧАС на main-стороне
+ * (см. applyMacroHotkeys в main.ts) -- макрос с назначенным, но не
+ * попавшим сюда hotkeyAccelerator получает в списке предупреждающий
+ * бейдж (занят скриншот-хоткеем/другим макросом/ОС, или есть переменные
+ * ${ИМЯ}, для которых хоткей не регистрируется в принципе). */
+let activeHotkeyAccelerators = new Set<string>();
+
+async function refreshActiveHotkeys(): Promise<void> {
+  try {
+    activeHotkeyAccelerators = new Set(await adbApi.macrosActiveHotkeys());
+  } catch {
+    // Бейдж необязателен -- список макросов остаётся рабочим и без него.
+  }
+}
 
 const VARIABLE_RE = /\$\{([A-Za-z0-9_]+)\}/g;
 
@@ -93,6 +107,7 @@ export function initMacrosScreen(): void {
       renderList();
     })
     .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+  void refreshActiveHotkeys().then(renderList);
 }
 
 function renderList(): void {
@@ -119,8 +134,14 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
   const label = document.createElement('span');
   label.className = 'device-row-label';
   label.style.cursor = 'pointer';
-  const badges = [macro.autorunOnConnect ? '⚡' : '', macro.abortOnFirstFailure ? '⛔' : ''].filter(Boolean).join(' ');
-  label.textContent = `${badges ? badges + ' ' : ''}${macro.name} (${macro.steps.length} шаг${macro.steps.length === 1 ? '' : 'ов'})`;
+  const hotkeyActive = !!macro.hotkeyAccelerator && activeHotkeyAccelerators.has(macro.hotkeyAccelerator);
+  const hotkeyBadge = macro.hotkeyAccelerator ? (hotkeyActive ? '⌨' : '⌨⚠') : '';
+  const badges = [macro.autorunOnConnect ? '⚡' : '', macro.abortOnFirstFailure ? '⛔' : '', hotkeyBadge].filter(Boolean).join(' ');
+  const hotkeySuffix = macro.hotkeyAccelerator ? ` [${macro.hotkeyAccelerator}]` : '';
+  label.textContent = `${badges ? badges + ' ' : ''}${macro.name} (${macro.steps.length} шаг${macro.steps.length === 1 ? '' : 'ов'})${hotkeySuffix}`;
+  if (macro.hotkeyAccelerator && !hotkeyActive) {
+    label.title = 'Хоткей назначен, но сейчас не активен -- занят другим макросом/приложением/ОС, либо у макроса есть переменные ${ИМЯ}';
+  }
   label.addEventListener('click', () => {
     expandedMacroId = expandedMacroId === macro.id ? undefined : macro.id;
     renderList();
@@ -152,7 +173,9 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
       .macrosRemove(macro.id)
       .then((updated) => {
         macros = updated;
-        renderList();
+        // Удалённый макрос мог держать хоткей, занятый у другого макроса --
+        // после удаления он мог освободиться и стать активным.
+        void refreshActiveHotkeys().then(renderList);
       })
       .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
   });
@@ -314,6 +337,23 @@ function openEditor(existing?: Macro): void {
     flagsRow.appendChild(autorunLabel);
     body.appendChild(flagsRow);
 
+    const hotkeyRow = document.createElement('div');
+    hotkeyRow.className = 'connect-row';
+    const hotkeyLabel = document.createElement('span');
+    hotkeyLabel.className = 'hint';
+    hotkeyLabel.textContent = 'Хоткей';
+    hotkeyRow.appendChild(hotkeyLabel);
+    const hotkeyInput = document.createElement('input');
+    hotkeyInput.placeholder = 'например: CommandOrControl+Alt+M (пусто — без хоткея)';
+    hotkeyInput.value = existing?.hotkeyAccelerator ?? '';
+    hotkeyRow.appendChild(hotkeyInput);
+    body.appendChild(hotkeyRow);
+    const hotkeyHintEl = document.createElement('div');
+    hotkeyHintEl.className = 'hint';
+    hotkeyHintEl.textContent =
+      'Формат Electron Accelerator (модификаторы через "+": CommandOrControl, Alt, Shift). Работает даже когда окно не в фокусе, но не для макросов с переменными ${ИМЯ} -- их некому спросить без открытого окна.';
+    body.appendChild(hotkeyHintEl);
+
     const errorEl = document.createElement('div');
     errorEl.className = 'error';
     body.appendChild(errorEl);
@@ -327,9 +367,10 @@ function openEditor(existing?: Macro): void {
         errorEl.textContent = 'Укажите имя макроса';
         return;
       }
+      const hotkeyAccelerator = hotkeyInput.value.trim() || undefined;
       const action = existing
-        ? adbApi.macrosUpdate(existing.id, name, textarea.value, autorunCheckbox.checked, abortCheckbox.checked)
-        : adbApi.macrosAdd(name, textarea.value, autorunCheckbox.checked, abortCheckbox.checked);
+        ? adbApi.macrosUpdate(existing.id, name, textarea.value, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator)
+        : adbApi.macrosAdd(name, textarea.value, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator);
       action
         .then((updated) => {
           if (updated.length === macros.length && !existing) {
@@ -337,7 +378,10 @@ function openEditor(existing?: Macro): void {
             return;
           }
           macros = updated;
-          renderList();
+          // main уже перерегистрировал хоткеи синхронно внутри macros:add/
+          // update (см. applyMacroHotkeys в main.ts) -- к моменту этого then
+          // сервер уже знает актуальное состояние, можно сразу спросить его.
+          void refreshActiveHotkeys().then(renderList);
           modal.close();
         })
         .catch((error) => (errorEl.textContent = errorMessage(error)));

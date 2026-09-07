@@ -212,6 +212,7 @@ export interface Macro {
   steps: MacroStep[];
   autorunOnConnect: boolean;
   abortOnFirstFailure: boolean;
+  hotkeyAccelerator?: string;
 }
 
 export interface MacroRunResult {
@@ -397,15 +398,23 @@ export interface AdbApi {
   intentPresetsRemove(id: string): Promise<IntentPreset[]>;
 
   macrosList(): Promise<Macro[]>;
-  macrosAdd(name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean): Promise<Macro[]>;
+  macrosAdd(
+    name: string,
+    rawText: string,
+    autorunOnConnect: boolean,
+    abortOnFirstFailure: boolean,
+    hotkeyAccelerator?: string
+  ): Promise<Macro[]>;
   macrosUpdate(
     id: string,
     name: string,
     rawText: string,
     autorunOnConnect: boolean,
-    abortOnFirstFailure: boolean
+    abortOnFirstFailure: boolean,
+    hotkeyAccelerator?: string
   ): Promise<Macro[]>;
   macrosRemove(id: string): Promise<Macro[]>;
+  macrosActiveHotkeys(): Promise<string[]>;
   macrosRun(macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome>;
   onMacroStepResult(callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void): () => void;
   macrosExport(): Promise<boolean>;

@@ -12,15 +12,38 @@ export function registerMacrosIpc(ctx: IpcContext): void {
   ipcMain.handle('macros:list', () => macroStore.list());
   ipcMain.handle(
     'macros:add',
-    (_e, name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean) =>
-      macroStore.add(name, rawText, autorunOnConnect, abortOnFirstFailure)
+    (_e, name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean, hotkeyAccelerator?: string) => {
+      const updated = macroStore.add(name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
+      ctx.applyMacroHotkeys();
+      return updated;
+    }
   );
   ipcMain.handle(
     'macros:update',
-    (_e, id: string, name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean) =>
-      macroStore.update(id, name, rawText, autorunOnConnect, abortOnFirstFailure)
+    (
+      _e,
+      id: string,
+      name: string,
+      rawText: string,
+      autorunOnConnect: boolean,
+      abortOnFirstFailure: boolean,
+      hotkeyAccelerator?: string
+    ) => {
+      const updated = macroStore.update(id, name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
+      ctx.applyMacroHotkeys();
+      return updated;
+    }
   );
-  ipcMain.handle('macros:remove', (_e, id: string) => macroStore.remove(id));
+  ipcMain.handle('macros:remove', (_e, id: string) => {
+    const updated = macroStore.remove(id);
+    ctx.applyMacroHotkeys();
+    return updated;
+  });
+  // Какие аккселераторы макросов реально зарегистрированы ПРЯМО СЕЙЧАС --
+  // macros.ts сверяет с этим список, чтобы пометить макрос, чей хоткей
+  // задан, но не активен (занят скриншот-хоткеем/другим макросом/ОС, или у
+  // макроса есть переменные ${ИМЯ}, см. applyMacroHotkeys в main.ts).
+  ipcMain.handle('macros:activeHotkeys', () => ctx.activeMacroHotkeyAccelerators());
   // Выполнение -- runId генерирует renderer (macros.ts/renderer.ts/
   // commandPalette.ts) ДО вызова, а не main после, потому что renderer
   // должен знать его заранее, чтобы сопоставлять с ним приходящие
@@ -56,6 +79,8 @@ export function registerMacrosIpc(ctx: IpcContext): void {
     });
     if (result.canceled || result.filePaths.length === 0) return macroStore.list();
     const raw = await fsPromises.readFile(result.filePaths[0], 'utf8');
-    return macroStore.importJSON(raw);
+    const updated = macroStore.importJSON(raw);
+    ctx.applyMacroHotkeys(); // импортированные макросы могут нести свой hotkeyAccelerator
+    return updated;
   });
 }
