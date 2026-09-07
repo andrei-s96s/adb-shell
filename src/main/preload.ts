@@ -262,6 +262,9 @@ contextBridge.exposeInMainWorld('adbApi', {
   screenshot: (serial: string): Promise<string> => ipcRenderer.invoke('adb:screenshot', serial),
   clipboardWriteImagePng: (base64Png: string): Promise<void> => ipcRenderer.invoke('clipboard:writeImagePng', base64Png),
   saveScreenshot: (base64Png: string): Promise<boolean> => ipcRenderer.invoke('dialog:saveScreenshot', base64Png),
+  selectScreenshotAllDir: (): Promise<string | undefined> => ipcRenderer.invoke('dialog:selectScreenshotAllDir'),
+  screenshotAllDevices: (directory: string): Promise<{ successCount: number; total: number; failures: string[] }> =>
+    ipcRenderer.invoke('adb:screenshotAllDevices', directory),
   setHotkeySelectedSerial: (serial: string | undefined): Promise<void> =>
     ipcRenderer.invoke('hotkey:setSelectedSerial', serial),
 

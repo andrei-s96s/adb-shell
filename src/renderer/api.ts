@@ -441,6 +441,8 @@ export interface AdbApi {
   screenshot(serial: string): Promise<string>;
   clipboardWriteImagePng(base64Png: string): Promise<void>;
   saveScreenshot(base64Png: string): Promise<boolean>;
+  selectScreenshotAllDir(): Promise<string | undefined>;
+  screenshotAllDevices(directory: string): Promise<InstallToAllResult>;
   setHotkeySelectedSerial(serial: string | undefined): Promise<void>;
 
   startLogcat(serial: string): Promise<void>;

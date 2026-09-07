@@ -14,7 +14,10 @@ import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
 import { DevicePinStore } from './devicePins/DevicePinStore';
 import { AppSettingsStore } from './settings/AppSettingsStore';
 import { timestampForFilename } from './util/timestamp';
-import { showSaveDialogFor } from './util/dialogs';
+import { showSaveDialogFor, showOpenDialogFor } from './util/dialogs';
+import { mapWithConcurrency } from './util/concurrency';
+import { isReadyState, displayName } from './adb/types/Device';
+import { sanitizeDeviceLabel } from './deviceSnapshots/deviceSnapshotLogic';
 import { ApkTagStore } from './apkLibrary/ApkTagStore';
 import { IntentPresetStore } from './intentPresets/IntentPresetStore';
 import { MacroStore } from './macros/MacroStore';
@@ -248,6 +251,45 @@ function registerIpcHandlers(): void {
     await fsPromises.writeFile(result.filePath, Buffer.from(base64Png, 'base64'));
     shell.showItemInFolder(result.filePath);
     return true;
+  });
+
+  // Скриншот сразу со всех подключённых устройств -- по аналогии с уже
+  // существующей плиткой зеркалирования (mirror:launchGrid) и broadcast-
+  // режимом shell: выбор папки один раз, дальше adb.screenshot() на
+  // каждое готовое устройство независимо (отдельный exec-out процесс на
+  // serial, в отличие от разделяемой adb shell-сессии, параллелится без
+  // проблем) -- лимит 3, как и у apkLibrary:installToAllDevices.
+  ipcMain.handle('dialog:selectScreenshotAllDir', async (event: IpcMainInvokeEvent) => {
+    const result = await showOpenDialogFor(event, {
+      title: 'Куда сохранить скриншоты со всех устройств',
+      properties: ['openDirectory' as const, 'createDirectory' as const],
+    });
+    return result.canceled || result.filePaths.length === 0 ? undefined : result.filePaths[0];
+  });
+  ipcMain.handle('adb:screenshotAllDevices', async (_e, directory: string) => {
+    const devices = (await ctx.adb.listDevices()).filter((d) => isReadyState(d.state));
+    if (devices.length === 0) {
+      return { successCount: 0, total: 0, failures: [] as string[] };
+    }
+    const failures: string[] = [];
+    let successCount = 0;
+    await mapWithConcurrency(devices, 3, async (device) => {
+      try {
+        const data = await ctx.adb.screenshot(device.serial);
+        // serial обязателен в имени файла (не только модель) -- два
+        // устройства одной модели, но с разными serial, иначе получили бы
+        // одинаковое имя файла в одном и том же батче и второй скриншот
+        // молча перезаписал бы первый.
+        const modelLabel = device.model ? sanitizeDeviceLabel(device.model.replace(/_/g, ' ')) : undefined;
+        const label = modelLabel ? `${modelLabel}-${sanitizeDeviceLabel(device.serial)}` : sanitizeDeviceLabel(device.serial);
+        const fileName = `adbshell-screenshot-${label}-${timestampForFilename(new Date())}.png`;
+        await fsPromises.writeFile(path.join(directory, fileName), data);
+        successCount += 1;
+      } catch (error) {
+        failures.push(`${displayName(device)}: ${(error as Error).message}`);
+      }
+    });
+    return { successCount, total: devices.length, failures };
   });
 
   // Renderer держит main в курсе текущего выбранного устройства -- нужно

@@ -30,6 +30,7 @@ export function initShellScreen(): void {
     const serial = getCurrentSerial();
     if (serial) void openScreenshotPreview(serial);
   });
+  el<HTMLButtonElement>('shell-screenshot-all').addEventListener('click', () => void screenshotAllDevices());
   el<HTMLButtonElement>('shell-intent').addEventListener('click', () => {
     const serial = getCurrentSerial();
     if (serial) openIntentTesterModal(serial);
@@ -116,6 +117,26 @@ async function mirrorAll(): Promise<void> {
     renderMirrorState();
   } catch (error) {
     mirrorStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+/** Скриншот сразу со всех подключённых и готовых устройств -- по аналогии с
+ * mirrorAll() выше и runBroadcast() ниже: выбор папки один раз, отчёт по
+ * каждому устройству в тот же лог, что и остальные команды этой вкладки. */
+async function screenshotAllDevices(): Promise<void> {
+  const directory = await adbApi.selectScreenshotAllDir();
+  if (!directory) return;
+  appendLine(`Скриншот со всех устройств в ${directory}…`, 'shell-cmd');
+  try {
+    const result = await adbApi.screenshotAllDevices(directory);
+    if (result.total === 0) {
+      appendLine('Нет готовых устройств', 'shell-err');
+      return;
+    }
+    appendLine(`Готово: ${result.successCount} из ${result.total}`, result.failures.length === 0 ? 'shell-out' : 'shell-err');
+    for (const failure of result.failures) appendLine(failure, 'shell-err');
+  } catch (error) {
+    appendLine(errorMessage(error), 'shell-err');
   }
 }
 
