@@ -477,22 +477,28 @@ export class AdbService {
   /** Аналог ADBService.securityInfo(serial:) — локальные признаки
    * целостности устройства (root/разлочка/debuggable). Полноценный
    * SafetyNet/Play Integrity с устройства через adb не выполнить, это
-   * удалённая проверка на серверах Google. */
+   * удалённая проверка на серверах Google.
+   *
+   * ro.boot.verifiedbootstate/ro.boot.flash.locked/ro.debuggable/ro.secure
+   * раньше запрашивались по отдельности (`getprop <key>` на каждое) --
+   * все четыре уже есть в одном бесплатном bulk-дампе allProperties()
+   * (`getprop` без аргументов), который эта же карточка "Безопасность"
+   * всё равно логически про то же устройство прямо сейчас. which
+   * su/settings get -- не getprop-свойства, эти два спавна остаются
+   * отдельными командами. */
   async securityInfo(serial: string): Promise<DeviceSecurityInfo> {
-    const [verifiedBoot, flashLocked, debuggable, secure, suCheck, playProtect] = await Promise.all([
-      this.run(['shell', 'getprop', 'ro.boot.verifiedbootstate'], { serial }),
-      this.run(['shell', 'getprop', 'ro.boot.flash.locked'], { serial }),
-      this.run(['shell', 'getprop', 'ro.debuggable'], { serial }),
-      this.run(['shell', 'getprop', 'ro.secure'], { serial }),
+    const [properties, suCheck, playProtect] = await Promise.all([
+      this.allProperties(serial),
       this.run(['shell', 'which', 'su'], { serial }),
       this.run(['shell', 'settings', 'get', 'global', 'package_verifier_user_consent'], { serial }),
     ]);
     const trim = (r: ProcessResult) => r.stdout.trim();
+    const propValue = (key: string): string => properties.find((p) => p.key === key)?.value ?? '';
 
-    const verifiedBootValue = trim(verifiedBoot);
-    const flashLockedValue = trim(flashLocked);
-    const debuggableValue = trim(debuggable);
-    const secureValue = trim(secure);
+    const verifiedBootValue = propValue('ro.boot.verifiedbootstate');
+    const flashLockedValue = propValue('ro.boot.flash.locked');
+    const debuggableValue = propValue('ro.debuggable');
+    const secureValue = propValue('ro.secure');
     const suValue = trim(suCheck);
     const playProtectValue = trim(playProtect);
 
