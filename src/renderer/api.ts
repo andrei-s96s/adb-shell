@@ -193,6 +193,7 @@ export interface AppSettings {
   statsAlertCpuThreshold: number;
   statsAlertBatteryThreshold: number;
   globalScreenshotHotkeyEnabled: boolean;
+  screenshotHotkeyAccelerator?: string;
   defaultShowSystemApps: boolean;
   autoCheckUpdates: boolean;
   themePreference: 'system' | 'light' | 'dark';
@@ -468,6 +469,7 @@ export interface AdbApi {
 
   settingsGet(): Promise<AppSettings>;
   settingsUpdate(partial: Partial<AppSettings>): Promise<AppSettings>;
+  settingsScreenshotHotkeyActive(): Promise<boolean>;
   resetAlertArm(): Promise<void>;
   checkAlertThresholds(stats: DeviceStats): Promise<ThresholdCheckResult>;
 

@@ -1193,6 +1193,29 @@ input[type='checkbox']:checked::after {
   color: var(--cp-text-primary);
 }
 
+/* Группирует поле сочетания хоткея + бейдж активности в один блок --
+   .settings-row по умолчанию space-between для ДВУХ прямых детей (подпись
+   + control); без этой обёртки поле и бейдж оказались бы третьим/четвёртым
+   прямым ребёнком .settings-row и растащились бы по всей ширине строки, тот
+   же класс проблемы, что уже ловился и лечился так же (.apps-row-main,
+   .device-row-main и т.п.) в других местах приложения. */
+.settings-hotkey-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.settings-hotkey-group input {
+  width: 220px;
+  font-family: inherit;
+  font-size: var(--fs-12);
+  padding: var(--space-8);
+  border-radius: var(--radius-8);
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
+}
+
 /* Донат -- те же данные, что на отдельной странице
    https://andrei-s96s.github.io/adb-shell/, но показаны прямо в приложении,
    без похода во внешний браузер. */

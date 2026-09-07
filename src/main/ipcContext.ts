@@ -50,8 +50,9 @@ export interface IpcContext {
   readonly deviceHistory: DeviceHistoryStore;
   readonly appSettings: AppSettingsStore;
   readonly logcatSessions: Map<string, LogcatSession | DemoLogcatSession>;
-  /** Определена в main.ts (нужны HOTKEY_ACCELERATOR/captureScreenshotToDesktop,
-   * которые остаются там же) -- settings:update (settings/registerIpc.ts)
+  /** Определена в main.ts (нужны screenshotHotkeyAccelerator()/
+   * captureScreenshotToDesktop, которые остаются там же) -- settings:update
+   * (settings/registerIpc.ts)
    * вызывает её при изменении globalScreenshotHotkeyEnabled. */
   readonly applyHotkeySetting: () => void;
   /** Тоже определена в main.ts (нужны globalShortcut/hotkeySelectedSerial) --
@@ -61,4 +62,10 @@ export interface IpcContext {
   /** Снимок того, какие аккселераторы макросов реально зарегистрированы
    * прямо сейчас -- см. macros:activeHotkeys. */
   readonly activeMacroHotkeyAccelerators: () => string[];
+  /** Реально ли сейчас зарегистрирован глобальный хоткей скриншота (тумблер
+   * включён И само сочетание не занято другим приложением/ОС) -- см.
+   * settings:screenshotHotkeyActive. Тот же принцип обратной связи, что и
+   * activeMacroHotkeyAccelerators выше, только для одного хоткея, а не
+   * списка. */
+  readonly isScreenshotHotkeyActive: () => boolean;
 }

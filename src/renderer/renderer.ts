@@ -747,8 +747,9 @@ initMacrosScreen();
 initDonateScreen();
 initCommandPalette();
 // Держим main в курсе выбранного устройства -- нужно глобальному хоткею
-// скриншота (main.ts, HOTKEY_ACCELERATOR), который обязан работать и когда
-// окно не в фокусе, то есть без похода за состоянием сюда в момент нажатия.
+// скриншота (main.ts, screenshotHotkeyAccelerator()), который обязан
+// работать и когда окно не в фокусе, то есть без похода за состоянием сюда
+// в момент нажатия.
 onDeviceChanged((serial) => void adbApi.setHotkeySelectedSerial(serial));
 initGlobalApkDrop();
 selectDevice(undefined);

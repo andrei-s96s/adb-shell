@@ -9,14 +9,24 @@ import { app } from 'electron';
 import * as path from 'node:path';
 import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
+/** Сочетание по умолчанию для globalScreenshotHotkeyEnabled --
+ * используется, когда screenshotHotkeyAccelerator не задан явно (в т.ч. у
+ * всех настроек, сохранённых до появления кастомизации). */
+export const DEFAULT_SCREENSHOT_HOTKEY = 'CommandOrControl+Shift+S';
+
 export interface AppSettings {
   statsAlertsEnabled: boolean;
   statsAlertCpuThreshold: number;
   statsAlertBatteryThreshold: number;
-  /** Глобальный хоткей Ctrl/Cmd+Shift+S -- тихий скриншот выбранного
-   * устройства прямо на Рабочий стол, работает даже когда окно не в фокусе.
-   * Аналог @AppStorage("globalScreenshotHotkeyEnabled") в Swift-версии. */
+  /** Глобальный хоткей -- тихий скриншот выбранного устройства прямо на
+   * Рабочий стол, работает даже когда окно не в фокусе. Аналог
+   * @AppStorage("globalScreenshotHotkeyEnabled") в Swift-версии. */
   globalScreenshotHotkeyEnabled: boolean;
+  /** Конкретное сочетание клавиш (формат Electron Accelerator) --
+   * undefined/пусто -- используется DEFAULT_SCREENSHOT_HOTKEY. Появилось
+   * позже самого тумблера выше -- у настроек, сохранённых до этого,
+   * просто отсутствует, что корректно читается как "не переопределён". */
+  screenshotHotkeyAccelerator?: string;
   /** Показывать системные приложения по умолчанию при открытии вкладки
    * Приложения (сам чекбокс в тулбаре по-прежнему можно переключить). */
   defaultShowSystemApps: boolean;

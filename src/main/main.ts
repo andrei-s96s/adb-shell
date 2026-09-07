@@ -14,7 +14,7 @@ import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
 import { DevicePinStore } from './devicePins/DevicePinStore';
 import { DeviceTagStore } from './deviceTags/DeviceTagStore';
 import { DeviceHistoryStore } from './deviceHistory/DeviceHistoryStore';
-import { AppSettingsStore } from './settings/AppSettingsStore';
+import { AppSettingsStore, DEFAULT_SCREENSHOT_HOTKEY } from './settings/AppSettingsStore';
 import { timestampForFilename } from './util/timestamp';
 import { showSaveDialogFor, showOpenDialogFor } from './util/dialogs';
 import { mapWithConcurrency } from './util/concurrency';
@@ -86,14 +86,24 @@ const ctx: IpcContext = {
   applyHotkeySetting: () => applyHotkeySetting(),
   applyMacroHotkeys: () => applyMacroHotkeys(),
   activeMacroHotkeyAccelerators: () => [...registeredMacroAccelerators],
+  isScreenshotHotkeyActive: () => registeredScreenshotAccelerator !== undefined,
 };
 
 /** Serial выбранного в renderer устройства -- renderer сообщает о каждой
  * смене через hotkey:setSelectedSerial, потому что глобальный хоткей
- * (см. registerScreenshotHotkey ниже) обязан работать и когда окно не в
+ * (см. applyHotkeySetting ниже) обязан работать и когда окно не в
  * фокусе, то есть без похода за состоянием в renderer в момент нажатия. */
 let hotkeySelectedSerial: string | undefined;
-const HOTKEY_ACCELERATOR = 'CommandOrControl+Shift+S';
+
+/** Сочетание, которым СЕЙЧАС настроен хоткей скриншота (задано пользователем
+ * в Настройках, либо DEFAULT_SCREENSHOT_HOTKEY) -- используется и здесь
+ * (что регистрировать), и в applyMacroHotkeys() ниже (что не отдавать
+ * макросу), поэтому читает settings напрямую, а не хранит своё отдельное
+ * состояние -- изменение настройки должно быть видно обеим функциям сразу,
+ * без риска разойтись. */
+function screenshotHotkeyAccelerator(): string {
+  return appSettings.get().screenshotHotkeyAccelerator?.trim() || DEFAULT_SCREENSHOT_HOTKEY;
+}
 
 /** Тихий скриншот выбранного устройства прямо на Рабочий стол -- аналог
  * GlobalHotkeyService.captureScreenshot(devicesVM:) из
@@ -113,14 +123,29 @@ async function captureScreenshotToDesktop(): Promise<void> {
   }
 }
 
+/** Что РЕАЛЬНО сейчас зарегистрировано globalShortcut для скриншота --
+ * отдельно от screenshotHotkeyAccelerator() (то, чем НАСТРОЕНО): нужно,
+ * чтобы снять именно старое сочетание перед регистрацией нового, если
+ * пользователь его сменил -- globalShortcut.unregister() снимает только
+ * точное совпадение строки, снятие по уже неактуальному значению из
+ * настроек ничего не даст. undefined -- хоткей сейчас выключен или не
+ * удалось зарегистрировать (сочетание занято другим приложением/ОС). */
+let registeredScreenshotAccelerator: string | undefined;
+
 /** Регистрирует/снимает глобальный хоткей по текущему значению настройки --
- * вызывается при старте приложения и при каждом изменении настройки. */
+ * вызывается при старте приложения и при каждом изменении настройки
+ * (тумблер вкл/выкл, само сочетание). */
 function applyHotkeySetting(): void {
-  globalShortcut.unregister(HOTKEY_ACCELERATOR);
+  if (registeredScreenshotAccelerator) {
+    globalShortcut.unregister(registeredScreenshotAccelerator);
+    registeredScreenshotAccelerator = undefined;
+  }
   if (appSettings.get().globalScreenshotHotkeyEnabled) {
+    const accelerator = screenshotHotkeyAccelerator();
     // register() возвращает false, если сочетание уже занято другим
     // приложением/системой -- не бросает исключение, тихо не активируется.
-    globalShortcut.register(HOTKEY_ACCELERATOR, () => void captureScreenshotToDesktop());
+    const ok = globalShortcut.register(accelerator, () => void captureScreenshotToDesktop());
+    if (ok) registeredScreenshotAccelerator = accelerator;
   }
 }
 
@@ -148,26 +173,33 @@ async function runMacroFromHotkey(macroId: string): Promise<void> {
 }
 
 /** Аккселераторы макросов, зарегистрированные ПРЯМО СЕЙЧАС -- отдельно от
- * HOTKEY_ACCELERATOR (скриншот, свой unregister по имени) и друг от друга,
- * чтобы applyMacroHotkeys() ниже мог явно снять именно macro-хоткеи перед
+ * скриншот-хоткея (свой unregister по имени) и друг от друга, чтобы
+ * applyMacroHotkeys() ниже мог явно снять именно macro-хоткеи перед
  * перерегистрацией, не трогая скриншот-хоткей. */
 let registeredMacroAccelerators: string[] = [];
 
 /** Перерегистрирует глобальные хоткеи всех макросов -- вызывается при
- * старте приложения и при каждом add/update/remove/import макросов
- * (см. IpcContext.applyMacroHotkeys), т.к. набор аккселераторов мог
- * измениться. Явно пропускает точное совпадение с HOTKEY_ACCELERATOR
- * (скриншот) -- Electron иначе тихо отдал бы этот аккселератор макросу,
- * унеся с собой уже работавший хоткей скриншота без единого предупреждения.
- * Макрос-vs-макрос коллизии (два макроса с одним и тем же сочетанием)
- * Electron тоже не разруливает -- в списке макросов (macros.ts) такой
- * макрос помечается как "хоткей не активен" через macros:activeHotkeys. */
+ * старте приложения, при каждом add/update/remove/import макросов (см.
+ * IpcContext.applyMacroHotkeys) и при изменении хоткея скриншота в
+ * Настройках (то, что макросу нельзя занять, само может смениться).
+ * Явно пропускает точное совпадение с screenshotHotkeyAccelerator() --
+ * Electron иначе тихо отдал бы это сочетание макросу, унеся с собой уже
+ * работавший хоткей скриншота без единого предупреждения. Сверяется с
+ * НАСТРОЕННЫМ значением, а не с тем, что реально сейчас зарегистрировано
+ * (registeredScreenshotAccelerator может быть undefined, если тумблер
+ * скриншот-хоткея сейчас выключен) -- иначе включение тумблера обратно
+ * могло бы обнаружить, что сочетание уже "украдено" макросом, который
+ * успел зарегистрироваться в промежутке. Макрос-vs-макрос коллизии (два
+ * макроса с одним и тем же сочетанием) Electron тоже не разруливает -- в
+ * списке макросов (macros.ts) такой макрос помечается как "хоткей не
+ * активен" через macros:activeHotkeys. */
 function applyMacroHotkeys(): void {
   for (const accelerator of registeredMacroAccelerators) globalShortcut.unregister(accelerator);
   registeredMacroAccelerators = [];
+  const reservedForScreenshot = screenshotHotkeyAccelerator();
   for (const macro of ctx.macroStore.list()) {
     const accelerator = macro.hotkeyAccelerator;
-    if (!accelerator || accelerator === HOTKEY_ACCELERATOR) continue;
+    if (!accelerator || accelerator === reservedForScreenshot) continue;
     if (variableNames(macro).length > 0) continue;
     const ok = globalShortcut.register(accelerator, () => void runMacroFromHotkey(macro.id));
     if (ok) registeredMacroAccelerators.push(accelerator);

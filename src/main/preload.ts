@@ -285,6 +285,7 @@ contextBridge.exposeInMainWorld('adbApi', {
 
   settingsGet: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   settingsUpdate: (partial: Partial<AppSettings>): Promise<AppSettings> => ipcRenderer.invoke('settings:update', partial),
+  settingsScreenshotHotkeyActive: (): Promise<boolean> => ipcRenderer.invoke('settings:screenshotHotkeyActive'),
   resetAlertArm: (): Promise<void> => ipcRenderer.invoke('monitoring:resetAlertArm'),
   checkAlertThresholds: (stats: DeviceStats): Promise<ThresholdCheckResult> =>
     ipcRenderer.invoke('monitoring:checkThresholds', stats),

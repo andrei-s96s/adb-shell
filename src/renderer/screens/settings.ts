@@ -13,6 +13,8 @@ let enabledEl: HTMLInputElement;
 let cpuEl: HTMLInputElement;
 let batteryEl: HTMLInputElement;
 let hotkeyEnabledEl: HTMLInputElement;
+let hotkeyAcceleratorEl: HTMLInputElement;
+let hotkeyStatusEl: HTMLSpanElement;
 let autoUpdateCheckEl: HTMLInputElement;
 let defaultSystemAppsEl: HTMLInputElement;
 let themeEl: HTMLSelectElement;
@@ -36,6 +38,8 @@ export function initSettingsScreen(): void {
   cpuEl = el<HTMLInputElement>('settings-cpu-threshold');
   batteryEl = el<HTMLInputElement>('settings-battery-threshold');
   hotkeyEnabledEl = el<HTMLInputElement>('settings-hotkey-enabled');
+  hotkeyAcceleratorEl = el<HTMLInputElement>('settings-hotkey-accelerator');
+  hotkeyStatusEl = el<HTMLSpanElement>('settings-hotkey-status');
   autoUpdateCheckEl = el<HTMLInputElement>('settings-auto-update-check');
   defaultSystemAppsEl = el<HTMLInputElement>('settings-default-system-apps');
   themeEl = el<HTMLSelectElement>('settings-theme');
@@ -43,7 +47,16 @@ export function initSettingsScreen(): void {
 
   void load();
 
-  for (const input of [enabledEl, cpuEl, batteryEl, hotkeyEnabledEl, autoUpdateCheckEl, defaultSystemAppsEl, themeEl]) {
+  for (const input of [
+    enabledEl,
+    cpuEl,
+    batteryEl,
+    hotkeyEnabledEl,
+    hotkeyAcceleratorEl,
+    autoUpdateCheckEl,
+    defaultSystemAppsEl,
+    themeEl,
+  ]) {
     input.addEventListener('change', () => void save());
   }
 
@@ -87,11 +100,35 @@ async function load(): Promise<void> {
     cpuEl.value = String(settings.statsAlertCpuThreshold);
     batteryEl.value = String(settings.statsAlertBatteryThreshold);
     hotkeyEnabledEl.checked = settings.globalScreenshotHotkeyEnabled;
+    hotkeyAcceleratorEl.value = settings.screenshotHotkeyAccelerator ?? '';
     autoUpdateCheckEl.checked = settings.autoCheckUpdates;
     defaultSystemAppsEl.checked = settings.defaultShowSystemApps;
     themeEl.value = settings.themePreference;
+    void refreshHotkeyStatus();
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+/** Бейдж "хоткей реально сейчас активен" -- тот же приём, что и у ⌨/⌨⚠ в
+ * списке макросов (macros.ts): сочетание может быть настроено и включено,
+ * но не зарегистрировано, если оно уже занято другим приложением/ОС --
+ * без явной обратной связи пользователь не узнал бы об этом никак, кроме
+ * как заметив, что хоткей "просто не работает". Пусто, если тумблер сейчас
+ * выключен -- показывать предупреждение про заведомо выключенную функцию
+ * только сбивало бы с толку. */
+async function refreshHotkeyStatus(): Promise<void> {
+  if (!hotkeyEnabledEl.checked) {
+    hotkeyStatusEl.textContent = '';
+    hotkeyStatusEl.title = '';
+    return;
+  }
+  try {
+    const active = await adbApi.settingsScreenshotHotkeyActive();
+    hotkeyStatusEl.textContent = active ? '⌨ активен' : '⌨⚠ не активен';
+    hotkeyStatusEl.title = active ? '' : 'Сочетание занято другим приложением или ОС -- попробуйте другое';
+  } catch {
+    hotkeyStatusEl.textContent = '';
   }
 }
 
@@ -105,12 +142,17 @@ async function save(): Promise<void> {
       statsAlertCpuThreshold: Number.isFinite(cpu) ? cpu : 90,
       statsAlertBatteryThreshold: Number.isFinite(battery) ? battery : 15,
       globalScreenshotHotkeyEnabled: hotkeyEnabledEl.checked,
+      screenshotHotkeyAccelerator: hotkeyAcceleratorEl.value.trim() || undefined,
       autoCheckUpdates: autoUpdateCheckEl.checked,
       defaultShowSystemApps: defaultSystemAppsEl.checked,
       themePreference,
     });
     applyTheme(themePreference);
     statusEl.textContent = 'Сохранено';
+    // main уже перерегистрировал хоткей синхронно внутри settings:update
+    // (applyMacroHotkeys()+applyHotkeySetting() в main.ts) -- к этому
+    // моменту сервер уже знает актуальное состояние.
+    void refreshHotkeyStatus();
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
