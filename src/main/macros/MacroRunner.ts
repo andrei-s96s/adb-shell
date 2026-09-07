@@ -15,6 +15,7 @@ import { AdbService } from '../adb/AdbService';
 import { combinedOutput } from '../adb/types/ProcessResult';
 import { Macro, MacroRunResult } from '../adb/types/Macro';
 import { resolveVariables } from './macroRunnerLogic';
+import { tokenizeArgs } from '../adb/parsers/ShellQuoting';
 
 export interface MacroRunOutcome {
   completedFully: boolean;
@@ -30,7 +31,7 @@ export async function runMacro(
   const results: MacroRunResult[] = [];
   for (const step of macro.steps) {
     const resolvedLine = resolveVariables(step.argsLine, variables);
-    const tokens = resolvedLine.split(' ').filter((t) => t.length > 0);
+    const tokens = tokenizeArgs(resolvedLine);
     if (tokens.length === 0) continue;
     try {
       const result = await service.run(tokens, { serial });

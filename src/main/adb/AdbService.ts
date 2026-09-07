@@ -32,7 +32,7 @@ import { AppUsageStat } from './types/AppUsageStat';
 import { parseUsageStats } from './parsers/UsageStatsParser';
 import { CrashTraceFile } from './types/CrashTraceFile';
 import { parseCrashTraceListing } from './parsers/CrashTraceParser';
-import { singleQuoted } from './parsers/ShellQuoting';
+import { singleQuoted, tokenizeArgs } from './parsers/ShellQuoting';
 import { parseApkPaths } from './parsers/ApkPathParser';
 import { parseVersionCodes } from './parsers/VersionCodeParser';
 
@@ -194,12 +194,12 @@ export class AdbService {
    * `adb -s <serial> shell <argsLine>`. Нужно для команд вроде `root` или
    * `remount`, которые являются подкомандами самого adb, а не программами
    * на устройстве -- в отличие от shell(), не заворачивает текст в shell
-   * устройства. Та же токенизация (пробел, без учёта кавычек), что и в
+   * устройства. Та же quote-aware токенизация (tokenizeArgs), что и в
    * MacroRunner.run() (src/main/macros/MacroRunner.ts) -- используется
    * вкладкой Shell, когда пользователь набирает команду с префиксом `adb `,
    * как в терминале. */
   async runRaw(serial: string, argsLine: string): Promise<string> {
-    const tokens = argsLine.split(' ').filter((t) => t.length > 0);
+    const tokens = tokenizeArgs(argsLine);
     // timeoutMs: 0 -- та же причина, что и в shell() выше (в т.ч. используется
     // макросами, где отдельный шаг вроде `adb wait-for-device` намеренно
     // ждёт неопределённое время).
