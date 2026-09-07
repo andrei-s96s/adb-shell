@@ -522,10 +522,15 @@ export class AdbService {
     return files;
   }
 
-  /** Хвост файла трейса — полные tombstone-файлы могут быть большими,
-   * показываем последние ~30000 байт, обычно там самое важное (стек, сигнал). */
+  /** Начало файла трейса — полные tombstone-файлы могут быть большими, а
+   * самое важное (build fingerprint, сигнал/код/fault-адрес, регистры,
+   * backtrace упавшего потока) идёт в самом начале; в конце -- список
+   * открытых файлов и карта памяти (может быть огромной сама по себе,
+   * особенно при большом числе загруженных библиотек), которые почти
+   * никогда не то, что нужно увидеть первым. Раньше брался ХВОСТ (tail) --
+   * для больших файлов это как раз обрезало самую полезную часть. */
   async readCrashTrace(serial: string, filePath: string): Promise<string> {
-    const result = await this.run(['shell', 'tail', '-c', '30000', singleQuoted(filePath)], { serial });
+    const result = await this.run(['shell', 'head', '-c', '30000', singleQuoted(filePath)], { serial });
     if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
     return result.stdout;
   }
