@@ -58,6 +58,62 @@ let demoModeOn = false;
  * предыдущий редактор без сохранения (как blur). */
 let renamingSerial: string | undefined;
 
+/** Сетевые устройства (serial вида host:port), которые были готовы
+ * (state === 'device') на ПРЕДЫДУЩЕМ тике поллинга -- см.
+ * autoReconnectDroppedProfiles ниже про то, зачем это отслеживать. */
+let readyNetworkHosts = new Set<string>();
+/** Host, который пользователь ОТКЛЮЧИЛ вручную кнопкой "Отключить" в этой
+ * сессии -- автопереподключение больше не трогает его, пока пользователь
+ * сам не подключится заново (полем host/кнопкой профиля) или не
+ * перезапустит приложение. Без этого исключения кнопка "Отключить" была
+ * бы бесполезна для любого устройства с autoConnect-профилем -- следующий
+ * тик поллинга (3 секунды) тут же подключил бы его снова.
+ */
+const manuallyDisconnectedHosts = new Set<string>();
+/** Не пытаться переподключать один и тот же host чаще, чем раз в этот
+ * промежуток -- иначе устройство, реально выключенное надолго (а не просто
+ * потерявшее Wi-Fi на секунду), долбилось бы `adb connect` на каждом тике
+ * поллинга (3 секунды) бесконечно. */
+const RECONNECT_RETRY_MS = 15_000;
+const lastReconnectAttemptMs = new Map<string, number>();
+
+/** Автопереподключение сетевых профилей при обрыве связи -- отличается от
+ * connectionProfilesAutoConnect() (тот подключает всё СПИСКОМ один раз при
+ * старте приложения, см. bootDeviceIdentity): здесь отслеживается каждый
+ * тик поллинга устройств, чтобы заметить сетевое устройство, которое было
+ * подключено, а потом пропало из списка (роутер перезагрузился, устройство
+ * заснуло и потеряло Wi-Fi и т.п.), и попытаться подключить его снова —
+ * без этого пользователю приходилось замечать обрыв самому и жать
+ * "Подключить" вручную. Best-effort и полностью тихое — ошибка
+ * реконнекта не показывается (устройство и так уже показано как
+ * отключённое в списке). */
+async function autoReconnectDroppedProfiles(currentDevices: Device[]): Promise<void> {
+  let autoConnectHosts: Set<string>;
+  try {
+    autoConnectHosts = new Set((await adbApi.connectionProfilesList()).filter((p) => p.autoConnect).map((p) => p.host));
+  } catch {
+    return;
+  }
+  if (autoConnectHosts.size === 0) return;
+
+  const nowReady = new Set(
+    currentDevices.filter((d) => d.state === 'device' && d.serial.includes(':')).map((d) => d.serial)
+  );
+  const droppedHosts = [...readyNetworkHosts].filter((host) => !nowReady.has(host));
+  readyNetworkHosts = nowReady;
+
+  for (const host of droppedHosts) {
+    if (manuallyDisconnectedHosts.has(host) || !autoConnectHosts.has(host)) continue;
+    const lastAttempt = lastReconnectAttemptMs.get(host) ?? 0;
+    if (Date.now() - lastAttempt < RECONNECT_RETRY_MS) continue;
+    lastReconnectAttemptMs.set(host, Date.now());
+    adbApi.connectionProfilesConnect(host).catch(() => {
+      // Тихо -- устройство и так уже отмечено как пропавшее в списке,
+      // отдельная ошибка тут пользователю ничего нового не сообщит.
+    });
+  }
+}
+
 async function refreshDevices(): Promise<void> {
   statusEl.textContent = 'Обновление…';
   try {
@@ -72,6 +128,7 @@ async function refreshDevices(): Promise<void> {
       selectDevice(undefined);
     }
     void triggerAutorunMacros(devices);
+    void autoReconnectDroppedProfiles(devices);
   } catch (error) {
     // Раньше при ошибке (например, adb не найден на PATH -- ровно тот
     // случай, ради которого существует демо-режим) devices оставался
@@ -347,6 +404,10 @@ function renderDeviceList(): void {
         void (async () => {
           try {
             await adbApi.disconnect(device.serial);
+            // Явное действие пользователя -- автопереподключение (см.
+            // autoReconnectDroppedProfiles) не должно тут же подключить
+            // это устройство обратно на следующем тике поллинга.
+            manuallyDisconnectedHosts.add(device.serial);
             if (getCurrentSerial() === device.serial) selectDevice(undefined);
             await refreshDevices();
           } catch (error) {
@@ -470,6 +531,7 @@ function renderMdnsList(): void {
           statusEl.textContent = 'Подключение…';
           try {
             statusEl.textContent = await adbApi.connect(mdnsDevice.address);
+            manuallyDisconnectedHosts.delete(mdnsDevice.address);
             await refreshDevices();
           } catch (error) {
             statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
@@ -519,6 +581,9 @@ function renderProfilesList(): void {
         statusEl.textContent = 'Подключение…';
         try {
           statusEl.textContent = await adbApi.connectionProfilesConnect(profile.host);
+          // См. комментарий у connectBtn выше -- то же "прощение" ручного
+          // отключения при явном повторном подключении этого host.
+          manuallyDisconnectedHosts.delete(profile.host);
           await refreshDevices();
         } catch (error) {
           statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
@@ -615,6 +680,10 @@ connectBtn.addEventListener('click', () => {
     try {
       const result = await adbApi.connect(host);
       statusEl.textContent = result;
+      // Пользователь сам подключил этот host заново -- если он раньше
+      // отключил его вручную (см. disconnectBtn выше), это "прощает" его,
+      // автопереподключение снова может подхватывать будущие обрывы связи.
+      manuallyDisconnectedHosts.delete(host);
       await refreshDevices();
     } catch (error) {
       statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
