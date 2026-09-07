@@ -37,6 +37,23 @@ let lastClickedPackage: string | undefined;
 let netPollTimer: ReturnType<typeof setInterval> | undefined;
 let lastNetSample: { rx: number; tx: number; at: number } | undefined;
 
+/** packageName -> <li> текущего рендера списка -- заполняется в renderList(),
+ * позволяет клику по строке (простой клик подсвечивает выбор, но не меняет
+ * набор отфильтрованных приложений) переключать класс .selected точечно, не
+ * пересобирая innerHTML и не запрашивая иконки заново на каждый клик. */
+let rowsByPackage = new Map<string, HTMLLIElement>();
+
+/** serial:packageName -> data URI -- renderList() вызывается не только при
+ * смене устройства/списка, а на каждый keystroke в поиске и (раньше) на
+ * каждый клик по строке; без кэша уже показанная иконка перезапрашивалась
+ * бы по IPC заново при каждом таком вызове, хотя AppIconService на стороне
+ * main и так уже кеширует на диске -- сам круговой IPC-запрос и base64
+ * data-URI собираются заново впустую, плюс иконка визуально мигала
+ * (сброс на плейсхолдер и повторная асинхронная подгрузка). */
+const iconCache = new Map<string, string>();
+
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
 export function initAppsScreen(): void {
   listEl = el<HTMLUListElement>('apps-list');
   detailEl = el<HTMLDivElement>('apps-detail');
@@ -45,7 +62,11 @@ export function initAppsScreen(): void {
   showSystemEl = el<HTMLInputElement>('apps-show-system');
   batchToolbarEl = el<HTMLDivElement>('apps-batch-toolbar');
 
-  searchEl.addEventListener('input', renderList);
+  // Debounce -- ввод короткого запроса из нескольких символов иначе означает
+  // столько же полных перерисовок списка подряд (renderList() пересоздаёт
+  // все строки), заметно на списке из сотни+ приложений. showSystemEl --
+  // дискретный чекбокс, не поток событий как ввод текста, дебаунс ему не нужен.
+  searchEl.addEventListener('input', scheduleSearchRender);
   showSystemEl.addEventListener('change', renderList);
   void loadDefaultShowSystemApps().then((value) => {
     showSystemEl.checked = value;
@@ -80,6 +101,14 @@ export function initAppsScreen(): void {
 function clearSelection(): void {
   selectedForBatch = new Set();
   lastClickedPackage = undefined;
+}
+
+function scheduleSearchRender(): void {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    searchDebounceTimer = undefined;
+    renderList();
+  }, 200);
 }
 
 function filteredApps(): InstalledApp[] {
@@ -238,10 +267,12 @@ function renderList(): void {
   const order = filtered.map((a) => a.packageName);
 
   listEl.innerHTML = '';
+  rowsByPackage = new Map();
   const serialForIcons = getCurrentSerial();
   for (const app of filtered) {
     const li = document.createElement('li');
     li.className = 'row' + (selectedForBatch.has(app.packageName) ? ' selected' : '');
+    rowsByPackage.set(app.packageName, li);
 
     const main = document.createElement('div');
     main.className = 'apps-row-main';
@@ -267,7 +298,11 @@ function renderList(): void {
 
     li.addEventListener('click', (event) => {
       handleRowClick(app.packageName, order, event.metaKey || event.ctrlKey, event.shiftKey);
-      renderList();
+      // Точечно переключаем .selected на уже существующих строках -- клик
+      // выбора не меняет отфильтрованный набор, полная пересборка списка
+      // (и вместе с ней -- безусловная перезагрузка всех видимых иконок по
+      // IPC) здесь не нужна.
+      updateSelectionClasses();
       renderBatchToolbar();
       const serial = getCurrentSerial();
       if (serial && selectedForBatch.size === 1) {
@@ -305,6 +340,12 @@ function handleRowClick(packageName: string, order: string[], meta: boolean, shi
   }
   selectedForBatch = new Set([packageName]);
   lastClickedPackage = packageName;
+}
+
+function updateSelectionClasses(): void {
+  for (const [pkg, li] of rowsByPackage) {
+    li.classList.toggle('selected', selectedForBatch.has(pkg));
+  }
 }
 
 function renderBatchToolbar(): void {
@@ -391,13 +432,21 @@ function formatBytes(bytes: number): string {
  * свою один раз; если строка успела уйти из DOM (сменился список/устройство,
  * пока летел запрос), просто не применяем устаревший результат. */
 function loadIcon(icon: HTMLImageElement, serial: string, packageName: string): void {
+  const cacheKey = `${serial}:${packageName}`;
+  const cached = iconCache.get(cacheKey);
+  if (cached) {
+    icon.src = cached;
+    return;
+  }
   adbApi
     .iconGet(serial, packageName)
     .then((dataUri) => {
       // Полный data: URI, а не голый base64 -- сама иконка может быть и
       // PNG, и WEBP (см. AppIconService.ts), MIME для <img> собирается на
       // стороне main, здесь просто присваивается как есть.
-      if (!dataUri || !icon.isConnected) return;
+      if (!dataUri) return;
+      iconCache.set(cacheKey, dataUri);
+      if (!icon.isConnected) return; // строка могла уйти из DOM, пока летел запрос
       icon.src = dataUri;
     })
     .catch(() => {
