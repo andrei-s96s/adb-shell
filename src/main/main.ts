@@ -769,11 +769,18 @@ function registerIpcHandlers(): void {
     logcatSessions.get(serial)?.stop();
     const session = serial === DEMO_SERIAL ? new DemoLogcatSession(adb.adbPath, serial) : new LogcatSession(adb.adbPath, serial);
     logcatSessions.set(serial, session);
-    session.start((line) => {
-      if (!event.sender.isDestroyed()) {
-        event.sender.send('logcat:line', serial, line);
+    session.start(
+      (line) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('logcat:line', serial, line);
+        }
+      },
+      () => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('logcat:ended', serial);
+        }
       }
-    });
+    );
   });
   ipcMain.handle('adb:stopLogcat', (_e, serial: string) => {
     logcatSessions.get(serial)?.stop();

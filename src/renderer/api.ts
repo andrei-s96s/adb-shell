@@ -424,6 +424,7 @@ export interface AdbApi {
   stopLogcat(serial: string): Promise<void>;
   clearLogcatBuffer(serial: string): Promise<void>;
   onLogcatLine(callback: (serial: string, line: string) => void): () => void;
+  onLogcatEnded(callback: (serial: string) => void): () => void;
 
   mirrorIsAvailable(): Promise<boolean>;
   mirrorRunningSerials(): Promise<string[]>;

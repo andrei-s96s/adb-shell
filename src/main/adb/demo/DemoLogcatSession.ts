@@ -33,7 +33,11 @@ export class DemoLogcatSession {
     return this.timer !== undefined;
   }
 
-  start(onLine: (line: string) => void): void {
+  // onExit здесь никогда не вызывается -- у демо-сессии нет реального
+  // процесса, которому есть от чего "оборваться самому"; параметр только
+  // для совместимости сигнатуры с LogcatSession (main.ts хранит оба класса
+  // в одной Map и вызывает start() полиморфно).
+  start(onLine: (line: string) => void, _onExit?: () => void): void {
     this.stop();
     // Первая строка сразу -- иначе экран несколько секунд выглядит пустым/сломанным.
     onLine(this.nextLine());

@@ -18,6 +18,7 @@ let autoscrollCheckbox: HTMLInputElement;
 let allLines: LogLine[] = [];
 let isRunning = false;
 let unsubscribe: (() => void) | undefined;
+let unsubscribeEnded: (() => void) | undefined;
 let activeSerial: string | undefined;
 
 export function initLogcatScreen(): void {
@@ -47,6 +48,15 @@ export function initLogcatScreen(): void {
     allLines.push(parsed);
     if (allLines.length > MAX_LINES) allLines.splice(0, allLines.length - MAX_LINES);
     renderLog();
+  });
+  // Процесс adb logcat мог завершиться сам (устройство отключили, оборвалось
+  // Wi-Fi-соединение) -- без этого стрим молча замолкал: кнопки продолжали
+  // показывать "запущено", хотя новых строк больше никогда не будет.
+  unsubscribeEnded = adbApi.onLogcatEnded((serial) => {
+    if (serial !== activeSerial || !isRunning) return;
+    isRunning = false;
+    updateButtons();
+    statusEl.textContent = 'Поток logcat неожиданно оборвался — устройство отключилось или потеряно соединение. Нажмите «Старт», чтобы возобновить.';
   });
 
   onDeviceChanged((serial) => {

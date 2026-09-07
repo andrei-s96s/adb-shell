@@ -251,6 +251,11 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.on('logcat:line', listener);
     return () => ipcRenderer.removeListener('logcat:line', listener);
   },
+  onLogcatEnded: (callback: (serial: string) => void) => {
+    const listener = (_event: IpcRendererEvent, serial: string) => callback(serial);
+    ipcRenderer.on('logcat:ended', listener);
+    return () => ipcRenderer.removeListener('logcat:ended', listener);
+  },
 
   mirrorIsAvailable: (): Promise<boolean> => ipcRenderer.invoke('mirror:isAvailable'),
   mirrorRunningSerials: (): Promise<string[]> => ipcRenderer.invoke('mirror:runningSerials'),

@@ -17,7 +17,14 @@ export class LogcatSession {
     return this.process !== undefined && !this.process.killed;
   }
 
-  start(onLine: (line: string) => void): void {
+  /** onExit сообщает, что процесс `adb logcat` завершился САМ (устройство
+   * отключили, потерялось Wi-Fi-соединение при беспроводном adb -- тот же
+   * сценарий, из-за которого AdbService.run() получил DEFAULT_TIMEOUT_MS),
+   * а не по явному stop() -- тогда слушатель уже снят перед kill() и это
+   * событие не долетит. Без него стрим молча замолкал: isRunning
+   * оставался true (проверял только process.killed), а UI не получал ни
+   * единого сигнала, что живой лог оборвался. */
+  start(onLine: (line: string) => void, onExit?: () => void): void {
     this.stop();
 
     const child = spawn(this.adbPath, ['-s', this.serial, 'logcat', '-v', 'threadtime'], { windowsHide: true });
@@ -37,6 +44,12 @@ export class LogcatSession {
     child.on('error', (error) => {
       onLine(`[ошибка запуска adb logcat: ${error.message}]`);
     });
+
+    child.on('close', () => {
+      this.process = undefined;
+      this.buffer = '';
+      onExit?.();
+    });
   }
 
   /** Очищает лог-буфер УСТРОЙСТВА (adb logcat -c), не влияет на текущий стрим.
@@ -53,13 +66,17 @@ export class LogcatSession {
 
   stop(): void {
     if (this.process) {
-      // Снимаем слушатель ПЕРЕД kill(): SIGTERM не мгновенен, и без этого
+      // Снимаем слушатели ПЕРЕД kill(): SIGTERM не мгновенен, и без этого
       // строки, ещё летящие от уже "остановленного" процесса, попадали бы в
       // onLine() старой сессии — а вызывающая сторона (main.ts) шлёт их в
       // renderer под тем же serial, что и новый стрим, если start() вызвали
       // сразу следом. Поймано разбором логики, не флаки-тестом на таймингах.
+      // 'close' снимается по той же причине и вдобавок затем, чтобы
+      // намеренная остановка не попала в onExit() как "сессия оборвалась
+      // сама".
       this.process.stdout.removeAllListeners('data');
       this.process.removeAllListeners('error');
+      this.process.removeAllListeners('close');
       this.process.kill();
     }
     this.process = undefined;
