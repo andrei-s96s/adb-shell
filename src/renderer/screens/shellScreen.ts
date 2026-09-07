@@ -12,6 +12,7 @@ let mirrorBtn: HTMLButtonElement;
 let mirrorRecordBtn: HTMLButtonElement;
 let mirrorStatusEl: HTMLSpanElement;
 let mirroringSerials = new Set<string>();
+let historyDatalistEl: HTMLDataListElement;
 
 export function initShellScreen(): void {
   inputEl = el<HTMLInputElement>('shell-input');
@@ -21,6 +22,8 @@ export function initShellScreen(): void {
   mirrorBtn = el<HTMLButtonElement>('shell-mirror');
   mirrorRecordBtn = el<HTMLButtonElement>('shell-mirror-record');
   mirrorStatusEl = el<HTMLSpanElement>('shell-mirror-status');
+  historyDatalistEl = el<HTMLDataListElement>('shell-history-datalist');
+  void refreshHistoryDatalist();
 
   runBtn.addEventListener('click', () => void runCommand());
   inputEl.addEventListener('keydown', (event) => {
@@ -186,7 +189,7 @@ async function runCommand(): Promise<void> {
   runBtn.disabled = true;
   // Запись в историю происходит один раз независимо от broadcast-режима,
   // до ветвления -- порт того же порядка, что в ShellRunnerView.swift.
-  void adbApi.shellHistoryRecord(command);
+  void adbApi.shellHistoryRecord(command).then(() => refreshHistoryDatalist());
   try {
     if (broadcastEl.checked) {
       await runBroadcast(command);
@@ -198,6 +201,26 @@ async function runCommand(): Promise<void> {
     appendLine(`Ошибка: ${errorMessage(error)}`, 'shell-err');
   } finally {
     runBtn.disabled = false;
+  }
+}
+
+/** Автодополнение shell-input встроенным <datalist> -- persистентная история
+ * (ShellHistoryStore на main-стороне) уже загружается для отдельной
+ * модалки "История…" (shellHistoryModal.ts), здесь используется тот же
+ * список, просто как вариант ввода прямо в поле, без похода в модалку.
+ * Обновляется при каждой успешно записанной команде, чтобы новая команда
+ * сразу попадала в подсказки. */
+async function refreshHistoryDatalist(): Promise<void> {
+  try {
+    const commands = await adbApi.shellHistoryList();
+    historyDatalistEl.innerHTML = '';
+    for (const command of commands) {
+      const option = document.createElement('option');
+      option.value = command.text;
+      historyDatalistEl.appendChild(option);
+    }
+  } catch {
+    // Автодополнение необязательно -- поле остаётся рабочим и без него.
   }
 }
 

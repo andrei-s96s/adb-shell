@@ -160,7 +160,8 @@
         <section id="tab-shell" class="tab-panel">
           <div id="shell-log" class="shell-log"></div>
           <div class="toolbar">
-            <input id="shell-input" placeholder="adb shell <команда>" />
+            <input id="shell-input" placeholder="adb shell <команда>" list="shell-history-datalist" autocomplete="off" />
+            <datalist id="shell-history-datalist"></datalist>
             <button id="shell-run" type="button">Выполнить</button>
             <button id="shell-favorite" type="button" title="Добавить текущую команду в избранное">☆</button>
             <button id="shell-history" type="button">История…</button>
