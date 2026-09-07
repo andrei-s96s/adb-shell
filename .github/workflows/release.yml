@@ -38,7 +38,7 @@ jobs:
           path: |
             vendor
             .cache
-          key: vendor-${{ runner.os }}-${{ hashFiles('scripts/fetch-aapt2.js', 'scripts/fetch-scrcpy.js', 'scripts/fetch-windows-adb.js') }}
+          key: vendor-${{ runner.os }}-${{ hashFiles('scripts/fetch-aapt2.js', 'scripts/fetch-scrcpy.js', 'scripts/fetch-adb.js') }}
 
       - name: Install dependencies
         run: npm ci

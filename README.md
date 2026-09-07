@@ -41,14 +41,13 @@ Android-устройствами через `adb` — по USB или по се�
 - **macOS 13 (Ventura) и новее** — `ADB Shell-X.Y.Z-universal-mac.zip`, один
   файл для Intel и Apple Silicon. Не подписано платным Apple Developer ID,
   поэтому при первом запуске Gatekeeper покажет предупреждение — правый
-  клик по `ADB Shell.app` → «Открыть» → «Открыть» в диалоге. `aapt2` и
-  `scrcpy` вшиты в сборку (оба — универсальные бинарники); `adb` берётся из
-  PATH (например, `brew install android-platform-tools`).
+  клик по `ADB Shell.app` → «Открыть» → «Открыть» в диалоге. `adb`, `aapt2`
+  и `scrcpy` вшиты прямо в сборку (все — универсальные бинарники), отдельно
+  ставить Android Platform Tools не нужно.
 - **Linux** — `ADB-Shell-X.Y.Z.AppImage` (x86_64). Дать файлу права на
-  выполнение (`chmod +x`) и запустить — установка не нужна. `aapt2` и
-  `scrcpy` вшиты в сборку; `adb` берётся из PATH (`apt install
-  android-tools-adb`, `pacman -S android-tools` — по названию пакета в
-  вашем дистрибутиве).
+  выполнение (`chmod +x`) и запустить — установка не нужна. `adb`, `aapt2`
+  и `scrcpy` вшиты прямо в сборку, отдельно ставить Android Platform Tools
+  не нужно.
 
 Приложение проверяет наличие новой версии при каждом запуске и показывает
 баннер с кнопкой «Скачать и установить» — скачивает нужный под вашу
@@ -252,7 +251,7 @@ src/
     styles/theme.css    — цветовая палитра приложения
   test/                 — юнит-тесты (node --test)
 scripts/
-  fetch-windows-adb.js  — скачивает adb.exe + DLL для Windows-сборки
+  fetch-adb.js          — скачивает adb (mac/win/linux, + DLL для Windows)
   fetch-aapt2.js        — скачивает aapt2 (mac/win/linux) для чтения манифестов
   fetch-scrcpy.js       — скачивает scrcpy (mac/win/linux) для зеркалирования
                           экрана; на macOS дополнительно сшивает x86_64+arm64

@@ -4,14 +4,17 @@
 // константой), плюс Linux. На Windows это самодостаточный архив вместе со
 // своими SDL2/avcodec/avutil/... DLL — копируем всё, КРОМЕ входящих в
 // архив adb.exe/AdbWin*.dll: наш собственный adb.exe уже фетчится отдельно
-// (fetch-windows-adb.js) и ScreenMirrorService передаёт scrcpy путь к нему
-// через переменную окружения ADB= явно, тащить второй, потенциально другой
-// версии adb.exe в тот же vendor/win/ смысла нет. На macOS собирается
-// universal-бинарник из двух архитектурных архивов через lipo — см.
-// fetchMac() ниже.
+// (fetch-adb.js) и ScreenMirrorService передаёт scrcpy путь к нему через
+// переменную окружения ADB= явно, тащить второй, потенциально другой
+// версии adb.exe в тот же vendor/win/ смысла нет. Та же логика неявно верна
+// и для Linux/macOS ниже — их архивы просят только конкретные имена файлов
+// (allow-list, не "всё кроме"), adb из них никогда не копируется, поэтому
+// коллизии со своим adb (fetch-adb.js) там нет и не может быть. На macOS
+// scrcpy собирается universal-бинарник из двух архитектурных архивов через
+// lipo — см. fetchMac() ниже.
 //
-// Распаковка — через нативный tar/unzip ОС, не npm-пакет (см.
-// fetch-windows-adb.js про то, почему не extract-zip).
+// Распаковка — через нативный tar/unzip ОС, не npm-пакет (см. fetch-adb.js
+// про то, почему не extract-zip).
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -102,9 +105,8 @@ async function fetchMac() {
 /** Linux-архив scrcpy содержит и свой adb -- в отличие от Windows-ветки
  * выше (которая копирует ВСЁ, кроме файлов из ADB_FILES_TO_SKIP), здесь
  * просто копируются только два нужных файла явным списком, adb из архива
- * никогда не попадает в vendor/linux -- свой adb для Linux сознательно не
- * вшивается вообще (см. package.json build.linux), полагаемся на adb из
- * PATH пользователя, тот же выбор, что уже сделан для macOS. Только
+ * никогда не попадает в vendor/linux -- свой adb для Linux вшивается
+ * отдельно, через fetch-adb.js (dist:linux вызывает оба скрипта). Только
  * x86_64 -- scrcpy не публикует отдельный релиз под Linux arm64. */
 async function fetchLinux() {
   const vendorDir = path.join(ROOT, 'vendor', 'linux');

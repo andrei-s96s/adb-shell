@@ -16,7 +16,9 @@
     "test": "npm run build && node --test dist/test/*.test.js",
     "start": "npm run build && electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "fetch:win-adb": "node scripts/fetch-windows-adb.js",
+    "fetch:adb:mac": "node scripts/fetch-adb.js mac",
+    "fetch:adb:win": "node scripts/fetch-adb.js win",
+    "fetch:adb:linux": "node scripts/fetch-adb.js linux",
     "fetch:aapt2:mac": "node scripts/fetch-aapt2.js mac",
     "fetch:aapt2:win": "node scripts/fetch-aapt2.js win",
     "fetch:aapt2:linux": "node scripts/fetch-aapt2.js linux",
@@ -24,9 +26,9 @@
     "fetch:scrcpy:win": "node scripts/fetch-scrcpy.js win",
     "fetch:scrcpy:linux": "node scripts/fetch-scrcpy.js linux",
     "dist:dir": "npm run build && electron-builder --dir --publish=never",
-    "dist:win": "npm run build && npm run fetch:win-adb && npm run fetch:aapt2:win && npm run fetch:scrcpy:win && electron-builder --win --publish=never",
-    "dist:mac": "npm run build && npm run fetch:aapt2:mac && npm run fetch:scrcpy:mac && electron-builder --mac --publish=never",
-    "dist:linux": "npm run build && npm run fetch:aapt2:linux && npm run fetch:scrcpy:linux && electron-builder --linux --publish=never"
+    "dist:win": "npm run build && npm run fetch:adb:win && npm run fetch:aapt2:win && npm run fetch:scrcpy:win && electron-builder --win --publish=never",
+    "dist:mac": "npm run build && npm run fetch:adb:mac && npm run fetch:aapt2:mac && npm run fetch:scrcpy:mac && electron-builder --mac --publish=never",
+    "dist:linux": "npm run build && npm run fetch:adb:linux && npm run fetch:aapt2:linux && npm run fetch:scrcpy:linux && electron-builder --linux --publish=never"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
