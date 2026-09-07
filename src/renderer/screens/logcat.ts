@@ -106,6 +106,7 @@ export function initLogcatScreen(): void {
   startBtn.addEventListener('click', () => void start());
   stopBtn.addEventListener('click', () => void stop());
   clearBtn.addEventListener('click', () => void clearBuffer());
+  el<HTMLButtonElement>('logcat-export').addEventListener('click', () => void exportLog());
   filterInput.addEventListener('input', renderLog);
   levelSelect.addEventListener('change', renderLog);
   el<HTMLButtonElement>('logcat-crashes').addEventListener('click', () => {
@@ -194,6 +195,29 @@ async function clearBuffer(): Promise<void> {
     await adbApi.clearLogcatBuffer(serial);
     allLines = [];
     renderLog();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+/** Экспортирует ТЕКУЩИЙ отфильтрованный вид (тот же фильтр по тексту/уровню,
+ * что сейчас применён к списку) -- тот же принцип, что и у exportCsv() в
+ * apps.ts/monitor.ts (фильтрованный набор, а не весь буфер целиком). Типичный
+ * сценарий -- приложить фрагмент лога к баг-репорту после того, как уже
+ * отфильтровали нужное. */
+async function exportLog(): Promise<void> {
+  const query = filterInput.value.trim().toLowerCase();
+  const minLevel = Number.parseInt(levelSelect.value, 10) as LogLevel;
+  const filtered = allLines.filter((line) => matchesCurrentFilter(line, query, minLevel));
+  if (filtered.length === 0) {
+    statusEl.textContent = 'Нечего экспортировать';
+    return;
+  }
+  const content = filtered.map((line) => `${line.timestamp ?? ''} ${levelLabel(line.level)} ${line.tag ?? ''}: ${line.message}`).join('\n');
+  const serial = getCurrentSerial();
+  try {
+    const saved = await adbApi.saveText(`adbshell-logcat-${serial ?? 'device'}.txt`, content, 'Text', ['txt', 'log']);
+    if (saved) statusEl.textContent = 'Экспортировано';
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }

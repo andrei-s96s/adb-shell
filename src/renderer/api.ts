@@ -437,6 +437,7 @@ export interface AdbApi {
   checkAlertThresholds(stats: DeviceStats): Promise<ThresholdCheckResult>;
 
   saveCsv(defaultName: string, content: string): Promise<boolean>;
+  saveText(defaultName: string, content: string, filterName: string, filterExtensions: string[]): Promise<boolean>;
 
   screenshot(serial: string): Promise<string>;
   clipboardWriteImagePng(base64Png: string): Promise<void>;

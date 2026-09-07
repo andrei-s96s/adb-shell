@@ -258,6 +258,8 @@ contextBridge.exposeInMainWorld('adbApi', {
 
   saveCsv: (defaultName: string, content: string): Promise<boolean> =>
     ipcRenderer.invoke('dialog:saveCsv', defaultName, content),
+  saveText: (defaultName: string, content: string, filterName: string, filterExtensions: string[]): Promise<boolean> =>
+    ipcRenderer.invoke('dialog:saveText', defaultName, content, filterName, filterExtensions),
 
   screenshot: (serial: string): Promise<string> => ipcRenderer.invoke('adb:screenshot', serial),
   clipboardWriteImagePng: (base64Png: string): Promise<void> => ipcRenderer.invoke('clipboard:writeImagePng', base64Png),

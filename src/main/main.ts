@@ -223,6 +223,25 @@ function registerIpcHandlers(): void {
     shell.showItemInFolder(result.filePath);
     return true;
   });
+  // Общий вариант dialog:saveCsv выше -- под произвольный текст с
+  // произвольным расширением (например, экспорт буфера logcat в .txt/.log,
+  // см. renderer/screens/logcat.ts). saveCsv жёстко хардкодит фильтр под
+  // CSV и не годится напрямую для этого, заводить отдельный
+  // dialog:saveLogcat ради одного текстового экспорта не было смысла.
+  ipcMain.handle(
+    'dialog:saveText',
+    async (event: IpcMainInvokeEvent, defaultName: string, content: string, filterName: string, filterExtensions: string[]) => {
+      const result = await showSaveDialogFor(event, {
+        title: 'Сохранить',
+        defaultPath: defaultName,
+        filters: [{ name: filterName, extensions: filterExtensions }],
+      });
+      if (result.canceled || !result.filePath) return false;
+      await fsPromises.writeFile(result.filePath, content, 'utf8');
+      shell.showItemInFolder(result.filePath);
+      return true;
+    }
+  );
 
   // Скриншот -- ручная кнопка (превью-модалка с Copy/Save As, см.
   // renderer/screens/shellScreen.ts) поверх того же AdbService.screenshot,
