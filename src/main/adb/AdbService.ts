@@ -496,7 +496,11 @@ export class AdbService {
    * сырой PNG в stdout. В отличие от run(), собирает stdout как Buffer, а не
    * UTF-8 строку — иначе бинарные байты PNG были бы необратимо испорчены
    * перекодировкой (тот же повод, по которому Swift-версия обходит здесь
-   * общий текстовый путь и работает с Process напрямую). */
+   * общий текстовый путь и работает с Process напрямую). Таймаут — тот же
+   * DEFAULT_TIMEOUT_MS и та же причина, что и в run(): без него зависшее
+   * устройство (заблокированный экран, отвалившийся Wi-Fi ровно во время
+   * screencap) заставляло бы кнопку "Скриншот" и глобальный хоткей ждать
+   * вечно без единого шанса на ошибку. */
   screenshot(serial: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       let child;
@@ -507,9 +511,30 @@ export class AdbService {
         return;
       }
       const chunks: Buffer[] = [];
+      let settled = false;
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        timedOut = true;
+        child.kill();
+      }, DEFAULT_TIMEOUT_MS);
       child.stdout?.on('data', (chunk: Buffer) => chunks.push(chunk));
-      child.on('error', (error) => reject(new AdbCommandError(`Couldn't launch adb: ${error.message}`)));
-      child.on('close', () => resolve(Buffer.concat(chunks)));
+      child.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(new AdbCommandError(`Couldn't launch adb: ${error.message}`));
+      });
+      child.on('close', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (timedOut) {
+          reject(new AdbCommandError(`adb не ответил за ${Math.round(DEFAULT_TIMEOUT_MS / 1000)}с -- устройство могло зависнуть, потерять соединение или ждать системный диалог на экране`));
+          return;
+        }
+        resolve(Buffer.concat(chunks));
+      });
     });
   }
 }
