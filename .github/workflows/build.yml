@@ -21,9 +21,26 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '22'
+          cache: 'npm'
+
+      # adb/aapt2/scrcpy -- десятки МБ, скачиваемые с внешних мирроров на
+      # каждый запуск CI, хотя PINNED_VERSION в fetch-windows-adb.js и
+      # версии в fetch-aapt2.js/fetch-scrcpy.js меняются крайне редко.
+      # Ключ по хэшу самих fetch-скриптов -- смена запинованной версии
+      # (правка любого из трёх файлов) сама инвалидирует кэш, вручную
+      # ничего бампать не нужно. Каждая job матрицы (Windows/macOS/Linux)
+      # наполняет только СВОЙ vendor/<os>/, поэтому ключ ещё и по runner.os
+      # -- незачем тащить в кэш платформы, которые эта job не трогает.
+      - name: Cache vendor binaries (adb/aapt2/scrcpy)
+        uses: actions/cache@v7
+        with:
+          path: |
+            vendor
+            .cache
+          key: vendor-${{ runner.os }}-${{ hashFiles('scripts/fetch-aapt2.js', 'scripts/fetch-scrcpy.js', 'scripts/fetch-windows-adb.js') }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Type-check
         run: npm run typecheck
