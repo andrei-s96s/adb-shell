@@ -55,6 +55,12 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
         restoreBtn.type = 'button';
         restoreBtn.textContent = 'Восстановить';
         restoreBtn.addEventListener('click', () => {
+          // Без disabled быстрый двойной клик запускал два параллельных
+          // DeviceSnapshotService.restore() на одно и то же устройство --
+          // независимые adb install/pm grant гонялись бы одновременно, мешая
+          // друг другу и перезаписывая один и тот же statusEl. Тот же
+          // паттерн, что уже применён на takeBtn чуть выше.
+          restoreBtn.disabled = true;
           statusEl.textContent = 'Восстановление…';
           adbApi
             .snapshotsRestore(snap.path, serial)
@@ -63,7 +69,10 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
               statusEl.textContent = `Восстановлено ${outcome.results.length - failed.length} из ${outcome.results.length}`;
               onRestored();
             })
-            .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+            .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`))
+            .finally(() => {
+              restoreBtn.disabled = false;
+            });
         });
         actions.appendChild(restoreBtn);
 
