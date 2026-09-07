@@ -4,6 +4,7 @@ import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { parseLogLine, levelLabel } from '../logLineParser.js';
 import { openCrashTracesModal } from './crashTraces.js';
 import { onTabVisibilityChanged } from '../tabs.js';
+import { t } from '../i18n.js';
 
 const MAX_LINES = 5000;
 
@@ -136,14 +137,14 @@ export function initLogcatScreen(): void {
     if (serial !== activeSerial || !isRunning) return;
     isRunning = false;
     updateButtons();
-    statusEl.textContent = 'Поток logcat неожиданно оборвался — устройство отключилось или потеряно соединение. Нажмите «Старт», чтобы возобновить.';
+    statusEl.textContent = t('Поток logcat неожиданно оборвался — устройство отключилось или потеряно соединение. Нажмите «Старт», чтобы возобновить.');
   });
 
   onDeviceChanged((serial) => {
     void stop();
     allLines = [];
     renderLog();
-    statusEl.textContent = serial ? '' : 'Нет подключённого устройства — выберите устройство слева';
+    statusEl.textContent = serial ? '' : t('Нет подключённого устройства — выберите устройство слева');
     updateButtons();
   });
 
@@ -164,14 +165,14 @@ export function initLogcatScreen(): void {
 async function start(): Promise<void> {
   const serial = getCurrentSerial();
   if (!serial) return;
-  statusEl.textContent = 'Запуск…';
+  statusEl.textContent = t('Запуск…');
   try {
     activeSerial = serial;
     await adbApi.startLogcat(serial);
     isRunning = true;
     statusEl.textContent = '';
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
   updateButtons();
 }
@@ -196,7 +197,7 @@ async function clearBuffer(): Promise<void> {
     allLines = [];
     renderLog();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -210,16 +211,16 @@ async function exportLog(): Promise<void> {
   const minLevel = Number.parseInt(levelSelect.value, 10) as LogLevel;
   const filtered = allLines.filter((line) => matchesCurrentFilter(line, query, minLevel));
   if (filtered.length === 0) {
-    statusEl.textContent = 'Нечего экспортировать';
+    statusEl.textContent = t('Нечего экспортировать');
     return;
   }
   const content = filtered.map((line) => `${line.timestamp ?? ''} ${levelLabel(line.level)} ${line.tag ?? ''}: ${line.message}`).join('\n');
   const serial = getCurrentSerial();
   try {
     const saved = await adbApi.saveText(`adbshell-logcat-${serial ?? 'device'}.txt`, content, 'Text', ['txt', 'log']);
-    if (saved) statusEl.textContent = 'Экспортировано';
+    if (saved) statusEl.textContent = t('Экспортировано');
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 

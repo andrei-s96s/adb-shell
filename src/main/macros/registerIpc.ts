@@ -11,6 +11,7 @@ import { displayName } from '../adb/types/Device';
 import { filterReadyDevicesByTag } from '../util/deviceBatchTarget';
 import { runMacroOnDevices } from './runMacroOnDevices';
 import { showSaveDialogFor, showOpenDialogFor } from '../util/dialogs';
+import { t } from '../i18n';
 
 export function registerMacrosIpc(ctx: IpcContext): void {
   const { macroStore } = ctx;
@@ -125,7 +126,7 @@ export function registerMacrosIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('macros:export', async (event: IpcMainInvokeEvent) => {
     const result = await showSaveDialogFor(event, {
-      title: 'Экспорт макросов',
+      title: t('Экспорт макросов'),
       defaultPath: 'adbshell-macros.json',
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
@@ -135,7 +136,7 @@ export function registerMacrosIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('macros:import', async (event: IpcMainInvokeEvent) => {
     const result = await showOpenDialogFor(event, {
-      title: 'Импорт макросов',
+      title: t('Импорт макросов'),
       properties: ['openFile' as const],
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });

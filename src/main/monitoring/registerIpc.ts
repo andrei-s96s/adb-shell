@@ -10,6 +10,7 @@ import { analyzeSecurity } from '../adb/parsers/DeviceSecurityAnalyzer';
 import { sanitizeDeviceLabel } from '../deviceSnapshots/deviceSnapshotLogic';
 import { timestampForFilename } from '../util/timestamp';
 import { showSaveDialogFor } from '../util/dialogs';
+import { t } from '../i18n';
 
 export function registerMonitoringIpc(ctx: IpcContext): void {
   // Один вызов вместо двух -- deviceStats и runningProcesses раньше были
@@ -40,7 +41,7 @@ export function registerMonitoringIpc(ctx: IpcContext): void {
   ipcMain.handle('adb:bugreport', async (event: IpcMainInvokeEvent, serial: string) => {
     const fileName = `bugreport-${sanitizeDeviceLabel(serial)}-${timestampForFilename(new Date())}.zip`;
     const result = await showSaveDialogFor(event, {
-      title: 'Сохранить bugreport',
+      title: t('Сохранить bugreport'),
       defaultPath: fileName,
       filters: [{ name: 'ZIP', extensions: ['zip'] }],
     });
@@ -67,14 +68,14 @@ export function registerMonitoringIpc(ctx: IpcContext): void {
     alertArmState = result.armState;
     if (result.cpuAlertFired) {
       new Notification({
-        title: 'Высокая нагрузка CPU',
-        body: `CPU: ${Math.round(result.cpuAlertFired.cpuPercent)}%`,
+        title: t('Высокая нагрузка CPU'),
+        body: t('CPU: {percent}%', { percent: Math.round(result.cpuAlertFired.cpuPercent) }),
       }).show();
     }
     if (result.batteryAlertFired) {
       new Notification({
-        title: 'Низкий заряд батареи',
-        body: `Батарея: ${result.batteryAlertFired.batteryLevel}%`,
+        title: t('Низкий заряд батареи'),
+        body: t('Батарея: {percent}%', { percent: result.batteryAlertFired.batteryLevel }),
       }).show();
     }
     return result;

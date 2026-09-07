@@ -4,6 +4,7 @@ import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import * as fsPromises from 'node:fs/promises';
 import { IpcContext } from '../ipcContext';
 import { showSaveDialogFor, showOpenDialogFor } from '../util/dialogs';
+import { t } from '../i18n';
 
 export function registerConnectionProfilesIpc(ctx: IpcContext): void {
   const { connectionProfiles } = ctx;
@@ -32,7 +33,7 @@ export function registerConnectionProfilesIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('connectionProfiles:export', async (event: IpcMainInvokeEvent) => {
     const result = await showSaveDialogFor(event, {
-      title: 'Экспорт профилей подключения',
+      title: t('Экспорт профилей подключения'),
       defaultPath: 'adbshell-profiles.json',
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
@@ -42,7 +43,7 @@ export function registerConnectionProfilesIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('connectionProfiles:import', async (event: IpcMainInvokeEvent) => {
     const result = await showOpenDialogFor(event, {
-      title: 'Импорт профилей подключения',
+      title: t('Импорт профилей подключения'),
       properties: ['openFile' as const],
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });

@@ -3,17 +3,18 @@
 import { adbApi, errorMessage } from '../api.js';
 import type { IntentPreset } from '../api.js';
 import { openModal } from '../modal.js';
+import { t } from '../i18n.js';
 
 export function openIntentTesterModal(serial: string): void {
   openModal('Intent / Deep Link', (body) => {
     const uriRow = document.createElement('div');
     uriRow.className = 'connect-row';
     const uriInput = document.createElement('input');
-    uriInput.placeholder = 'myapp://path или https://…';
+    uriInput.placeholder = t('myapp://path или https://…');
     uriRow.appendChild(uriInput);
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
-    sendBtn.textContent = 'Отправить';
+    sendBtn.textContent = t('Отправить');
     uriRow.appendChild(sendBtn);
     body.appendChild(uriRow);
 
@@ -25,12 +26,12 @@ export function openIntentTesterModal(serial: string): void {
       const uri = uriInput.value.trim();
       if (!uri) return;
       resultEl.className = 'hint';
-      resultEl.textContent = 'Отправка…';
+      resultEl.textContent = t('Отправка…');
       adbApi
         .openDeepLink(serial, uri)
         .then((output) => {
           resultEl.className = 'hint';
-          resultEl.textContent = output.length > 0 ? output : 'Готово';
+          resultEl.textContent = output.length > 0 ? output : t('Готово');
         })
         .catch((error) => {
           resultEl.className = 'error';
@@ -45,17 +46,17 @@ export function openIntentTesterModal(serial: string): void {
     const saveRow = document.createElement('div');
     saveRow.className = 'connect-row';
     const nameInput = document.createElement('input');
-    nameInput.placeholder = 'Имя пресета (необязательно)';
+    nameInput.placeholder = t('Имя пресета (необязательно)');
     saveRow.appendChild(nameInput);
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
-    saveBtn.textContent = 'Сохранить пресет';
+    saveBtn.textContent = t('Сохранить пресет');
     saveRow.appendChild(saveBtn);
     body.appendChild(saveRow);
 
     const presetsTitle = document.createElement('div');
     presetsTitle.className = 'hint section-title';
-    presetsTitle.textContent = 'Пресеты';
+    presetsTitle.textContent = t('Пресеты');
     body.appendChild(presetsTitle);
 
     const presetsListEl = document.createElement('ul');

@@ -5,6 +5,7 @@
 import { adbApi, el, errorMessage } from '../api.js';
 import type { Device, DeviceProperty } from '../api.js';
 import { openModal } from '../modal.js';
+import { t } from '../i18n.js';
 
 /** getprop-ключи для сводки сравнения устройств -- те же стандартные AOSP-
  * свойства, что уже читает AdbService.securityInfo() для "Безопасности"
@@ -38,7 +39,7 @@ function buildSummaryTable(propsA: DeviceProperty[], propsB: DeviceProperty[]): 
     if (valueA !== valueB) tr.className = 'differs';
 
     const th = document.createElement('th');
-    th.textContent = field.label;
+    th.textContent = t(field.label);
     tr.appendChild(th);
 
     const tdA = document.createElement('td');
@@ -55,8 +56,8 @@ function buildSummaryTable(propsA: DeviceProperty[], propsB: DeviceProperty[]): 
 }
 
 export function openDeviceCompareModal(currentSerial: string): void {
-  openModal('Сравнить устройства', (body) => {
-    body.innerHTML = '<p class="hint">Загрузка списка устройств…</p>';
+  openModal(t('Сравнить устройства'), (body) => {
+    body.innerHTML = `<p class="hint">${t('Загрузка списка устройств…')}</p>`;
     void adbApi.listDevices().then((devices) => {
       const others = devices.filter((d) => d.serial !== currentSerial && d.state === 'device');
       renderPicker(body, currentSerial, others);
@@ -67,7 +68,7 @@ export function openDeviceCompareModal(currentSerial: string): void {
 function renderPicker(body: HTMLDivElement, currentSerial: string, others: Device[]): void {
   body.innerHTML = '';
   if (others.length === 0) {
-    body.innerHTML = '<p class="hint">Нет других подключённых устройств для сравнения.</p>';
+    body.innerHTML = `<p class="hint">${t('Нет других подключённых устройств для сравнения.')}</p>`;
     return;
   }
 
@@ -83,7 +84,7 @@ function renderPicker(body: HTMLDivElement, currentSerial: string, others: Devic
   toolbar.appendChild(select);
   const runBtn = document.createElement('button');
   runBtn.type = 'button';
-  runBtn.textContent = 'Сравнить';
+  runBtn.textContent = t('Сравнить');
   toolbar.appendChild(runBtn);
   body.appendChild(toolbar);
 
@@ -95,7 +96,7 @@ function renderPicker(body: HTMLDivElement, currentSerial: string, others: Devic
   body.appendChild(resultsEl);
 
   runBtn.addEventListener('click', () => {
-    statusEl.textContent = 'Сравнение…';
+    statusEl.textContent = t('Сравнение…');
     resultsEl.innerHTML = '';
     const otherSerial = select.value;
     Promise.all([
@@ -104,17 +105,17 @@ function renderPicker(body: HTMLDivElement, currentSerial: string, others: Devic
       adbApi.allProperties(otherSerial),
     ])
       .then(([result, propsA, propsB]) => {
-        statusEl.textContent = `${result.commonCount} общих пакетов`;
+        statusEl.textContent = t('{count} общих пакетов', { count: result.commonCount });
         resultsEl.innerHTML = '';
         resultsEl.appendChild(buildSummaryTable(propsA, propsB));
         const columns = document.createElement('div');
         columns.className = 'compare-columns';
-        columns.appendChild(buildColumn('Только здесь', result.onlyInA));
-        columns.appendChild(buildColumn('Только там', result.onlyInB));
+        columns.appendChild(buildColumn(t('Только здесь'), result.onlyInA));
+        columns.appendChild(buildColumn(t('Только там'), result.onlyInB));
         resultsEl.appendChild(columns);
       })
       .catch((error) => {
-        statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+        statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
       });
   });
 }

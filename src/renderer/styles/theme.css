@@ -209,11 +209,33 @@ textarea {
   margin: 0;
 }
 
+/* Демо-режим и переключатель языка делят одну строку -- оба это редко
+   трогаемые once-in-a-while переключатели, отдельная строка на каждый
+   выглядела бы избыточной (тот же повод, что увёл "Сопряжение"/"Профили"
+   под <details> ниже -- сайдбар и так тесный). */
+.sidebar-top-row {
+  display: flex;
+  gap: var(--space-6);
+  align-items: stretch;
+}
+
 /* Демо-режим -- см. renderer.ts initDemoModeToggle() / adb/demo/DemoAdbService.ts. */
 .demo-mode-toggle {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   font-size: var(--fs-11);
   color: var(--cp-text-muted);
+}
+
+/* Переключатель языка -- см. localeSwitch.ts. Узкий и без подписи (только
+   RU/EN в самом select) намеренно: полноценный выбор языка с человеческими
+   названиями уже есть во вкладке Настройки, здесь -- только быстрый доступ
+   с первого экрана, без подключённого устройства. */
+.locale-switch {
+  flex: none;
+  width: 52px;
+  font-size: var(--fs-11);
+  text-align: center;
 }
 
 .demo-mode-toggle.active {

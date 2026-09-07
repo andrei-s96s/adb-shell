@@ -9,6 +9,7 @@ import { MirrorError } from './ScreenMirrorService';
 import { DEMO_SERIAL } from '../adb/demo/demoData';
 import { showSaveDialogFor } from '../util/dialogs';
 import { timestampForFilename } from '../util/timestamp';
+import { t } from '../i18n';
 
 export function registerMirrorIpc(ctx: IpcContext): void {
   const { screenMirror } = ctx;
@@ -30,7 +31,7 @@ export function registerMirrorIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('dialog:selectRecordPath', async (event: IpcMainInvokeEvent, serial: string) => {
     const result = await showSaveDialogFor(event, {
-      title: 'Записать зеркалирование в файл',
+      title: t('Записать зеркалирование в файл'),
       defaultPath: `adbshell-${serial.replace(/[:/\\]/g, '-')}-${timestampForFilename(new Date())}.mp4`,
       filters: [{ name: 'MP4', extensions: ['mp4'] }],
     });

@@ -8,15 +8,16 @@
 import { adbApi, errorMessage } from '../api.js';
 import type { DeviceHistoryEntry } from '../api.js';
 import { openModal } from '../modal.js';
+import { t, formatDateTime } from '../i18n.js';
 
 export function openDeviceHistoryModal(onConnect: (host: string) => void): void {
-  openModal('История подключений', (body) => {
-    body.innerHTML = '<p class="hint">Загрузка…</p>';
+  openModal(t('История подключений'), (body) => {
+    body.innerHTML = `<p class="hint">${t('Загрузка…')}</p>`;
     adbApi
       .deviceHistoryList()
       .then((items) => render(body, items, onConnect))
       .catch((error) => {
-        body.innerHTML = `<p class="error">Ошибка: ${errorMessage(error)}</p>`;
+        body.innerHTML = `<p class="error">${t('Ошибка')}: ${errorMessage(error)}</p>`;
       });
   });
 }
@@ -27,7 +28,7 @@ function render(body: HTMLDivElement, items: DeviceHistoryEntry[], onConnect: (h
   const list = document.createElement('ul');
   list.className = 'scroll-list small';
   if (items.length === 0) {
-    list.innerHTML = '<li class="hint">Пока пусто -- список наполняется по мере подключения устройств</li>';
+    list.innerHTML = `<li class="hint">${t('Пока пусто -- список наполняется по мере подключения устройств')}</li>`;
   }
   for (const entry of items) {
     const li = document.createElement('li');
@@ -35,7 +36,7 @@ function render(body: HTMLDivElement, items: DeviceHistoryEntry[], onConnect: (h
 
     const label = document.createElement('span');
     const title = entry.model ? entry.model.replace(/_/g, ' ') : entry.serial;
-    label.textContent = `${title} — ${new Date(entry.lastSeenMs).toLocaleString('ru-RU')}`;
+    label.textContent = `${title} — ${formatDateTime(entry.lastSeenMs)}`;
     label.title = entry.serial;
     li.appendChild(label);
 
@@ -46,7 +47,7 @@ function render(body: HTMLDivElement, items: DeviceHistoryEntry[], onConnect: (h
     if (entry.serial.includes(':')) {
       const connectBtn = document.createElement('button');
       connectBtn.type = 'button';
-      connectBtn.textContent = 'Подключить';
+      connectBtn.textContent = t('Подключить');
       connectBtn.addEventListener('click', () => onConnect(entry.serial));
       li.appendChild(connectBtn);
     }
@@ -54,7 +55,7 @@ function render(body: HTMLDivElement, items: DeviceHistoryEntry[], onConnect: (h
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.textContent = '✕';
-    removeBtn.title = 'Убрать из истории';
+    removeBtn.title = t('Убрать из истории');
     removeBtn.addEventListener('click', () => {
       adbApi
         .deviceHistoryRemove(entry.serial)
@@ -70,7 +71,7 @@ function render(body: HTMLDivElement, items: DeviceHistoryEntry[], onConnect: (h
   if (items.length > 0) {
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
-    clearBtn.textContent = 'Очистить историю';
+    clearBtn.textContent = t('Очистить историю');
     clearBtn.style.marginTop = 'var(--space-8)';
     clearBtn.addEventListener('click', () => {
       adbApi

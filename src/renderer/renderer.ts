@@ -1,6 +1,9 @@
 import { adbApi, el, errorMessage } from './api.js';
 import type { Device, MdnsDevice, ConnectionProfile } from './api.js';
 import { setCurrentSerial, getCurrentSerial, onDeviceChanged, getDeviceTagFilter, setDeviceTagFilter } from './state.js';
+import { setLocale, t } from './i18n.js';
+import { applyStaticI18n } from './i18nApplyHtml.js';
+import { initLocaleSwitchers } from './localeSwitch.js';
 import { openTextPromptModal } from './modal.js';
 import { openDeviceHistoryModal } from './screens/deviceHistoryModal.js';
 import { initTabs } from './tabs.js';
@@ -15,6 +18,21 @@ import { initSettingsScreen, applyTheme } from './screens/settings.js';
 import { initDonateScreen } from './screens/donate.js';
 import { initMacrosScreen } from './screens/macros.js';
 import { initCommandPalette } from './screens/commandPalette.js';
+
+// Язык должен быть известен ДО того, как что-либо ниже начнёт строить
+// текст интерфейса -- top-level await блокирует остальной модуль до ответа
+// (обычно это первый же IPC-вызов рендерера, задержка на глаз незаметна),
+// иначе часть текста успела бы отрисоваться на русском и тут же
+// "моргнуть" на английский. См. i18n.ts про то, почему смена языка уже НЕ
+// делает так (там это осознанный компромисс: перезагрузка вместо
+// перерисовки), а самый первый запуск -- нет: тут ничего ещё не отрисовано.
+try {
+  const bootSettings = await adbApi.settingsGet();
+  setLocale(bootSettings.locale);
+} catch {
+  // Не критично -- останется язык по умолчанию (ru).
+}
+applyStaticI18n();
 
 const deviceListEl = el<HTMLUListElement>('device-list');
 const statusEl = el<HTMLDivElement>('status');
@@ -117,7 +135,7 @@ async function autoReconnectDroppedProfiles(currentDevices: Device[]): Promise<v
 }
 
 async function refreshDevices(): Promise<void> {
-  statusEl.textContent = 'Обновление…';
+  statusEl.textContent = t('Обновление…');
   try {
     devices = await adbApi.listDevices();
     renderDeviceList();
@@ -142,16 +160,16 @@ async function refreshDevices(): Promise<void> {
     renderDeviceList();
     renderPinnedStrip();
     selectDevice(undefined);
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
 function renderDemoModeButton(): void {
-  demoModeToggleBtn.textContent = demoModeOn ? '🎭 Демо-режим (вкл)' : '🎭 Демо-режим';
+  demoModeToggleBtn.textContent = demoModeOn ? t('🎭 Демо-режим (вкл)') : t('🎭 Демо-режим');
   demoModeToggleBtn.classList.toggle('active', demoModeOn);
   demoModeToggleBtn.title = demoModeOn
-    ? 'Выключить демо-режим и вернуться к реальным устройствам'
-    : 'Демо-устройство без реального adb — посмотреть весь функционал';
+    ? t('Выключить демо-режим и вернуться к реальным устройствам')
+    : t('Демо-устройство без реального adb — посмотреть весь функционал');
   // Полоска над вкладками -- в отличие от кнопки в сайдбаре, видна с
   // любой вкладки, не только со списком устройств (см. комментарий в
   // theme.css у .demo-mode-banner).
@@ -170,7 +188,7 @@ async function toggleDemoMode(): Promise<void> {
     await refreshDevices();
     if (demoModeOn && devices.length > 0) selectDevice(devices[0].serial);
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   } finally {
     demoModeToggleBtn.disabled = false;
   }
@@ -224,17 +242,17 @@ function deviceStateBadge(state: Device['state']): { icon: string; hint: string 
     case 'offline':
       return {
         icon: '🔌',
-        hint: 'Устройство отключено или сейчас перезагружается — если долго не проходит, переподключите кабель/устройство',
+        hint: t('Устройство отключено или сейчас перезагружается — если долго не проходит, переподключите кабель/устройство'),
       };
     case 'unauthorized':
       return {
         icon: '🔒',
-        hint: 'Устройство не авторизовано — подтвердите на его экране запрос «Разрешить отладку по USB?»',
+        hint: t('Устройство не авторизовано — подтвердите на его экране запрос «Разрешить отладку по USB?»'),
       };
     case 'noPermissions':
       return {
         icon: '🚫',
-        hint: 'adb не может получить доступ к устройству — обычно нужно поправить udev-правила (Linux) или переподключить устройство',
+        hint: t('adb не может получить доступ к устройству — обычно нужно поправить udev-правила (Linux) или переподключить устройство'),
       };
     default:
       return undefined;
@@ -261,14 +279,14 @@ function renderDeviceTagFilter(): void {
 }
 
 async function promptAddDeviceTag(device: Device): Promise<void> {
-  const tag = await openTextPromptModal('Добавить тег', 'тег');
+  const tag = await openTextPromptModal(t('Добавить тег'), t('тег'));
   if (!tag || !tag.trim()) return;
   try {
     tagsBySerial = await adbApi.deviceTagsAddTag(device.serial, tag);
     renderDeviceTagFilter();
     renderDeviceList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -278,7 +296,7 @@ async function removeDeviceTag(device: Device, tag: string): Promise<void> {
     renderDeviceTagFilter();
     renderDeviceList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -290,20 +308,20 @@ function renderDeviceList(): void {
   if (visibleDevices.length === 0 && devices.length > 0) {
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = 'Нет устройств с этим тегом';
+    li.textContent = t('Нет устройств с этим тегом');
     deviceListEl.appendChild(li);
     return;
   }
   if (devices.length === 0) {
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = 'Нет подключённых устройств';
+    li.textContent = t('Нет подключённых устройств');
     deviceListEl.appendChild(li);
 
     if (!demoModeOn) {
       const tryDemoBtn = document.createElement('button');
       tryDemoBtn.type = 'button';
-      tryDemoBtn.textContent = 'Включить демо-режим';
+      tryDemoBtn.textContent = t('Включить демо-режим');
       tryDemoBtn.addEventListener('click', () => void toggleDemoMode());
       const hintLi = document.createElement('li');
       hintLi.className = 'empty';
@@ -375,7 +393,7 @@ function renderDeviceList(): void {
 
     const pinBtn = document.createElement('button');
     pinBtn.textContent = '📌';
-    pinBtn.title = pinnedSerials.includes(device.serial) ? 'Открепить' : 'Закрепить';
+    pinBtn.title = pinnedSerials.includes(device.serial) ? t('Открепить') : t('Закрепить');
     if (pinnedSerials.includes(device.serial)) pinBtn.classList.add('active');
     pinBtn.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -389,7 +407,7 @@ function renderDeviceList(): void {
 
     const renameBtn = document.createElement('button');
     renameBtn.textContent = '✎';
-    renameBtn.title = 'Переименовать';
+    renameBtn.title = t('Переименовать');
     renameBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       renamingSerial = device.serial;
@@ -400,7 +418,7 @@ function renderDeviceList(): void {
     if (device.serial.includes(':')) {
       const disconnectBtn = document.createElement('button');
       disconnectBtn.textContent = '✕';
-      disconnectBtn.title = 'Отключить';
+      disconnectBtn.title = t('Отключить');
       disconnectBtn.addEventListener('click', (event) => {
         event.stopPropagation();
         void (async () => {
@@ -413,7 +431,7 @@ function renderDeviceList(): void {
             if (getCurrentSerial() === device.serial) selectDevice(undefined);
             await refreshDevices();
           } catch (error) {
-            statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+            statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
           }
         })();
       });
@@ -434,7 +452,7 @@ function renderDeviceList(): void {
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.textContent = '✕';
-      removeBtn.title = 'Убрать тег';
+      removeBtn.title = t('Убрать тег');
       removeBtn.addEventListener('click', (event) => {
         event.stopPropagation();
         void removeDeviceTag(device, tag);
@@ -445,7 +463,7 @@ function renderDeviceList(): void {
     const addTagBtn = document.createElement('button');
     addTagBtn.type = 'button';
     addTagBtn.className = 'tag-add-btn';
-    addTagBtn.textContent = '+ тег';
+    addTagBtn.textContent = t('+ тег');
     addTagBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       void promptAddDeviceTag(device);
@@ -477,7 +495,7 @@ function renderPinnedStrip(): void {
 
     const unpin = document.createElement('button');
     unpin.textContent = '✕';
-    unpin.title = 'Открепить';
+    unpin.title = t('Открепить');
     unpin.addEventListener('click', (event) => {
       event.stopPropagation();
       void (async () => {
@@ -521,7 +539,7 @@ function renderMdnsList(): void {
 
     const actionBtn = document.createElement('button');
     if (needsPairing) {
-      actionBtn.textContent = 'Сопрячь';
+      actionBtn.textContent = t('Сопрячь');
       actionBtn.addEventListener('click', () => {
         pairHostInput.value = mdnsDevice.address;
         pairCodeInput.focus();
@@ -557,7 +575,7 @@ function renderProfilesList(): void {
 
     const star = document.createElement('button');
     star.textContent = profile.autoConnect ? '★' : '☆';
-    star.title = 'Автоподключение при запуске';
+    star.title = t('Автоподключение при запуске');
     if (profile.autoConnect) star.classList.add('active');
     star.addEventListener('click', () => {
       void (async () => {
@@ -571,7 +589,7 @@ function renderProfilesList(): void {
     connectProfileBtn.textContent = 'Connect';
     connectProfileBtn.addEventListener('click', () => {
       void (async () => {
-        statusEl.textContent = 'Подключение…';
+        statusEl.textContent = t('Подключение…');
         try {
           statusEl.textContent = await adbApi.connectionProfilesConnect(profile.host);
           // См. комментарий у connectBtn выше -- то же "прощение" ручного
@@ -579,7 +597,7 @@ function renderProfilesList(): void {
           manuallyDisconnectedHosts.delete(profile.host);
           await refreshDevices();
         } catch (error) {
-          statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+          statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
         }
       })();
     });
@@ -587,7 +605,7 @@ function renderProfilesList(): void {
 
     const removeBtn = document.createElement('button');
     removeBtn.textContent = '✕';
-    removeBtn.title = 'Удалить профиль';
+    removeBtn.title = t('Удалить профиль');
     removeBtn.addEventListener('click', () => {
       void (async () => {
         profiles = await adbApi.connectionProfilesRemove(profile.id);
@@ -613,7 +631,7 @@ profileAddBtn.addEventListener('click', () => {
 
 profileExportBtn.addEventListener('click', () => {
   void adbApi.connectionProfilesExport().then((saved) => {
-    if (saved) statusEl.textContent = 'Профили экспортированы';
+    if (saved) statusEl.textContent = t('Профили экспортированы');
   });
 });
 
@@ -621,7 +639,7 @@ profileImportBtn.addEventListener('click', () => {
   void (async () => {
     profiles = await adbApi.connectionProfilesImport();
     renderProfilesList();
-    statusEl.textContent = 'Профили импортированы';
+    statusEl.textContent = t('Профили импортированы');
   })();
 });
 
@@ -652,13 +670,13 @@ refreshBtn.addEventListener('click', () => void refreshDevices());
 restartAdbBtn.addEventListener('click', () => {
   void (async () => {
     restartAdbBtn.disabled = true;
-    statusEl.textContent = 'Перезапуск adb-сервера…';
+    statusEl.textContent = t('Перезапуск adb-сервера…');
     try {
       await adbApi.restartAdbServer();
-      statusEl.textContent = 'adb-сервер перезапущен';
+      statusEl.textContent = t('adb-сервер перезапущен');
       await refreshDevices();
     } catch (error) {
-      statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+      statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
     } finally {
       restartAdbBtn.disabled = false;
     }
@@ -669,7 +687,7 @@ restartAdbBtn.addEventListener('click', () => {
  * в сайдбаре, и модалкой истории подключений (deviceHistoryModal.ts),
  * чтобы не дублировать "прощение" ручного отключения + refreshDevices. */
 async function connectToHost(host: string): Promise<void> {
-  statusEl.textContent = 'Подключение…';
+  statusEl.textContent = t('Подключение…');
   try {
     statusEl.textContent = await adbApi.connect(host);
     // Пользователь сам подключил этот host заново -- если он раньше
@@ -679,7 +697,7 @@ async function connectToHost(host: string): Promise<void> {
     await refreshDevices();
     void refreshDeviceHistoryDatalist();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -721,18 +739,19 @@ pairBtn.addEventListener('click', () => {
     const hostPort = pairHostInput.value.trim();
     const code = pairCodeInput.value.trim();
     if (!hostPort || !code) return;
-    statusEl.textContent = 'Сопряжение…';
+    statusEl.textContent = t('Сопряжение…');
     try {
       const result = await adbApi.pair(hostPort, code);
       statusEl.textContent = result;
       pairHostInput.value = '';
       pairCodeInput.value = '';
     } catch (error) {
-      statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+      statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
     }
   })();
 });
 
+initLocaleSwitchers();
 initTabs();
 initAppsScreen();
 initApkLibraryScreen();
@@ -780,7 +799,7 @@ function initGlobalApkDrop(): void {
     event.preventDefault();
     const serial = getCurrentSerial();
     if (!serial) {
-      statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+      statusEl.textContent = t('Нет подключённого устройства — выберите устройство слева');
       return;
     }
     const files = Array.from(event.dataTransfer?.files ?? []);
@@ -788,14 +807,14 @@ function initGlobalApkDrop(): void {
     if (apkFiles.length === 0) return;
     for (const file of apkFiles) {
       const path = adbApi.getPathForFile(file);
-      statusEl.textContent = `Установка ${file.name}…`;
+      statusEl.textContent = t('Установка {name}…', { name: file.name });
       adbApi
         .install(serial, path)
         .then(() => {
-          statusEl.textContent = `Установлено: ${file.name}`;
+          statusEl.textContent = t('Установлено: {name}', { name: file.name });
         })
         .catch((error) => {
-          statusEl.textContent = `Ошибка установки ${file.name}: ${errorMessage(error)}`;
+          statusEl.textContent = t('Ошибка установки {name}: {error}', { name: file.name, error: errorMessage(error) });
         });
     }
   });
@@ -894,18 +913,18 @@ async function checkForUpdatesOnce(): Promise<void> {
     const banner = el<HTMLDivElement>('update-banner');
     const textEl = el<HTMLSpanElement>('update-banner-text');
     const downloadBtn = el<HTMLButtonElement>('update-banner-download');
-    textEl.textContent = `Доступна версия ${update.version}`;
+    textEl.textContent = t('Доступна версия {version}', { version: update.version });
     // Кнопки под конкретный релиз без подходящего ассета (например, сборка
     // под эту платформу ещё не готова на CI в момент проверки) -- скрываем,
     // а не показываем нерабочую кнопку, "Открыть релиз" всё ещё работает.
     downloadBtn.hidden = update.assets.length === 0;
     downloadBtn.addEventListener('click', () => {
       downloadBtn.disabled = true;
-      downloadBtn.textContent = 'Скачивание…';
+      downloadBtn.textContent = t('Скачивание…');
       // Подписка только на время конкретного скачивания -- симметрично
       // apkLibrary.ts (см. комментарий там), отписка в .finally ниже.
       const unsubscribe = adbApi.onDownloadUpdateProgress((progress) => {
-        downloadBtn.textContent = `Скачивание… ${formatDownloadProgress(progress)}`;
+        downloadBtn.textContent = t('Скачивание… {progress}', { progress: formatDownloadProgress(progress) });
       });
       adbApi
         .downloadUpdate(update.assets)
@@ -917,12 +936,12 @@ async function checkForUpdatesOnce(): Promise<void> {
           // -- должна быть возможность нажать ещё раз, не перезапуская
           // приложение целиком.
           downloadBtn.disabled = false;
-          downloadBtn.textContent = 'Готово — скачать ещё раз';
+          downloadBtn.textContent = t('Готово — скачать ещё раз');
         })
         .catch((error) => {
           downloadBtn.disabled = false;
-          downloadBtn.textContent = 'Скачать и установить';
-          textEl.textContent = `Ошибка скачивания: ${errorMessage(error)}`;
+          downloadBtn.textContent = t('Скачать и установить');
+          textEl.textContent = t('Ошибка скачивания: {error}', { error: errorMessage(error) });
         })
         .finally(() => unsubscribe());
     });
@@ -949,8 +968,8 @@ function formatDownloadProgress(progress: { receivedBytes: number; totalBytes?: 
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1000) return `${bytes} Б`;
-  const units = ['КБ', 'МБ', 'ГБ'];
+  if (bytes < 1000) return `${bytes} ${t('Б')}`;
+  const units = [t('КБ'), t('МБ'), t('ГБ')];
   let value = bytes / 1000;
   let unitIndex = 0;
   while (value >= 1000 && unitIndex < units.length - 1) {

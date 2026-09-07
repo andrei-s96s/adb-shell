@@ -6,10 +6,11 @@
 import { adbApi, errorMessage } from '../api.js';
 import type { CrashTraceFile } from '../api.js';
 import { openModal } from '../modal.js';
+import { t } from '../i18n.js';
 
 export function openCrashTracesModal(serial: string): void {
   openModal('ANR / Tombstones', (body) => {
-    body.innerHTML = '<p class="hint">Загрузка…</p>';
+    body.innerHTML = `<p class="hint">${t('Загрузка…')}</p>`;
     adbApi
       .crashTraces(serial)
       // Сортировка по убыванию имени файла -- имена обычно содержат
@@ -18,7 +19,7 @@ export function openCrashTracesModal(serial: string): void {
       .then((files) => [...files].sort((a, b) => (a.name < b.name ? 1 : a.name > b.name ? -1 : 0)))
       .then((files) => renderLayout(body, serial, files))
       .catch((error) => {
-        body.innerHTML = `<p class="error">Ошибка: ${errorMessage(error)}</p>`;
+        body.innerHTML = `<p class="error">${t('Ошибка')}: ${errorMessage(error)}</p>`;
       });
   });
 }
@@ -26,7 +27,7 @@ export function openCrashTracesModal(serial: string): void {
 function renderLayout(body: HTMLDivElement, serial: string, files: CrashTraceFile[]): void {
   body.innerHTML = '';
   if (files.length === 0) {
-    body.innerHTML = '<p class="hint">Файлов не найдено (без root каталоги /data/anr и /data/tombstones обычно недоступны).</p>';
+    body.innerHTML = `<p class="hint">${t('Файлов не найдено (без root каталоги /data/anr и /data/tombstones обычно недоступны).')}</p>`;
     return;
   }
 
@@ -38,7 +39,7 @@ function renderLayout(body: HTMLDivElement, serial: string, files: CrashTraceFil
 
   const contentEl = document.createElement('div');
   contentEl.className = 'trace-content';
-  contentEl.textContent = 'Выберите файл слева';
+  contentEl.textContent = t('Выберите файл слева');
 
   for (const file of files) {
     const li = document.createElement('li');
@@ -50,14 +51,14 @@ function renderLayout(body: HTMLDivElement, serial: string, files: CrashTraceFil
     li.addEventListener('click', () => {
       for (const other of Array.from(list.children)) other.classList.remove('selected');
       li.classList.add('selected');
-      contentEl.textContent = 'Загрузка…';
+      contentEl.textContent = t('Загрузка…');
       adbApi
         .readCrashTrace(serial, file.path)
         .then((text) => {
-          contentEl.textContent = text.length > 0 ? text : '(пусто)';
+          contentEl.textContent = text.length > 0 ? text : t('(пусто)');
         })
         .catch((error) => {
-          contentEl.textContent = `Ошибка: ${errorMessage(error)}`;
+          contentEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
         });
     });
     list.appendChild(li);

@@ -2,6 +2,27 @@ import { adbApi, el, errorMessage } from '../api.js';
 import type { DeviceStats, RunningProcess, SecurityFinding, AppUsageStat } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { onTabVisibilityChanged } from '../tabs.js';
+import { t } from '../i18n.js';
+
+/** analyzeSecurity() (main) отдаёт machine-readable messageKey (например,
+ * "security.su.present"), а не готовый текст -- отображаемая строка на
+ * русском собирается здесь же, в renderer, и уже она идёт в t() ниже.
+ * Ключи перечислены исчерпывающе (DeviceSecurityAnalyzer.ts их не
+ * генерирует динамически), непредвиденный -- маловероятная рассинхронизация
+ * версий main/renderer -- просто показывается как есть, без падения экрана. */
+const SECURITY_MESSAGES: Record<string, string> = {
+  'security.verifiedBoot.green': 'Verified Boot: цепочка загрузки подтверждена (green)',
+  'security.verifiedBoot.orange': 'Verified Boot: используется доверенный, но не заводской ключ (orange)',
+  'security.verifiedBoot.yellow': 'Verified Boot: загрузчик разблокирован пользователем (yellow)',
+  'security.verifiedBoot.red': 'Verified Boot: цепочка загрузки НЕ подтверждена (red) — устройство может быть скомпрометировано',
+  'security.bootloader.locked': 'Загрузчик заблокирован',
+  'security.bootloader.unlocked': 'Загрузчик разблокирован — часть защит отключена',
+  'security.su.present': 'Обнаружен su-бинарник — устройство рутовано',
+  'security.debuggable': 'Отладочная сборка (ro.debuggable=1) — не для повседневного использования',
+  'security.insecure': 'Сборка "insecure" — adbd работает от root',
+  'security.playProtect.disabled': 'Play Protect отключён пользователем',
+  'security.allClear': 'Явных проблем безопасности не обнаружено',
+};
 
 const POLL_INTERVAL_MS = 2000;
 const HISTORY_LENGTH = 30;
@@ -74,7 +95,7 @@ export function initMonitorScreen(): void {
       void loadSecurity(serial);
       void loadUsageStats(serial);
     } else {
-      statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+      statusEl.textContent = t('Нет подключённого устройства — выберите устройство слева');
     }
   });
 
@@ -128,7 +149,7 @@ async function poll(serial: string): Promise<void> {
     adbApi.checkAlertThresholds(stats).catch(() => {});
   } catch (error) {
     if (getCurrentSerial() !== serial) return;
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -149,7 +170,7 @@ function renderSecurity(findings: SecurityFinding[]): void {
     const li = document.createElement('li');
     li.className = 'row';
     const label = document.createElement('span');
-    label.textContent = `${icon[finding.level]} ${finding.messageKey}`;
+    label.textContent = `${icon[finding.level]} ${t(SECURITY_MESSAGES[finding.messageKey] ?? finding.messageKey)}`;
     li.appendChild(label);
     li.style.color =
       finding.level === 'critical' ? 'var(--cp-crimson)' : finding.level === 'warning' ? 'var(--cp-gold)' : 'var(--cp-emerald)';
@@ -171,7 +192,7 @@ function renderUsageStats(stats: AppUsageStat[]): void {
   usageListEl.innerHTML = '';
   const sorted = [...stats].sort((a, b) => b.totalSeconds - a.totalSeconds).slice(0, 15);
   if (sorted.length === 0) {
-    usageListEl.innerHTML = '<li class="hint">Нет данных экранного времени</li>';
+    usageListEl.innerHTML = `<li class="hint">${t('Нет данных экранного времени')}</li>`;
     return;
   }
   for (const stat of sorted) {
@@ -207,12 +228,12 @@ async function runBugreport(): Promise<void> {
   runningBugreportSerial = serial;
   bugreportBtn.disabled = true;
   bugreportCancelBtn.disabled = false;
-  bugreportStatusEl.textContent = 'Собираю bugreport… (может занять несколько минут)';
+  bugreportStatusEl.textContent = t('Собираю bugreport… (может занять несколько минут)');
   try {
     const savedPath = await adbApi.bugreport(serial);
-    bugreportStatusEl.textContent = savedPath ? `Сохранён: ${savedPath}` : '';
+    bugreportStatusEl.textContent = savedPath ? t('Сохранён: {path}', { path: savedPath }) : '';
   } catch (error) {
-    bugreportStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    bugreportStatusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   } finally {
     runningBugreportSerial = undefined;
     bugreportBtn.disabled = false;
@@ -230,9 +251,9 @@ async function exportCsv(): Promise<void> {
   }
   try {
     const saved = await adbApi.saveCsv(`adbshell-stats-${serial}.csv`, csv);
-    if (saved) statusEl.textContent = 'Экспортировано';
+    if (saved) statusEl.textContent = t('Экспортировано');
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -244,7 +265,7 @@ function renderStats(stats: DeviceStats): void {
   const batteryParts: string[] = [];
   if (stats.batteryLevel !== undefined) batteryParts.push(`${stats.batteryLevel}%`);
   if (stats.batteryTemperature !== undefined) batteryParts.push(`${stats.batteryTemperature.toFixed(1)}°C`);
-  if (stats.isCharging) batteryParts.push('⚡ заряжается');
+  if (stats.isCharging) batteryParts.push(`⚡ ${t('заряжается')}`);
   batteryValueEl.textContent = batteryParts.length > 0 ? batteryParts.join(' · ') : '—';
 
   cpuHistory.push(stats.cpuPercent ?? 0);
@@ -286,7 +307,7 @@ function renderProcesses(processes: RunningProcess[], serial: string): void {
     killBtn.textContent = 'Kill';
     killBtn.addEventListener('click', () => {
       adbApi.killProcess(serial, proc.pid).catch((error) => {
-        statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+        statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
       });
     });
     li.appendChild(killBtn);

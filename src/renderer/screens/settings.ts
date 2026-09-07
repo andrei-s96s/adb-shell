@@ -6,6 +6,7 @@
 // репозиторий, Releases и донат.
 
 import { adbApi, el, errorMessage } from '../api.js';
+import { t } from '../i18n.js';
 
 const REPO_URL = 'https://github.com/andrei-s96s/adb-shell';
 
@@ -63,14 +64,14 @@ export function initSettingsScreen(): void {
   el<HTMLButtonElement>('settings-clear-shell-history').addEventListener('click', () => {
     adbApi
       .shellHistoryClear()
-      .then(() => (statusEl.textContent = 'История shell очищена'))
-      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+      .then(() => (statusEl.textContent = t('История shell очищена')))
+      .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   });
   el<HTMLButtonElement>('settings-clear-profiles').addEventListener('click', () => {
     adbApi
       .connectionProfilesClear()
-      .then(() => (statusEl.textContent = 'Профили подключения очищены'))
-      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+      .then(() => (statusEl.textContent = t('Профили подключения очищены')))
+      .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   });
   el<HTMLButtonElement>('settings-open-repo').addEventListener('click', () => void adbApi.openExternal(REPO_URL));
   el<HTMLButtonElement>('settings-open-releases').addEventListener('click', () => void adbApi.openExternal(`${REPO_URL}/releases`));
@@ -106,7 +107,7 @@ async function load(): Promise<void> {
     themeEl.value = settings.themePreference;
     void refreshHotkeyStatus();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -125,8 +126,8 @@ async function refreshHotkeyStatus(): Promise<void> {
   }
   try {
     const active = await adbApi.settingsScreenshotHotkeyActive();
-    hotkeyStatusEl.textContent = active ? '⌨ активен' : '⌨⚠ не активен';
-    hotkeyStatusEl.title = active ? '' : 'Сочетание занято другим приложением или ОС -- попробуйте другое';
+    hotkeyStatusEl.textContent = active ? t('⌨ активен') : t('⌨⚠ не активен');
+    hotkeyStatusEl.title = active ? '' : t('Сочетание занято другим приложением или ОС -- попробуйте другое');
   } catch {
     hotkeyStatusEl.textContent = '';
   }
@@ -148,12 +149,12 @@ async function save(): Promise<void> {
       themePreference,
     });
     applyTheme(themePreference);
-    statusEl.textContent = 'Сохранено';
+    statusEl.textContent = t('Сохранено');
     // main уже перерегистрировал хоткей синхронно внутри settings:update
     // (applyMacroHotkeys()+applyHotkeySetting() в main.ts) -- к этому
     // моменту сервер уже знает актуальное состояние.
     void refreshHotkeyStatus();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }

@@ -6,10 +6,11 @@
 import { adbApi, errorMessage } from '../api.js';
 import type { ApkManifestInfo, ApkSignatureInfo, AppDetail } from '../api.js';
 import { openModal } from '../modal.js';
+import { t } from '../i18n.js';
 
 export function openApkInfoModal(apkPath: string, fileName: string, serial: string | undefined): void {
-  openModal(`Инфо — ${fileName}`, (body) => {
-    body.innerHTML = '<p class="hint">Чтение манифеста…</p>';
+  openModal(t('Инфо — {name}', { name: fileName }), (body) => {
+    body.innerHTML = `<p class="hint">${t('Чтение манифеста…')}</p>`;
 
     adbApi
       .apkLibraryInspect(apkPath)
@@ -30,7 +31,7 @@ export function openApkInfoModal(apkPath: string, fileName: string, serial: stri
         renderSignature(body, apkPath);
       })
       .catch((error) => {
-        body.innerHTML = `<p class="error">Ошибка: ${errorMessage(error)}</p>`;
+        body.innerHTML = `<p class="error">${t('Ошибка')}: ${errorMessage(error)}</p>`;
       });
   });
 }
@@ -41,8 +42,8 @@ function render(body: HTMLDivElement, manifest: ApkManifestInfo, installed: AppD
   const manifestCard = document.createElement('div');
   manifestCard.className = 'settings-section';
   manifestCard.appendChild(infoRow('Package', manifest.packageName ?? '—'));
-  manifestCard.appendChild(infoRow('Название', manifest.applicationLabel ?? '—'));
-  manifestCard.appendChild(infoRow('Версия', `${manifest.versionName ?? '—'} (${manifest.versionCode ?? '—'})`));
+  manifestCard.appendChild(infoRow(t('Название'), manifest.applicationLabel ?? '—'));
+  manifestCard.appendChild(infoRow(t('Версия'), `${manifest.versionName ?? '—'} (${manifest.versionCode ?? '—'})`));
   manifestCard.appendChild(infoRow('SDK (min/target)', `${manifest.minSdk ?? '—'} / ${manifest.targetSdk ?? '—'}`));
   body.appendChild(manifestCard);
 
@@ -55,24 +56,25 @@ function render(body: HTMLDivElement, manifest: ApkManifestInfo, installed: AppD
     const diffCard = document.createElement('div');
     diffCard.className = 'settings-section';
     const diffTitle = document.createElement('h3');
-    diffTitle.textContent = 'Отличия от установленной версии';
+    diffTitle.textContent = t('Отличия от установленной версии');
     diffCard.appendChild(diffTitle);
-    diffCard.appendChild(infoRow('Установлено', installed.versionName ?? '—'));
-    diffCard.appendChild(infoRow('В этом файле', manifest.versionName ?? '—'));
+    diffCard.appendChild(infoRow(t('Установлено'), installed.versionName ?? '—'));
+    diffCard.appendChild(infoRow(t('В этом файле'), manifest.versionName ?? '—'));
 
     if (added.length === 0 && removed.length === 0) {
       const same = document.createElement('div');
       same.className = 'hint';
-      same.textContent = 'Разрешения не изменились';
+      same.textContent = t('Разрешения не изменились');
       diffCard.appendChild(same);
     } else {
-      if (added.length > 0) diffCard.appendChild(permList(`Новые разрешения (${added.length})`, added, 'var(--cp-emerald)'));
-      if (removed.length > 0) diffCard.appendChild(permList(`Пропавшие разрешения (${removed.length})`, removed, 'var(--cp-crimson)'));
+      if (added.length > 0) diffCard.appendChild(permList(t('Новые разрешения ({count})', { count: added.length }), added, 'var(--cp-emerald)'));
+      if (removed.length > 0)
+        diffCard.appendChild(permList(t('Пропавшие разрешения ({count})', { count: removed.length }), removed, 'var(--cp-crimson)'));
     }
     body.appendChild(diffCard);
   }
 
-  body.appendChild(permList(`Все разрешения (${manifest.permissions.length})`, manifest.permissions));
+  body.appendChild(permList(t('Все разрешения ({count})', { count: manifest.permissions.length }), manifest.permissions));
 }
 
 /** Считается и добавляется в модалку отдельным подзапросом (не блокирует
@@ -83,11 +85,11 @@ function renderSignature(body: HTMLDivElement, apkPath: string): void {
   const card = document.createElement('div');
   card.className = 'settings-section';
   const heading = document.createElement('h3');
-  heading.textContent = 'Подпись';
+  heading.textContent = t('Подпись');
   card.appendChild(heading);
   const placeholder = document.createElement('div');
   placeholder.className = 'hint';
-  placeholder.textContent = 'Вычисление sha256…';
+  placeholder.textContent = t('Вычисление sha256…');
   card.appendChild(placeholder);
   body.appendChild(card);
 
@@ -98,22 +100,23 @@ function renderSignature(body: HTMLDivElement, apkPath: string): void {
       card.appendChild(infoRow('sha256', info.sha256));
       if (info.certificate) {
         const cert = info.certificate;
-        card.appendChild(infoRow('Издатель', cert.subject.replace(/\n/g, ', ')));
+        card.appendChild(infoRow(t('Издатель'), cert.subject.replace(/\n/g, ', ')));
         if (!cert.selfSigned) {
-          card.appendChild(infoRow('Выдан кем (issuer)', cert.issuer.replace(/\n/g, ', ')));
+          card.appendChild(infoRow(t('Выдан кем (issuer)'), cert.issuer.replace(/\n/g, ', ')));
         }
-        card.appendChild(infoRow('Действителен', `${cert.validFrom} — ${cert.validTo}`));
-        card.appendChild(infoRow('Отпечаток сертификата', cert.fingerprint256));
+        card.appendChild(infoRow(t('Действителен'), `${cert.validFrom} — ${cert.validTo}`));
+        card.appendChild(infoRow(t('Отпечаток сертификата'), cert.fingerprint256));
       } else {
         const noCert = document.createElement('div');
         noCert.className = 'hint';
-        noCert.textContent =
-          'Сертификат подписи не найден -- либо APK подписан только v2/v3-схемой без v1-совместимости, либо файл повреждён';
+        noCert.textContent = t(
+          'Сертификат подписи не найден -- либо APK подписан только v2/v3-схемой без v1-совместимости, либо файл повреждён'
+        );
         card.appendChild(noCert);
       }
     })
     .catch((error) => {
-      placeholder.textContent = `Не удалось проверить подпись: ${errorMessage(error)}`;
+      placeholder.textContent = t('Не удалось проверить подпись: {error}', { error: errorMessage(error) });
       placeholder.className = 'error';
     });
 }

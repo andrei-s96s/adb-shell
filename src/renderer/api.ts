@@ -212,6 +212,7 @@ export interface AppSettings {
   defaultShowSystemApps: boolean;
   autoCheckUpdates: boolean;
   themePreference: 'system' | 'light' | 'dark';
+  locale: 'ru' | 'en';
 }
 
 export interface ThresholdCheckResult {

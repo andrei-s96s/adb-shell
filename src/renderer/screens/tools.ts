@@ -1,5 +1,6 @@
 import { adbApi, el, errorMessage } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
+import { t } from '../i18n.js';
 
 // MARK: Wi-Fi отладка
 
@@ -13,15 +14,15 @@ function initWireless(): void {
     const serial = getCurrentSerial();
     if (!serial) return;
     const port = Number.parseInt(wirelessPortEl.value, 10) || 5555;
-    wirelessStatusEl.textContent = 'Включение…';
+    wirelessStatusEl.textContent = t('Включение…');
     adbApi
       .enableWirelessDebugging(serial, port)
       .then(() => adbApi.deviceIPAddress(serial))
       .then((ip) => {
-        wirelessStatusEl.textContent = ip ? `Готово: ${ip}:${port}` : 'Включено, но IP не найден (нет Wi-Fi?)';
+        wirelessStatusEl.textContent = ip ? t('Готово: {address}', { address: `${ip}:${port}` }) : t('Включено, но IP не найден (нет Wi-Fi?)');
       })
       .catch((error) => {
-        wirelessStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+        wirelessStatusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
       });
   });
 }
@@ -69,7 +70,7 @@ function normalizeSpec(raw: string): string {
 function runPortAction(action: () => Promise<void>): void {
   portForwardStatusEl.textContent = '';
   action().catch((error) => {
-    portForwardStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    portForwardStatusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   });
 }
 
@@ -135,7 +136,7 @@ function renderProps(): void {
     ? allProps.filter((p) => p.key.toLowerCase().includes(query) || p.value.toLowerCase().includes(query))
     : allProps;
 
-  propsCountEl.textContent = `${filtered.length} из ${allProps.length}`;
+  propsCountEl.textContent = t('{shown} из {total}', { shown: filtered.length, total: allProps.length });
   propsListEl.innerHTML = '';
   for (const prop of filtered) {
     const row = document.createElement('div');
@@ -160,7 +161,7 @@ export function initToolsScreen(): void {
   initDeviceProperties();
 
   onDeviceChanged((serial) => {
-    const hint = serial ? '' : 'Нет подключённого устройства';
+    const hint = serial ? '' : t('Нет подключённого устройства');
     wirelessStatusEl.textContent = hint;
     portForwardStatusEl.textContent = hint;
     forwardListEl.innerHTML = '';
@@ -170,7 +171,7 @@ export function initToolsScreen(): void {
 
     if (!serial) return;
     refreshPortForwarding(serial).catch((error) => {
-      portForwardStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+      portForwardStatusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
     });
     adbApi
       .allProperties(serial)

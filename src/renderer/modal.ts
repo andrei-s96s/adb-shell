@@ -4,6 +4,8 @@
 // ANR/tombstone-просмотр, позже — intent-тестер, редактор макросов, превью
 // скриншота). Один общий примитив вместо похожей разметки в каждом экране.
 
+import { t } from './i18n.js';
+
 export interface ModalHandle {
   close: () => void;
   body: HTMLDivElement;
@@ -24,7 +26,7 @@ export function openModal(title: string, build: (body: HTMLDivElement, modal: Mo
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.textContent = '✕';
-  closeBtn.title = 'Закрыть';
+  closeBtn.title = t('Закрыть');
   header.appendChild(closeBtn);
   panel.appendChild(header);
 
@@ -95,10 +97,10 @@ export function openTextPromptModal(title: string, placeholder = '', defaultValu
       actions.className = 'modal-actions';
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
-      cancelBtn.textContent = 'Отмена';
+      cancelBtn.textContent = t('Отмена');
       const okBtn = document.createElement('button');
       okBtn.type = 'button';
-      okBtn.textContent = 'ОК';
+      okBtn.textContent = t('ОК');
       actions.appendChild(cancelBtn);
       actions.appendChild(okBtn);
       body.appendChild(actions);

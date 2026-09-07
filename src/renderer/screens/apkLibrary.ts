@@ -15,6 +15,7 @@ import { onDeviceChanged, getCurrentSerial, getDeviceTagFilter } from '../state.
 import { batchTargetLabel } from '../deviceBatchTarget.js';
 import { openApkInfoModal } from './apkInfo.js';
 import { openTextPromptModal } from '../modal.js';
+import { t, formatDateTime } from '../i18n.js';
 
 // Дубликат PLACEHOLDER_ICON из apps.ts (см. комментарий там) -- тот же
 // нейтральный плейсхолдер для локального файла, пока (или если) реальная
@@ -84,7 +85,7 @@ export function initApkLibraryScreen(): void {
         files = updated;
         renderList();
       })
-      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+      .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   });
 
   // Установка требует serial, но список/добавление/проверка обновлений —
@@ -113,7 +114,7 @@ async function refresh(): Promise<void> {
     renderTagFilter();
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -125,7 +126,7 @@ function clearSelection(): void {
 function renderBatchToolbar(): void {
   batchToolbarEl.hidden = selectedPaths.size === 0;
   const countEl = document.getElementById('apklibrary-selected-count');
-  if (countEl) countEl.textContent = `Выбрано: ${selectedPaths.size}`;
+  if (countEl) countEl.textContent = t('Выбрано: {count}', { count: selectedPaths.size });
 }
 
 function renderTagFilter(): void {
@@ -151,9 +152,9 @@ async function revealInFileManager(): Promise<void> {
   // здесь ничего не поймает без явной проверки результата.
   try {
     const error = await adbApi.apkLibraryRevealInFileManager();
-    if (error) statusEl.textContent = `Ошибка: ${error}`;
+    if (error) statusEl.textContent = `${t('Ошибка')}: ${error}`;
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -168,7 +169,7 @@ async function chooseDirectory(): Promise<void> {
     el<HTMLButtonElement>('apklibrary-select-outdated').hidden = true;
     await refresh();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -178,28 +179,28 @@ async function addFiles(): Promise<void> {
     files = await adbApi.apkLibraryAddFiles();
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
 async function downloadFromUrl(): Promise<void> {
-  const url = await openTextPromptModal('Скачать .apk по ссылке', 'https://example.com/app.apk');
+  const url = await openTextPromptModal(t('Скачать .apk по ссылке'), 'https://example.com/app.apk');
   if (!url) return;
-  const filename = await openTextPromptModal('Имя файла (необязательно)', 'по умолчанию — из ссылки');
-  statusEl.textContent = 'Скачивание…';
+  const filename = await openTextPromptModal(t('Имя файла (необязательно)'), t('по умолчанию — из ссылки'));
+  statusEl.textContent = t('Скачивание…');
   // Подписка только на время самого скачивания -- иначе прогресс ДРУГОГО,
   // более раннего скачивания (если пользователь как-то умудрился запустить
   // второе, не дождавшись первого) продолжал бы перезаписывать statusEl
   // и после того, как этот конкретный вызов уже завершился.
   const unsubscribe = adbApi.onApkLibraryDownloadProgress((progress) => {
-    statusEl.textContent = `Скачивание… ${formatProgress(progress)}`;
+    statusEl.textContent = t('Скачивание… {progress}', { progress: formatProgress(progress) });
   });
   try {
     const name = await adbApi.apkLibraryDownloadFromUrl(url, filename || undefined);
-    statusEl.textContent = `Скачано: ${name}`;
+    statusEl.textContent = t('Скачано: {name}', { name });
     await refresh();
   } catch (error) {
-    statusEl.textContent = `Ошибка скачивания: ${errorMessage(error)}`;
+    statusEl.textContent = t('Ошибка скачивания: {error}', { error: errorMessage(error) });
   } finally {
     unsubscribe();
   }
@@ -219,14 +220,14 @@ function formatProgress(progress: { receivedBytes: number; totalBytes?: number }
 async function checkForUpdates(): Promise<void> {
   if (isCheckingUpdates) return;
   isCheckingUpdates = true;
-  statusEl.textContent = 'Проверка обновлений на F-Droid…';
+  statusEl.textContent = t('Проверка обновлений на F-Droid…');
   try {
     fdroidUpdates = await adbApi.apkLibraryCheckFDroidUpdates();
     const count = Object.keys(fdroidUpdates).length;
-    statusEl.textContent = count > 0 ? `Найдено обновлений: ${count}` : 'Обновлений не найдено';
+    statusEl.textContent = count > 0 ? t('Найдено обновлений: {count}', { count }) : t('Обновлений не найдено');
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка проверки обновлений: ${errorMessage(error)}`;
+    statusEl.textContent = t('Ошибка проверки обновлений: {error}', { error: errorMessage(error) });
   } finally {
     isCheckingUpdates = false;
   }
@@ -235,15 +236,15 @@ async function checkForUpdates(): Promise<void> {
 async function checkForOutdatedDuplicates(): Promise<void> {
   if (isCheckingDuplicates) return;
   isCheckingDuplicates = true;
-  statusEl.textContent = 'Поиск устаревших дублей в библиотеке…';
+  statusEl.textContent = t('Поиск устаревших дублей в библиотеке…');
   try {
     outdatedDuplicates = await adbApi.apkLibraryFindOutdatedDuplicates();
     const count = Object.keys(outdatedDuplicates).length;
-    statusEl.textContent = count > 0 ? `Найдено устаревших дублей: ${count}` : 'Дублей не найдено';
+    statusEl.textContent = count > 0 ? t('Найдено устаревших дублей: {count}', { count }) : t('Дублей не найдено');
     el<HTMLButtonElement>('apklibrary-select-outdated').hidden = count === 0;
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка проверки дублей: ${errorMessage(error)}`;
+    statusEl.textContent = t('Ошибка проверки дублей: {error}', { error: errorMessage(error) });
   } finally {
     isCheckingDuplicates = false;
   }
@@ -263,7 +264,7 @@ function renderList(): void {
   if (visible.length === 0) {
     const li = document.createElement('li');
     li.className = 'row empty';
-    li.textContent = files.length === 0 ? 'Библиотека пуста — добавьте .apk кнопкой выше' : 'Нет файлов с этим тегом';
+    li.textContent = files.length === 0 ? t('Библиотека пуста — добавьте .apk кнопкой выше') : t('Нет файлов с этим тегом');
     listEl.appendChild(li);
     renderBatchToolbar();
     return;
@@ -316,7 +317,7 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
 
   const meta = document.createElement('span');
   meta.className = 'hint';
-  meta.textContent = `${formatBytes(file.sizeBytes)} · ${new Date(file.modifiedMs).toLocaleString('ru-RU')}`;
+  meta.textContent = `${formatBytes(file.sizeBytes)} · ${formatDateTime(file.modifiedMs)}`;
   main.appendChild(meta);
 
   const update = fdroidUpdates[file.path];
@@ -331,8 +332,11 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   if (outdated) {
     const badge = document.createElement('span');
     badge.className = 'apk-update-badge';
-    badge.textContent = `⧉ устарела, есть ${outdated.latestFileName}`;
-    badge.title = `В библиотеке уже есть более новая версия (versionCode ${outdated.latestVersionCode}): ${outdated.latestFileName}`;
+    badge.textContent = t('⧉ устарела, есть {name}', { name: outdated.latestFileName });
+    badge.title = t('В библиотеке уже есть более новая версия (versionCode {code}): {name}', {
+      code: outdated.latestVersionCode,
+      name: outdated.latestFileName,
+    });
     main.appendChild(badge);
   }
 
@@ -347,7 +351,7 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.textContent = '✕';
-    removeBtn.title = 'Убрать тег';
+    removeBtn.title = t('Убрать тег');
     removeBtn.addEventListener('click', () => void removeTag(file, tag));
     chip.appendChild(removeBtn);
     tagsRow.appendChild(chip);
@@ -355,7 +359,7 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   const addTagBtn = document.createElement('button');
   addTagBtn.type = 'button';
   addTagBtn.className = 'tag-add-btn';
-  addTagBtn.textContent = '+ тег';
+  addTagBtn.textContent = t('+ тег');
   addTagBtn.addEventListener('click', () => void promptAddTag(file));
   tagsRow.appendChild(addTagBtn);
   main.appendChild(tagsRow);
@@ -368,26 +372,26 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
 
   if (update) {
     const updateBtn = document.createElement('button');
-    updateBtn.textContent = installingPath === file.path ? '…' : 'Обновить';
+    updateBtn.textContent = installingPath === file.path ? '…' : t('Обновить', undefined, 'apk-update');
     updateBtn.disabled = installingPath === file.path;
     updateBtn.addEventListener('click', () => void downloadUpdate(file, update));
     actions.appendChild(updateBtn);
   }
 
   const installBtn = document.createElement('button');
-  installBtn.textContent = installingPath === file.path ? '…' : 'Установить';
+  installBtn.textContent = installingPath === file.path ? '…' : t('Установить');
   installBtn.disabled = !serial || installingPath === file.path;
-  installBtn.title = serial ? '' : 'Нет подключённого устройства';
+  installBtn.title = serial ? '' : t('Нет подключённого устройства');
   installBtn.addEventListener('click', () => void installOne(file, serial));
   actions.appendChild(installBtn);
 
   const infoBtn = document.createElement('button');
-  infoBtn.textContent = 'Инфо';
+  infoBtn.textContent = t('Инфо');
   infoBtn.addEventListener('click', () => openApkInfoModal(file.path, file.name, serial));
   actions.appendChild(infoBtn);
 
   const deleteBtn = document.createElement('button');
-  deleteBtn.textContent = 'Удалить';
+  deleteBtn.textContent = t('Удалить');
   deleteBtn.addEventListener('click', () => void deleteFile(file));
   actions.appendChild(deleteBtn);
 
@@ -411,12 +415,12 @@ async function installOne(file: ApkFile, serial: string | undefined): Promise<vo
   if (!serial) return;
   installingPath = file.path;
   renderList();
-  statusEl.textContent = `Установка ${file.name}…`;
+  statusEl.textContent = t('Установка {name}…', { name: file.name });
   try {
     await adbApi.install(serial, file.path);
-    statusEl.textContent = `Установлено: ${file.name}`;
+    statusEl.textContent = t('Установлено: {name}', { name: file.name });
   } catch (error) {
-    statusEl.textContent = `Ошибка установки: ${errorMessage(error)}`;
+    statusEl.textContent = t('Ошибка установки: {error}', { error: errorMessage(error) });
   } finally {
     installingPath = undefined;
     renderList();
@@ -430,11 +434,11 @@ async function installSelectedToCurrent(): Promise<void> {
   const serial = getCurrentSerial();
   if (selectedPaths.size === 0) return;
   if (!serial) {
-    statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    statusEl.textContent = t('Нет подключённого устройства — выберите устройство слева');
     return;
   }
   const targets = files.filter((f) => selectedPaths.has(f.path));
-  statusEl.textContent = `Установка ${targets.length}…`;
+  statusEl.textContent = t('Установка {count}…', { count: targets.length });
   let success = 0;
   for (const file of targets) {
     try {
@@ -444,7 +448,7 @@ async function installSelectedToCurrent(): Promise<void> {
       // Продолжаем остальные -- одна неудача не должна прерывать пакет.
     }
   }
-  statusEl.textContent = `Установлено: ${success}/${targets.length}`;
+  statusEl.textContent = t('Установлено: {ok}/{total}', { ok: success, total: targets.length });
 }
 
 /** Устанавливает каждый выбранный файл на все готовые устройства по
@@ -457,7 +461,10 @@ async function installSelectedToCurrent(): Promise<void> {
 async function installSelectedToAll(): Promise<void> {
   if (selectedPaths.size === 0) return;
   const targets = files.filter((f) => selectedPaths.has(f.path));
-  statusEl.textContent = `Установка ${targets.length} файлов на все готовые устройства${batchTargetLabel()}…`;
+  statusEl.textContent = t('Установка {count} файлов на все готовые устройства{target}…', {
+    count: targets.length,
+    target: batchTargetLabel(),
+  });
   let successCount = 0;
   let totalAttempts = 0;
   const failures: string[] = [];
@@ -473,14 +480,14 @@ async function installSelectedToAll(): Promise<void> {
   }
   statusEl.textContent =
     totalAttempts === 0
-      ? 'Нет готовых устройств'
+      ? t('Нет готовых устройств')
       : failures.length === 0
-        ? `Установлено: ${successCount}/${totalAttempts}`
-        : `Установлено: ${successCount}/${totalAttempts}. Ошибки: ${failures.join('; ')}`;
+        ? t('Установлено: {ok}/{total}', { ok: successCount, total: totalAttempts })
+        : t('Установлено: {ok}/{total}. Ошибки: {errors}', { ok: successCount, total: totalAttempts, errors: failures.join('; ') });
   if (totalAttempts > 0) {
     try {
-      new Notification('Установка на все устройства', {
-        body: `${targets.length} файлов: успешно ${successCount} из ${totalAttempts} попыток`,
+      new Notification(t('Установка на все устройства'), {
+        body: t('{count} файлов: успешно {ok} из {total} попыток', { count: targets.length, ok: successCount, total: totalAttempts }),
       });
     } catch {
       // Не критично.
@@ -493,7 +500,7 @@ async function installSelectedToAll(): Promise<void> {
 async function deleteSelected(): Promise<void> {
   if (selectedPaths.size === 0) return;
   const targets = files.filter((f) => selectedPaths.has(f.path));
-  statusEl.textContent = `Удаление ${targets.length}…`;
+  statusEl.textContent = t('Удаление {count}…', { count: targets.length });
   let deleted = 0;
   for (const file of targets) {
     try {
@@ -506,22 +513,22 @@ async function deleteSelected(): Promise<void> {
     }
   }
   clearSelection();
-  statusEl.textContent = `Удалено: ${deleted}/${targets.length}`;
+  statusEl.textContent = t('Удалено: {deleted}/{total}', { deleted, total: targets.length });
   await refresh();
 }
 
 async function downloadUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<void> {
   installingPath = file.path;
   renderList();
-  statusEl.textContent = `Скачивание обновления ${update.latestVersionName ?? update.latestVersionCode}…`;
+  statusEl.textContent = t('Скачивание обновления {version}…', { version: update.latestVersionName ?? update.latestVersionCode });
   try {
     await adbApi.apkLibraryDownloadFDroidUpdate(file, update);
     delete fdroidUpdates[file.path];
     delete outdatedDuplicates[file.path];
-    statusEl.textContent = 'Обновлено';
+    statusEl.textContent = t('Обновлено');
     await refresh();
   } catch (error) {
-    statusEl.textContent = `Ошибка обновления: ${errorMessage(error)}`;
+    statusEl.textContent = t('Ошибка обновления: {error}', { error: errorMessage(error) });
   } finally {
     installingPath = undefined;
     renderList();
@@ -535,19 +542,19 @@ async function deleteFile(file: ApkFile): Promise<void> {
     delete outdatedDuplicates[file.path];
     await refresh();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
 async function promptAddTag(file: ApkFile): Promise<void> {
-  const tag = await openTextPromptModal('Добавить тег', 'тег');
+  const tag = await openTextPromptModal(t('Добавить тег'), t('тег'));
   if (!tag || !tag.trim()) return;
   try {
     tagsByPath = await adbApi.apkLibraryAddTag(file.path, tag);
     renderTagFilter();
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -557,13 +564,13 @@ async function removeTag(file: ApkFile, tag: string): Promise<void> {
     renderTagFilter();
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1000) return `${bytes} Б`;
-  const units = ['КБ', 'МБ', 'ГБ'];
+  if (bytes < 1000) return `${bytes} ${t('Б')}`;
+  const units = [t('КБ'), t('МБ'), t('ГБ')];
   let value = bytes / 1000;
   let unitIndex = 0;
   while (value >= 1000 && unitIndex < units.length - 1) {

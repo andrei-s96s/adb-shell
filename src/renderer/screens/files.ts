@@ -2,6 +2,7 @@ import { adbApi, el, errorMessage } from '../api.js';
 import type { RemoteFile } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openTextPromptModal } from '../modal.js';
+import { t } from '../i18n.js';
 
 let pathEl: HTMLInputElement;
 let listEl: HTMLUListElement;
@@ -39,7 +40,7 @@ export function initFilesScreen(): void {
   });
   el<HTMLButtonElement>('files-mkdir').addEventListener('click', () => {
     void (async () => {
-      const name = await openTextPromptModal('Новая папка', 'имя папки');
+      const name = await openTextPromptModal(t('Новая папка'), t('имя папки'));
       if (!name) return;
       const serial = getCurrentSerial();
       if (!serial) return;
@@ -75,7 +76,7 @@ export function initFilesScreen(): void {
     if (serial) {
       void refresh();
     } else {
-      statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+      statusEl.textContent = t('Нет подключённого устройства — выберите устройство слева');
     }
   });
 }
@@ -100,13 +101,13 @@ async function pushViaDialog(): Promise<void> {
 }
 
 async function pushOne(serial: string, localPath: string, fileName: string): Promise<void> {
-  statusEl.textContent = `Отправка ${fileName}…`;
+  statusEl.textContent = t('Отправка {name}…', { name: fileName });
   try {
     await adbApi.push(serial, localPath, joinPath(currentPath, fileName));
-    statusEl.textContent = `Отправлено: ${fileName}`;
+    statusEl.textContent = t('Отправлено: {name}', { name: fileName });
     await refresh();
   } catch (error) {
-    statusEl.textContent = `Ошибка отправки: ${errorMessage(error)}`;
+    statusEl.textContent = t('Ошибка отправки: {error}', { error: errorMessage(error) });
   }
 }
 
@@ -117,7 +118,7 @@ async function deleteSelected(): Promise<void> {
   const serial = getCurrentSerial();
   if (!serial || selectedPaths.size === 0) return;
   const targets = entries.filter((e) => selectedPaths.has(e.path));
-  statusEl.textContent = `Удаление ${targets.length}…`;
+  statusEl.textContent = t('Удаление {count}…', { count: targets.length });
   let deleted = 0;
   for (const entry of targets) {
     try {
@@ -128,7 +129,7 @@ async function deleteSelected(): Promise<void> {
     }
   }
   clearSelection();
-  statusEl.textContent = `Удалено: ${deleted}/${targets.length}`;
+  statusEl.textContent = t('Удалено: {deleted}/{total}', { deleted, total: targets.length });
   await refresh();
 }
 
@@ -141,13 +142,13 @@ async function refresh(): Promise<void> {
   if (!serial) return;
   pathEl.value = currentPath;
   clearSelection();
-  statusEl.textContent = 'Загрузка…';
+  statusEl.textContent = t('Загрузка…');
   try {
     entries = await adbApi.listDirectory(serial, currentPath);
     statusEl.textContent = '';
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
     entries = [];
     listEl.innerHTML = '';
   }
@@ -204,11 +205,11 @@ function renderList(): void {
 
     if (!entry.isDirectory && serial) {
       const pull = document.createElement('button');
-      pull.textContent = 'Скачать';
+      pull.textContent = t('Скачать');
       pull.addEventListener('click', () =>
         run(async () => {
           const saved = await adbApi.pullToChosenPath(serial, entry.path, entry.name);
-          if (saved) statusEl.textContent = `Скачано: ${entry.name}`;
+          if (saved) statusEl.textContent = t('Скачано: {name}', { name: entry.name });
         })
       );
       actions.appendChild(pull);
@@ -216,7 +217,7 @@ function renderList(): void {
 
     if (serial) {
       const del = document.createElement('button');
-      del.textContent = 'Удалить';
+      del.textContent = t('Удалить');
       del.addEventListener('click', () =>
         run(async () => {
           await adbApi.removeRemote(serial, entry.path, entry.isDirectory);
@@ -236,12 +237,12 @@ function renderList(): void {
 function renderBatchToolbar(): void {
   batchToolbarEl.hidden = selectedPaths.size === 0;
   const countEl = document.getElementById('files-selected-count');
-  if (countEl) countEl.textContent = `Выбрано: ${selectedPaths.size}`;
+  if (countEl) countEl.textContent = t('Выбрано: {count}', { count: selectedPaths.size });
 }
 
 function run(action: () => Promise<void>): void {
   statusEl.textContent = '';
   action().catch((error) => {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   });
 }

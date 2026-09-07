@@ -4,6 +4,7 @@ import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openDeviceCompareModal } from './deviceCompare.js';
 import { openSnapshotsModal } from './snapshots.js';
 import { loadDefaultShowSystemApps } from './settings.js';
+import { t } from '../i18n.js';
 
 const NET_POLL_INTERVAL_MS = 3000;
 
@@ -101,7 +102,7 @@ export function initAppsScreen(): void {
     if (serial) {
       void loadApps(serial);
     } else {
-      statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+      statusEl.textContent = t('Нет подключённого устройства — выберите устройство слева');
     }
   });
 }
@@ -140,9 +141,9 @@ async function exportCsv(): Promise<void> {
   }
   try {
     const saved = await adbApi.saveCsv(`packages-${serial}.csv`, csv);
-    if (saved) statusEl.textContent = 'Экспортировано';
+    if (saved) statusEl.textContent = t('Экспортировано');
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -151,27 +152,35 @@ async function exportCsv(): Promise<void> {
 async function installApks(): Promise<void> {
   const serial = getCurrentSerial();
   if (!serial) {
-    statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    statusEl.textContent = t('Нет подключённого устройства — выберите устройство слева');
     return;
   }
   const apkPaths = await adbApi.selectApkFiles();
   if (apkPaths.length === 0) return;
-  statusEl.textContent = `Установка ${apkPaths.length} APK…`;
+  statusEl.textContent = t('Установка {count} APK…', { count: apkPaths.length });
   try {
     const results = await adbApi.appsInstallBatch(serial, apkPaths);
     const failed = results.filter((r) => !r.success);
     statusEl.textContent =
-      failed.length === 0 ? `Установлено: ${results.length}` : `Установлено ${results.length - failed.length} из ${results.length}. Ошибки: ${failed.map((f) => f.message).join('; ')}`;
+      failed.length === 0
+        ? t('Установлено: {count}', { count: results.length })
+        : t('Установлено {ok} из {total}. Ошибки: {errors}', {
+            ok: results.length - failed.length,
+            total: results.length,
+            errors: failed.map((f) => f.message).join('; '),
+          });
     if (results.length > 1) {
       try {
-        new Notification('Пакетная установка', { body: `Установлено ${results.length - failed.length} из ${results.length}` });
+        new Notification(t('Пакетная установка'), {
+          body: t('Установлено {ok} из {total}', { ok: results.length - failed.length, total: results.length }),
+        });
       } catch {
         // Не критично.
       }
     }
     await loadApps(serial);
   } catch (error) {
-    statusEl.textContent = `Ошибка установки: ${errorMessage(error)}`;
+    statusEl.textContent = t('Ошибка установки: {error}', { error: errorMessage(error) });
   }
 }
 
@@ -179,7 +188,7 @@ async function deleteSelected(): Promise<void> {
   const serial = getCurrentSerial();
   if (!serial || selectedForBatch.size === 0) return;
   const packages = [...selectedForBatch];
-  statusEl.textContent = `Удаление ${packages.length}…`;
+  statusEl.textContent = t('Удаление {count}…', { count: packages.length });
   try {
     const results = await adbApi.appsDeleteSelected(serial, packages);
     const failed = results.filter((r) => !r.success);
@@ -188,17 +197,23 @@ async function deleteSelected(): Promise<void> {
     renderDetail();
     statusEl.textContent =
       failed.length === 0
-        ? `Удалено: ${results.length}`
-        : `Удалено ${results.length - failed.length} из ${results.length}. Ошибки: ${failed.map((f) => f.message).join('; ')}`;
+        ? t('Удалено: {count}', { count: results.length })
+        : t('Удалено {ok} из {total}. Ошибки: {errors}', {
+            ok: results.length - failed.length,
+            total: results.length,
+            errors: failed.map((f) => f.message).join('; '),
+          });
     if (results.length > 1) {
       try {
-        new Notification('Пакетное удаление', { body: `Удалено ${results.length - failed.length} из ${results.length}` });
+        new Notification(t('Пакетное удаление'), {
+          body: t('Удалено {ok} из {total}', { ok: results.length - failed.length, total: results.length }),
+        });
       } catch {
         // Не критично.
       }
     }
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -216,24 +231,31 @@ async function runBatchPackageAction(
   const serial = getCurrentSerial();
   if (!serial || selectedForBatch.size === 0) return undefined;
   const packages = [...selectedForBatch];
-  statusEl.textContent = `${actionVerb} (${packages.length})…`;
+  statusEl.textContent = t('{verb} ({count})…', { verb: actionVerb, count: packages.length });
   try {
     const results = await apiCall(serial, packages);
     const failed = results.filter((r) => !r.success);
     statusEl.textContent =
       failed.length === 0
-        ? `${actionVerb}: готово (${results.length})`
-        : `${actionVerb}: ${results.length - failed.length} из ${results.length}. Ошибки: ${failed.map((f) => f.message).join('; ')}`;
+        ? t('{verb}: готово ({count})', { verb: actionVerb, count: results.length })
+        : t('{verb}: {ok} из {total}. Ошибки: {errors}', {
+            verb: actionVerb,
+            ok: results.length - failed.length,
+            total: results.length,
+            errors: failed.map((f) => f.message).join('; '),
+          });
     if (results.length > 1) {
       try {
-        new Notification(actionVerb, { body: `Готово: ${results.length - failed.length} из ${results.length}` });
+        new Notification(actionVerb, {
+          body: t('Готово: {ok} из {total}', { ok: results.length - failed.length, total: results.length }),
+        });
       } catch {
         // Не критично.
       }
     }
     return { serial, results };
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
     return undefined;
   }
 }
@@ -244,12 +266,12 @@ async function forceStopSelected(): Promise<void> {
 }
 
 async function clearDataSelectedBatch(): Promise<void> {
-  const outcome = await runBatchPackageAction('Очистка данных', adbApi.appsClearDataSelected);
+  const outcome = await runBatchPackageAction(t('Очистка данных'), adbApi.appsClearDataSelected);
   if (outcome && selectedForBatch.size === 1) void loadDetail(outcome.serial, [...selectedForBatch][0]);
 }
 
 async function setEnabledSelectedBatch(enabled: boolean): Promise<void> {
-  const outcome = await runBatchPackageAction(enabled ? 'Включение' : 'Отключение', (serial, packages) =>
+  const outcome = await runBatchPackageAction(enabled ? t('Включение') : t('Отключение'), (serial, packages) =>
     adbApi.appsSetEnabledSelected(serial, packages, enabled)
   );
   if (!outcome) return;
@@ -265,19 +287,20 @@ async function exportSelected(): Promise<void> {
   const serial = getCurrentSerial();
   if (!serial || selectedForBatch.size === 0) return;
   const packages = [...selectedForBatch];
-  statusEl.textContent = 'Экспорт…';
+  statusEl.textContent = t('Экспорт…');
   try {
     const outcome = await adbApi.appsExportSelected(serial, packages);
     if (!outcome) {
       statusEl.textContent = '';
       return;
     }
-    statusEl.textContent = outcome.entryCount > 0 ? `Экспортировано приложений: ${outcome.entryCount}` : 'Ничего не экспортировано';
+    statusEl.textContent =
+      outcome.entryCount > 0 ? t('Экспортировано приложений: {count}', { count: outcome.entryCount }) : t('Ничего не экспортировано');
     clearSelection();
     renderList();
     renderBatchToolbar();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -286,10 +309,10 @@ async function exportSelected(): Promise<void> {
 async function importBundle(): Promise<void> {
   const serial = getCurrentSerial();
   if (!serial) {
-    statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
+    statusEl.textContent = t('Нет подключённого устройства — выберите устройство слева');
     return;
   }
-  statusEl.textContent = 'Импорт…';
+  statusEl.textContent = t('Импорт…');
   try {
     const outcome = await adbApi.appsImportBundle(serial);
     if (!outcome) {
@@ -299,23 +322,23 @@ async function importBundle(): Promise<void> {
     const failed = outcome.results.filter((r) => !r.success);
     statusEl.textContent =
       failed.length === 0
-        ? `Импортировано: ${outcome.results.length}`
-        : `Импортировано ${outcome.results.length - failed.length} из ${outcome.results.length}`;
+        ? t('Импортировано: {count}', { count: outcome.results.length })
+        : t('Импортировано {ok} из {total}', { ok: outcome.results.length - failed.length, total: outcome.results.length });
     await loadApps(serial);
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
 async function loadApps(serial: string): Promise<void> {
-  statusEl.textContent = 'Загрузка списка приложений…';
+  statusEl.textContent = t('Загрузка списка приложений…');
   fdroidUpdates = {};
   try {
     apps = await adbApi.listApps(serial);
     statusEl.textContent = '';
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
     return;
   }
   // В фоне, не блокируя список -- сверка может занять время на устройствах
@@ -355,7 +378,7 @@ function renderList(): void {
     if (serialForIcons) loadIcon(icon, serialForIcons, app.packageName);
 
     const label = document.createElement('span');
-    label.textContent = app.packageName + (app.isSystem ? '  [SYS]' : '') + (!app.isEnabled ? '  (выкл)' : '');
+    label.textContent = app.packageName + (app.isSystem ? '  [SYS]' : '') + (!app.isEnabled ? `  ${t('(выкл)')}` : '');
     main.appendChild(label);
 
     if (fdroidUpdates[app.packageName]) {
@@ -422,7 +445,7 @@ function updateSelectionClasses(): void {
 function renderBatchToolbar(): void {
   batchToolbarEl.hidden = selectedForBatch.size === 0;
   const countEl = document.getElementById('apps-selected-count');
-  if (countEl) countEl.textContent = `Выбрано: ${selectedForBatch.size}`;
+  if (countEl) countEl.textContent = t('Выбрано: {count}', { count: selectedForBatch.size });
 }
 
 let lastLoadedDetail: AppDetail | undefined;
@@ -440,7 +463,7 @@ function isDetailRequestStale(serial: string, packageName: string): boolean {
 
 async function loadDetail(serial: string, packageName: string): Promise<void> {
   stopNetPolling();
-  detailEl.innerHTML = '<p class="placeholder">Загрузка…</p>';
+  detailEl.innerHTML = `<p class="placeholder">${t('Загрузка…')}</p>`;
   try {
     const detail = await adbApi.appDetail(serial, packageName);
     if (isDetailRequestStale(serial, packageName)) return;
@@ -451,7 +474,7 @@ async function loadDetail(serial: string, packageName: string): Promise<void> {
     detailEl.innerHTML = '';
     const p = document.createElement('p');
     p.className = 'error';
-    p.textContent = `Ошибка: ${errorMessage(error)}`;
+    p.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
     detailEl.appendChild(p);
   }
 }
@@ -470,7 +493,12 @@ function startNetPolling(serial: string, uid: number): void {
           if (dt > 0) {
             const rxRate = Math.max(0, (usage.rxBytes - lastNetSample.rx) / dt);
             const txRate = Math.max(0, (usage.txBytes - lastNetSample.tx) / dt);
-            netLineEl.textContent = `сеть: ↓ ${formatRate(rxRate)} · ↑ ${formatRate(txRate)} (всего ↓ ${formatBytes(usage.rxBytes)} / ↑ ${formatBytes(usage.txBytes)})`;
+            netLineEl.textContent = t('сеть: ↓ {rxRate} · ↑ {txRate} (всего ↓ {rxTotal} / ↑ {txTotal})', {
+              rxRate: formatRate(rxRate),
+              txRate: formatRate(txRate),
+              rxTotal: formatBytes(usage.rxBytes),
+              txTotal: formatBytes(usage.txBytes),
+            });
           }
         }
         lastNetSample = { rx: usage.rxBytes, tx: usage.txBytes, at: now };
@@ -531,8 +559,8 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
   if (!detail || !serial) {
     detailEl.innerHTML =
       selectedForBatch.size > 1
-        ? `<p class="placeholder">Выбрано приложений: ${selectedForBatch.size} — используйте Экспортировать/Удалить выбранные</p>`
-        : '<p class="placeholder">Выберите приложение слева</p>';
+        ? `<p class="placeholder">${t('Выбрано приложений: {count} — используйте Экспортировать/Удалить выбранные', { count: selectedForBatch.size })}</p>`
+        : `<p class="placeholder">${t('Выберите приложение слева')}</p>`;
     return;
   }
 
@@ -547,25 +575,32 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
 
   const versionLine = document.createElement('div');
   versionLine.className = 'hint';
-  versionLine.textContent = `версия ${detail.versionName ?? '—'} (${detail.versionCode ?? '—'}) · target SDK ${detail.targetSdk ?? '—'}`;
+  versionLine.textContent = t('версия {version} ({code}) · target SDK {sdk}', {
+    version: detail.versionName ?? '—',
+    code: detail.versionCode ?? '—',
+    sdk: detail.targetSdk ?? '—',
+  });
   header.appendChild(versionLine);
 
   const pathLine = document.createElement('div');
   pathLine.className = 'hint';
-  pathLine.textContent = `путь: ${detail.apkPath ?? '—'}`;
+  pathLine.textContent = t('путь: {path}', { path: detail.apkPath ?? '—' });
   header.appendChild(pathLine);
 
   if (detail.uid !== undefined) {
     const netLine = document.createElement('div');
     netLine.className = 'hint';
     netLine.id = 'apps-detail-net';
-    netLine.textContent = 'сеть: —';
+    netLine.textContent = t('сеть: —');
     header.appendChild(netLine);
   }
 
   const datesLine = document.createElement('div');
   datesLine.className = 'hint';
-  datesLine.textContent = `установлено: ${detail.firstInstallTime ?? '—'} · обновлено: ${detail.lastUpdateTime ?? '—'}`;
+  datesLine.textContent = t('установлено: {installed} · обновлено: {updated}', {
+    installed: detail.firstInstallTime ?? '—',
+    updated: detail.lastUpdateTime ?? '—',
+  });
   header.appendChild(datesLine);
 
   detailEl.appendChild(header);
@@ -578,17 +613,17 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
   const actions = document.createElement('div');
   actions.className = 'actions-row';
   actions.appendChild(actionButton('Force stop', () => run(() => adbApi.forceStop(serial, detail.packageName))));
-  actions.appendChild(actionButton('Очистить данные', () => run(() => adbApi.clearData(serial, detail.packageName))));
+  actions.appendChild(actionButton(t('Очистить данные'), () => run(() => adbApi.clearData(serial, detail.packageName))));
   actions.appendChild(
-    actionButton('Экспортировать APK', () =>
+    actionButton(t('Экспортировать APK'), () =>
       run(async () => {
         const saved = await adbApi.appsExportApk(serial, detail.packageName);
-        statusEl.textContent = saved ? 'APK экспортирован' : '';
+        statusEl.textContent = saved ? t('APK экспортирован') : '';
       })
     )
   );
   actions.appendChild(
-    actionButton(detail.isEnabled ? 'Отключить' : 'Включить', () =>
+    actionButton(detail.isEnabled ? t('Отключить', undefined, 'app-toggle') : t('Включить'), () =>
       run(async () => {
         await adbApi.setEnabled(serial, detail.packageName, !detail.isEnabled);
         await loadDetail(serial, detail.packageName);
@@ -596,7 +631,7 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
     )
   );
   actions.appendChild(
-    actionButton('Удалить', () =>
+    actionButton(t('Удалить'), () =>
       run(async () => {
         await adbApi.uninstall(serial, detail.packageName);
         clearSelection();
@@ -610,7 +645,7 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
 
   const permsTitle = document.createElement('div');
   permsTitle.className = 'hint section-title';
-  permsTitle.textContent = `Разрешения (${detail.permissions.length})`;
+  permsTitle.textContent = t('Разрешения ({count})', { count: detail.permissions.length });
   detailEl.appendChild(permsTitle);
 
   const permsList = document.createElement('ul');
@@ -623,7 +658,7 @@ function renderDetail(detail?: AppDetail, serial?: string): void {
     li.appendChild(label);
     if (perm.isRuntime) {
       const button = document.createElement('button');
-      button.textContent = perm.granted ? 'Забрать' : 'Выдать';
+      button.textContent = perm.granted ? t('Забрать') : t('Выдать');
       button.addEventListener('click', () =>
         run(async () => {
           if (perm.granted) {
@@ -657,19 +692,19 @@ function buildFDroidUpdateCard(update: FDroidUpdateInfo, serial: string, package
   const title = document.createElement('div');
   title.style.color = 'var(--cp-gold)';
   title.style.fontWeight = '600';
-  title.textContent = `↑ Доступно обновление на F-Droid: ${update.latestVersionName ?? update.latestVersionCode}`;
+  title.textContent = t('↑ Доступно обновление на F-Droid: {version}', { version: update.latestVersionName ?? update.latestVersionCode });
   card.appendChild(title);
 
   const source = document.createElement('div');
   source.className = 'hint';
-  source.textContent = 'Источник: официальный каталог F-Droid';
+  source.textContent = t('Источник: официальный каталог F-Droid');
   card.appendChild(source);
 
   const actionsRow = document.createElement('div');
   actionsRow.className = 'toolbar';
 
   const installBtn = document.createElement('button');
-  installBtn.textContent = 'Установить';
+  installBtn.textContent = t('Установить');
   installBtn.addEventListener('click', () =>
     run(async () => {
       installBtn.disabled = true;
@@ -677,18 +712,18 @@ function buildFDroidUpdateCard(update: FDroidUpdateInfo, serial: string, package
       try {
         await adbApi.appsInstallFDroidUpdate(serial, packageName, update.latestVersionCode);
         delete fdroidUpdates[packageName];
-        statusEl.textContent = 'Обновлено';
+        statusEl.textContent = t('Обновлено');
         await loadDetail(serial, packageName);
       } finally {
         installBtn.disabled = false;
-        installBtn.textContent = 'Установить';
+        installBtn.textContent = t('Установить');
       }
     })
   );
   actionsRow.appendChild(installBtn);
 
   const openPageBtn = document.createElement('button');
-  openPageBtn.textContent = 'Страница на F-Droid';
+  openPageBtn.textContent = t('Страница на F-Droid');
   openPageBtn.addEventListener('click', () => void adbApi.openExternal(`https://f-droid.org/packages/${packageName}/`));
   actionsRow.appendChild(openPageBtn);
 
@@ -706,6 +741,6 @@ function actionButton(label: string, onClick: () => void): HTMLButtonElement {
 function run(action: () => Promise<void>): void {
   statusEl.textContent = '';
   action().catch((error) => {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   });
 }

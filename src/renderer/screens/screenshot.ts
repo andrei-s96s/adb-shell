@@ -5,17 +5,18 @@
 
 import { adbApi, errorMessage } from '../api.js';
 import { openModal } from '../modal.js';
+import { t } from '../i18n.js';
 
 export async function openScreenshotPreview(serial: string): Promise<void> {
-  const modal = openModal('Скриншот', (body) => {
-    body.innerHTML = '<p class="hint">Захват…</p>';
+  const modal = openModal(t('Скриншот'), (body) => {
+    body.innerHTML = `<p class="hint">${t('Захват…')}</p>`;
   });
 
   let base64Png: string;
   try {
     base64Png = await adbApi.screenshot(serial);
   } catch (error) {
-    modal.body.innerHTML = `<p class="error">Ошибка: ${errorMessage(error)}</p>`;
+    modal.body.innerHTML = `<p class="error">${t('Ошибка')}: ${errorMessage(error)}</p>`;
     return;
   }
 
@@ -41,8 +42,8 @@ export async function openScreenshotPreview(serial: string): Promise<void> {
   copyBtn.addEventListener('click', () => {
     adbApi
       .clipboardWriteImagePng(base64Png)
-      .then(() => (statusEl.textContent = 'Скопировано в буфер'))
-      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+      .then(() => (statusEl.textContent = t('Скопировано в буфер')))
+      .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   });
   toolbar.appendChild(copyBtn);
 
@@ -53,9 +54,9 @@ export async function openScreenshotPreview(serial: string): Promise<void> {
     adbApi
       .saveScreenshot(base64Png)
       .then((saved) => {
-        if (saved) statusEl.textContent = 'Сохранено';
+        if (saved) statusEl.textContent = t('Сохранено');
       })
-      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+      .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   });
   toolbar.appendChild(saveBtn);
 

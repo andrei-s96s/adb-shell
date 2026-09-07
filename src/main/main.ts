@@ -15,6 +15,7 @@ import { DevicePinStore } from './devicePins/DevicePinStore';
 import { DeviceTagStore } from './deviceTags/DeviceTagStore';
 import { DeviceHistoryStore } from './deviceHistory/DeviceHistoryStore';
 import { AppSettingsStore, DEFAULT_SCREENSHOT_HOTKEY } from './settings/AppSettingsStore';
+import { setLocale, t } from './i18n';
 import { timestampForFilename } from './util/timestamp';
 import { showSaveDialogFor, showOpenDialogFor } from './util/dialogs';
 import { mapWithConcurrency } from './util/concurrency';
@@ -65,6 +66,10 @@ const demoAdb = new DemoAdbService();
 let demoModeEnabled = false;
 
 const appSettings = new AppSettingsStore();
+// Применяется сразу же, до создания окна -- строки main-процесса (заголовки
+// системных диалогов и т.п.) должны быть на выбранном языке с самого первого
+// показа, а не только после первого вызова settings:update.
+setLocale(appSettings.get().locale);
 
 /** Общий на процесс контекст, который читают/пишут IPC-хендлеры, разложенные
  * по registerXxxIpc(ctx)-функциям рядом с соответствующими сервисами -- см.
@@ -123,9 +128,9 @@ async function captureScreenshotToDesktop(): Promise<void> {
     const fileName = `adbshell-screenshot-${timestampForFilename(new Date())}.png`;
     const filePath = path.join(app.getPath('desktop') || os.homedir(), fileName);
     await fsPromises.writeFile(filePath, data);
-    new Notification({ title: 'Скриншот сохранён', body: fileName }).show();
+    new Notification({ title: t('Скриншот сохранён'), body: fileName }).show();
   } catch (error) {
-    new Notification({ title: 'Не удалось сделать скриншот', body: (error as Error).message }).show();
+    new Notification({ title: t('Не удалось сделать скриншот'), body: (error as Error).message }).show();
   }
 }
 
@@ -170,11 +175,11 @@ async function runMacroFromHotkey(macroId: string): Promise<void> {
   try {
     const outcome = await runMacro(macro, serial, ctx.adb, {});
     new Notification({
-      title: `Макрос «${macro.name}» (хоткей)`,
-      body: outcome.completedFully ? 'Выполнен полностью' : 'Остановлен на ошибке',
+      title: t('Макрос «{name}» (хоткей)', { name: macro.name }),
+      body: outcome.completedFully ? t('Выполнен полностью') : t('Остановлен на ошибке'),
     }).show();
   } catch (error) {
-    new Notification({ title: `Макрос «${macro.name}» — ошибка`, body: (error as Error).message }).show();
+    new Notification({ title: t('Макрос «{name}» — ошибка', { name: macro.name }), body: (error as Error).message }).show();
   }
 }
 
@@ -369,7 +374,7 @@ function registerIpcHandlers(): void {
   // готово к записи, приходит от renderer строкой.
   ipcMain.handle('dialog:saveCsv', async (event: IpcMainInvokeEvent, defaultName: string, content: string) => {
     const result = await showSaveDialogFor(event, {
-      title: 'Экспорт CSV',
+      title: t('Экспорт CSV'),
       defaultPath: defaultName,
       filters: [{ name: 'CSV', extensions: ['csv'] }],
     });
@@ -387,7 +392,7 @@ function registerIpcHandlers(): void {
     'dialog:saveText',
     async (event: IpcMainInvokeEvent, defaultName: string, content: string, filterName: string, filterExtensions: string[]) => {
       const result = await showSaveDialogFor(event, {
-        title: 'Сохранить',
+        title: t('Сохранить'),
         defaultPath: defaultName,
         filters: [{ name: filterName, extensions: filterExtensions }],
       });
@@ -417,7 +422,7 @@ function registerIpcHandlers(): void {
   });
   ipcMain.handle('dialog:saveScreenshot', async (event: IpcMainInvokeEvent, base64Png: string) => {
     const result = await showSaveDialogFor(event, {
-      title: 'Сохранить скриншот',
+      title: t('Сохранить скриншот'),
       defaultPath: `adbshell-screenshot-${timestampForFilename(new Date())}.png`,
       filters: [{ name: 'PNG', extensions: ['png'] }],
     });
@@ -435,7 +440,7 @@ function registerIpcHandlers(): void {
   // проблем) -- лимит 3, как и у apkLibrary:installToAllDevices.
   ipcMain.handle('dialog:selectScreenshotAllDir', async (event: IpcMainInvokeEvent) => {
     const result = await showOpenDialogFor(event, {
-      title: 'Куда сохранить скриншоты со всех устройств',
+      title: t('Куда сохранить скриншоты со всех устройств'),
       properties: ['openDirectory' as const, 'createDirectory' as const],
     });
     return result.canceled || result.filePaths.length === 0 ? undefined : result.filePaths[0];

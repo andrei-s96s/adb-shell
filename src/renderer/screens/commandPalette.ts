@@ -8,6 +8,7 @@ import { adbApi } from '../api.js';
 import type { Device, Macro } from '../api.js';
 import { getCurrentSerial } from '../state.js';
 import { selectDeviceFromPalette } from '../renderer.js';
+import { t } from '../i18n.js';
 
 const TABS: { id: string; title: string }[] = [
   { id: 'apps', title: 'Приложения' },
@@ -48,7 +49,7 @@ function openCommandPalette(): void {
 
   const input = document.createElement('input');
   input.className = 'palette-input';
-  input.placeholder = 'Вкладка, устройство или макрос…';
+  input.placeholder = t('Вкладка, устройство или макрос…');
   panel.appendChild(input);
 
   const resultsEl = document.createElement('div');
@@ -70,10 +71,10 @@ function openCommandPalette(): void {
 
   function computeResults(): PaletteResult[] {
     const needle = input.value.trim().toLowerCase();
-    const tabs: PaletteResult[] = TABS.filter((t) => !needle || t.title.toLowerCase().includes(needle)).map((t) => ({
+    const tabs: PaletteResult[] = TABS.filter((tab) => !needle || t(tab.title).toLowerCase().includes(needle)).map((tab) => ({
       kind: 'tab',
-      tabId: t.id,
-      title: t.title,
+      tabId: tab.id,
+      title: t(tab.title),
     }));
     const deviceResults: PaletteResult[] = devices
       .filter((d) => {
@@ -96,7 +97,7 @@ function openCommandPalette(): void {
     results = computeResults();
     resultsEl.innerHTML = '';
     if (results.length === 0) {
-      resultsEl.innerHTML = '<div class="hint" style="padding:14px">Ничего не найдено</div>';
+      resultsEl.innerHTML = `<div class="hint" style="padding:14px">${t('Ничего не найдено')}</div>`;
       return;
     }
     for (const result of results) {
@@ -107,13 +108,13 @@ function openCommandPalette(): void {
       kindBadge.className = 'badge';
       if (result.kind === 'tab') {
         label.textContent = result.title;
-        kindBadge.textContent = 'вкладка';
+        kindBadge.textContent = t('вкладка');
       } else if (result.kind === 'device') {
         label.textContent = `${result.ready ? '🟢' : '🔴'} ${result.label}`;
-        kindBadge.textContent = 'устройство';
+        kindBadge.textContent = t('устройство');
       } else {
         label.textContent = `▶ ${result.name}`;
-        kindBadge.textContent = 'макрос';
+        kindBadge.textContent = t('макрос');
       }
       row.appendChild(label);
       row.appendChild(kindBadge);

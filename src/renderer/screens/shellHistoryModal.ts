@@ -5,15 +5,16 @@
 import { adbApi, errorMessage } from '../api.js';
 import type { SavedCommand } from '../api.js';
 import { openModal } from '../modal.js';
+import { t } from '../i18n.js';
 
 export function openShellHistoryModal(onPick: (text: string) => void): void {
-  openModal('История команд', (body) => {
-    body.innerHTML = '<p class="hint">Загрузка…</p>';
+  openModal(t('История команд'), (body) => {
+    body.innerHTML = `<p class="hint">${t('Загрузка…')}</p>`;
     adbApi
       .shellHistoryList()
       .then((items) => render(body, items, onPick))
       .catch((error) => {
-        body.innerHTML = `<p class="error">Ошибка: ${errorMessage(error)}</p>`;
+        body.innerHTML = `<p class="error">${t('Ошибка')}: ${errorMessage(error)}</p>`;
       });
   });
 }
@@ -23,13 +24,13 @@ function render(body: HTMLDivElement, items: SavedCommand[], onPick: (text: stri
   const favorites = items.filter((i) => i.isFavorite).sort((a, b) => a.text.localeCompare(b.text));
   const recent = items.filter((i) => !i.isFavorite).sort((a, b) => b.lastUsedMs - a.lastUsedMs);
 
-  body.appendChild(section('Избранное', favorites, onPick, () => render(body, items, onPick), (updated) => (items = updated)));
-  body.appendChild(section('Недавние', recent, onPick, () => render(body, items, onPick), (updated) => (items = updated)));
+  body.appendChild(section(t('Избранное'), favorites, onPick, () => render(body, items, onPick), (updated) => (items = updated)));
+  body.appendChild(section(t('Недавние'), recent, onPick, () => render(body, items, onPick), (updated) => (items = updated)));
 
   if (items.length > 0) {
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
-    clearBtn.textContent = 'Очистить всю историю';
+    clearBtn.textContent = t('Очистить всю историю');
     clearBtn.addEventListener('click', () => {
       adbApi
         .shellHistoryClear()
@@ -57,7 +58,7 @@ function section(
   const list = document.createElement('ul');
   list.className = 'scroll-list small';
   if (commands.length === 0) {
-    list.innerHTML = '<li class="hint">Пусто</li>';
+    list.innerHTML = `<li class="hint">${t('Пусто')}</li>`;
   }
   for (const cmd of commands) {
     const li = document.createElement('li');

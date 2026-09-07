@@ -7,6 +7,7 @@ import { onDeviceChanged, getCurrentSerial, getDeviceTagFilter } from '../state.
 import { batchTargetLabel } from '../deviceBatchTarget.js';
 import { openModal, openTextPromptModal } from '../modal.js';
 import { openMacroRunHistoryModal } from './macroRunHistoryModal.js';
+import { t } from '../i18n.js';
 
 /** Дубликат Macro.MAX_MACRO_STEP_DELAY_MS (main/adb/types/Macro.ts) -- тот
  * же принцип дублирования чистой константы, что и у extractVariableNames
@@ -87,7 +88,7 @@ export function initMacrosScreen(): void {
     lastResults.set(macroId, results);
     if (runningMacroId === macroId) {
       const macro = macros.find((m) => m.id === macroId);
-      statusEl.textContent = `Выполняется «${macro?.name ?? macroId}» — шаг ${index + 1}/${total}…`;
+      statusEl.textContent = t('Выполняется «{name}» — шаг {index}/{total}…', { name: macro?.name ?? macroId, index: index + 1, total });
     }
     if (expandedMacroId === macroId) renderList();
   });
@@ -97,21 +98,21 @@ export function initMacrosScreen(): void {
     adbApi
       .macrosExport()
       .then((saved) => {
-        if (saved) statusEl.textContent = 'Экспортировано';
+        if (saved) statusEl.textContent = t('Экспортировано');
       })
-      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+      .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   });
   el<HTMLButtonElement>('macros-import').addEventListener('click', () => {
     adbApi
       .macrosImport()
       .then((updated) => {
         macros = updated;
-        statusEl.textContent = 'Импортировано';
+        statusEl.textContent = t('Импортировано');
         // Импортированные макросы могли принести свои теги.
         renderTagFilter();
         renderList();
       })
-      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+      .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   });
   el<HTMLButtonElement>('macros-run-history').addEventListener('click', () => openMacroRunHistoryModal());
 
@@ -126,7 +127,7 @@ export function initMacrosScreen(): void {
       renderTagFilter();
       renderList();
     })
-    .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+    .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   void refreshActiveHotkeys().then(renderList);
 }
 
@@ -157,8 +158,8 @@ function renderList(): void {
   if (visible.length === 0) {
     listEl.innerHTML =
       macros.length === 0
-        ? '<li class="hint">Нет макросов — создайте новый кнопкой выше</li>'
-        : '<li class="hint">Нет макросов с этим тегом</li>';
+        ? `<li class="hint">${t('Нет макросов — создайте новый кнопкой выше')}</li>`
+        : `<li class="hint">${t('Нет макросов с этим тегом')}</li>`;
     return;
   }
   const serial = getCurrentSerial();
@@ -186,10 +187,12 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
     .filter(Boolean)
     .join(' ');
   const hotkeySuffix = macro.hotkeyAccelerator ? ` [${macro.hotkeyAccelerator}]` : '';
-  const scheduleSuffix = macro.scheduleIntervalMinutes ? ` (каждые ${macro.scheduleIntervalMinutes} мин)` : '';
-  label.textContent = `${badges ? badges + ' ' : ''}${macro.name} (${macro.steps.length} шаг${macro.steps.length === 1 ? '' : 'ов'})${hotkeySuffix}${scheduleSuffix}`;
+  const scheduleSuffix = macro.scheduleIntervalMinutes ? ` ${t('(каждые {minutes} мин)', { minutes: macro.scheduleIntervalMinutes })}` : '';
+  const stepsLabel =
+    macro.steps.length === 1 ? t('{count} шаг', { count: macro.steps.length }) : t('{count} шагов', { count: macro.steps.length });
+  label.textContent = `${badges ? badges + ' ' : ''}${macro.name} (${stepsLabel})${hotkeySuffix}${scheduleSuffix}`;
   if (macro.hotkeyAccelerator && !hotkeyActive) {
-    label.title = 'Хоткей назначен, но сейчас не активен -- занят другим макросом/приложением/ОС, либо у макроса есть переменные ${ИМЯ}';
+    label.title = t('Хоткей назначен, но сейчас не активен -- занят другим макросом/приложением/ОС, либо у макроса есть переменные ${ИМЯ}');
   }
   label.addEventListener('click', () => {
     expandedMacroId = expandedMacroId === macro.id ? undefined : macro.id;
@@ -201,31 +204,31 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
   actions.className = 'device-row-actions';
 
   const runBtn = document.createElement('button');
-  runBtn.textContent = runningMacroId === macro.id ? '…' : 'Запустить';
+  runBtn.textContent = runningMacroId === macro.id ? '…' : t('Запустить');
   runBtn.disabled = !serial || runningMacroId !== undefined;
-  runBtn.title = serial ? '' : 'Нет подключённого устройства';
+  runBtn.title = serial ? '' : t('Нет подключённого устройства');
   runBtn.addEventListener('click', () => {
     if (serial) void startRun(macro, serial);
   });
   actions.appendChild(runBtn);
 
   const runAllBtn = document.createElement('button');
-  runAllBtn.textContent = 'На всех';
+  runAllBtn.textContent = t('На всех');
   runAllBtn.title =
-    'Запустить макрос на всех подключённых и готовых устройствах' +
-    (getDeviceTagFilter() ? ` с тегом «${getDeviceTagFilter()}» (см. фильтр слева)` : '');
+    t('Запустить макрос на всех подключённых и готовых устройствах') +
+    (getDeviceTagFilter() ? ` ${t('с тегом «{tag}» (см. фильтр слева)', { tag: getDeviceTagFilter()! })}` : '');
   runAllBtn.disabled = runningMacroId !== undefined;
   runAllBtn.addEventListener('click', () => void startRunOnAll(macro));
   actions.appendChild(runAllBtn);
 
   const editBtn = document.createElement('button');
-  editBtn.textContent = 'Изменить';
+  editBtn.textContent = t('Изменить');
   editBtn.addEventListener('click', () => openEditor(macro));
   actions.appendChild(editBtn);
 
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = '✕';
-  deleteBtn.title = 'Удалить';
+  deleteBtn.title = t('Удалить');
   deleteBtn.addEventListener('click', () => {
     adbApi
       .macrosRemove(macro.id)
@@ -239,7 +242,7 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
         renderTagFilter();
         void refreshActiveHotkeys().then(renderList);
       })
-      .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+      .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
   });
   actions.appendChild(deleteBtn);
 
@@ -257,7 +260,7 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.textContent = '✕';
-    removeBtn.title = 'Убрать тег';
+    removeBtn.title = t('Убрать тег');
     removeBtn.addEventListener('click', () => void removeMacroTag(macro, tag));
     chip.appendChild(removeBtn);
     tagsRow.appendChild(chip);
@@ -265,7 +268,7 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
   const addTagBtn = document.createElement('button');
   addTagBtn.type = 'button';
   addTagBtn.className = 'tag-add-btn';
-  addTagBtn.textContent = '+ тег';
+  addTagBtn.textContent = t('+ тег');
   addTagBtn.addEventListener('click', () => void promptAddMacroTag(macro));
   tagsRow.appendChild(addTagBtn);
   li.appendChild(tagsRow);
@@ -283,9 +286,13 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
       // ошибка, поэтому не крестик); "" -- ещё не выполнялся (задержка тоже
       // молчит, у неё нет своего значка, только текст, см. ниже).
       const icon = result ? (result.skipped ? '⏭ ' : result.isError ? '✗ ' : '✓ ') : '';
-      const stepText = step.isDelay
-        ? `⏱ задержка ${step.delayMs ?? 0} мс`
-        : `${icon}adb ${step.argsLine}${step.runIf === 'onPreviousSuccess' ? ' (если пред. успешен)' : step.runIf === 'onPreviousFailure' ? ' (если пред. с ошибкой)' : ''}`;
+      const runIfSuffix =
+        step.runIf === 'onPreviousSuccess'
+          ? ` ${t('(если пред. успешен)')}`
+          : step.runIf === 'onPreviousFailure'
+            ? ` ${t('(если пред. с ошибкой)')}`
+            : '';
+      const stepText = step.isDelay ? t('⏱ задержка {ms} мс', { ms: step.delayMs ?? 0 }) : `${icon}adb ${step.argsLine}${runIfSuffix}`;
       const stepLabel = document.createElement('span');
       stepLabel.textContent = step.isDelay ? `${icon}${stepText}` : stepText;
       if (result?.isError) stepLabel.style.color = 'var(--cp-crimson)';
@@ -314,20 +321,20 @@ async function startRun(macro: Macro, serial: string): Promise<void> {
   lastResults.set(macro.id, []);
   expandedMacroId = macro.id;
   renderList();
-  statusEl.textContent = `Выполняется «${macro.name}»…`;
+  statusEl.textContent = t('Выполняется «{name}»…', { name: macro.name });
   try {
     const outcome = await adbApi.macrosRun(macro.id, serial, variables, currentRunId);
     lastResults.set(macro.id, outcome.results);
-    statusEl.textContent = outcome.completedFully ? 'Готово' : 'Остановлено на ошибке';
+    statusEl.textContent = outcome.completedFully ? t('Готово') : t('Остановлено на ошибке');
     try {
-      new Notification(`Макрос «${macro.name}»`, {
-        body: outcome.completedFully ? 'Выполнен полностью' : 'Остановлен на ошибке',
+      new Notification(t('Макрос «{name}»', { name: macro.name }), {
+        body: outcome.completedFully ? t('Выполнен полностью') : t('Остановлен на ошибке'),
       });
     } catch {
       // Notification может быть недоступен в некоторых окружениях -- не критично.
     }
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   } finally {
     runningMacroId = undefined;
     currentRunId = undefined;
@@ -349,26 +356,26 @@ async function startRunOnAll(macro: Macro): Promise<void> {
 
   runningMacroId = macro.id;
   renderList();
-  statusEl.textContent = `Выполняется «${macro.name}» на всех устройствах${batchTargetLabel()}…`;
+  statusEl.textContent = t('Выполняется «{name}» на всех устройствах{target}…', { name: macro.name, target: batchTargetLabel() });
   try {
     const result = await adbApi.macrosRunOnAll(macro.id, variables, getDeviceTagFilter());
     statusEl.textContent =
       result.total === 0
-        ? 'Нет готовых устройств'
+        ? t('Нет готовых устройств')
         : result.failures.length === 0
-          ? `Готово на всех: ${result.successCount}/${result.total}`
-          : `Готово: ${result.successCount}/${result.total}. Ошибки: ${result.failures.join('; ')}`;
+          ? t('Готово на всех: {ok}/{total}', { ok: result.successCount, total: result.total })
+          : t('Готово: {ok}/{total}. Ошибки: {errors}', { ok: result.successCount, total: result.total, errors: result.failures.join('; ') });
     if (result.total > 0) {
       try {
-        new Notification(`Макрос «${macro.name}» на всех устройствах`, {
-          body: `Выполнен полностью: ${result.successCount} из ${result.total}`,
+        new Notification(t('Макрос «{name}» на всех устройствах', { name: macro.name }), {
+          body: t('Выполнен полностью: {ok} из {total}', { ok: result.successCount, total: result.total }),
         });
       } catch {
         // Notification может быть недоступен в некоторых окружениях -- не критично.
       }
     }
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   } finally {
     runningMacroId = undefined;
     renderList();
@@ -378,7 +385,7 @@ async function startRunOnAll(macro: Macro): Promise<void> {
 function promptVariables(macroName: string, names: string[]): Promise<Record<string, string> | undefined> {
   return new Promise((resolve) => {
     let settled = false;
-    const modal = openModal(`Переменные — ${macroName}`, (body) => {
+    const modal = openModal(t('Переменные — {name}', { name: macroName }), (body) => {
       const inputs = new Map<string, HTMLInputElement>();
       for (const name of names) {
         const row = document.createElement('div');
@@ -395,7 +402,7 @@ function promptVariables(macroName: string, names: string[]): Promise<Record<str
       }
       const runBtn = document.createElement('button');
       runBtn.type = 'button';
-      runBtn.textContent = 'Запустить';
+      runBtn.textContent = t('Запустить');
       runBtn.addEventListener('click', () => {
         const variables: Record<string, string> = {};
         for (const [name, input] of inputs) variables[name] = input.value;
@@ -421,9 +428,9 @@ function openEditor(existing?: Macro): void {
   // оставлять следов в уже отрисованном списке.
   let steps: MacroStep[] = existing ? existing.steps.map((s) => ({ ...s })) : [];
 
-  openModal(existing ? 'Изменить макрос' : 'Новый макрос', (body, modal) => {
+  openModal(existing ? t('Изменить макрос') : t('Новый макрос'), (body, modal) => {
     const nameInput = document.createElement('input');
-    nameInput.placeholder = 'Имя макроса';
+    nameInput.placeholder = t('Имя макроса');
     nameInput.value = existing?.name ?? '';
     nameInput.style.width = '100%';
     nameInput.style.marginBottom = 'var(--space-8)';
@@ -439,7 +446,7 @@ function openEditor(existing?: Macro): void {
 
     const stepsHeader = document.createElement('div');
     stepsHeader.className = 'hint';
-    stepsHeader.textContent = 'Шаги (выполняются по порядку сверху вниз):';
+    stepsHeader.textContent = t('Шаги (выполняются по порядку сверху вниз):');
     body.appendChild(stepsHeader);
 
     const stepsListEl = document.createElement('div');
@@ -465,7 +472,7 @@ function openEditor(existing?: Macro): void {
       if (step.isDelay) {
         const delayIcon = document.createElement('span');
         delayIcon.className = 'hint';
-        delayIcon.textContent = '⏱ задержка';
+        delayIcon.textContent = `⏱ ${t('задержка')}`;
         row.appendChild(delayIcon);
 
         const delayInput = document.createElement('input');
@@ -481,12 +488,12 @@ function openEditor(existing?: Macro): void {
 
         const msLabel = document.createElement('span');
         msLabel.className = 'hint';
-        msLabel.textContent = 'мс';
+        msLabel.textContent = t('мс');
         row.appendChild(msLabel);
       } else {
         const commandInput = document.createElement('input');
         commandInput.type = 'text';
-        commandInput.placeholder = 'shell pm list packages (без "adb " в начале)';
+        commandInput.placeholder = t('shell pm list packages (без "adb " в начале)');
         commandInput.value = step.argsLine;
         commandInput.addEventListener('input', () => {
           step.argsLine = commandInput.value;
@@ -495,9 +502,9 @@ function openEditor(existing?: Macro): void {
 
         const runIfSelect = document.createElement('select');
         const runIfOptions: Array<['' | 'onPreviousSuccess' | 'onPreviousFailure', string]> = [
-          ['', 'Всегда'],
-          ['onPreviousSuccess', 'Если пред. успешен'],
-          ['onPreviousFailure', 'Если пред. с ошибкой'],
+          ['', t('Всегда')],
+          ['onPreviousSuccess', t('Если пред. успешен')],
+          ['onPreviousFailure', t('Если пред. с ошибкой')],
         ];
         for (const [value, text] of runIfOptions) {
           const option = document.createElement('option');
@@ -515,7 +522,7 @@ function openEditor(existing?: Macro): void {
       const upBtn = document.createElement('button');
       upBtn.type = 'button';
       upBtn.textContent = '▲';
-      upBtn.title = 'Переместить выше';
+      upBtn.title = t('Переместить выше');
       upBtn.disabled = index === 0;
       upBtn.addEventListener('click', () => {
         [steps[index - 1], steps[index]] = [steps[index], steps[index - 1]];
@@ -526,7 +533,7 @@ function openEditor(existing?: Macro): void {
       const downBtn = document.createElement('button');
       downBtn.type = 'button';
       downBtn.textContent = '▼';
-      downBtn.title = 'Переместить ниже';
+      downBtn.title = t('Переместить ниже');
       downBtn.disabled = index === steps.length - 1;
       downBtn.addEventListener('click', () => {
         [steps[index], steps[index + 1]] = [steps[index + 1], steps[index]];
@@ -537,7 +544,7 @@ function openEditor(existing?: Macro): void {
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.textContent = '✕';
-      removeBtn.title = 'Удалить шаг';
+      removeBtn.title = t('Удалить шаг');
       removeBtn.addEventListener('click', () => {
         steps = steps.filter((_, i) => i !== index);
         renderSteps();
@@ -553,7 +560,7 @@ function openEditor(existing?: Macro): void {
     stepsToolbar.className = 'toolbar';
     const addStepBtn = document.createElement('button');
     addStepBtn.type = 'button';
-    addStepBtn.textContent = '+ Шаг';
+    addStepBtn.textContent = t('+ Шаг');
     addStepBtn.addEventListener('click', () => {
       steps.push({ id: crypto.randomUUID(), argsLine: '' });
       renderSteps();
@@ -562,7 +569,7 @@ function openEditor(existing?: Macro): void {
 
     const addDelayBtn = document.createElement('button');
     addDelayBtn.type = 'button';
-    addDelayBtn.textContent = '+ Задержка';
+    addDelayBtn.textContent = t('+ Задержка');
     addDelayBtn.addEventListener('click', () => {
       steps.push({ id: crypto.randomUUID(), argsLine: '', isDelay: true, delayMs: 1000 });
       renderSteps();
@@ -571,7 +578,7 @@ function openEditor(existing?: Macro): void {
 
     const pasteScriptBtn = document.createElement('button');
     pasteScriptBtn.type = 'button';
-    pasteScriptBtn.textContent = 'Вставить скрипт…';
+    pasteScriptBtn.textContent = t('Вставить скрипт…');
     stepsToolbar.appendChild(pasteScriptBtn);
     body.appendChild(stepsToolbar);
 
@@ -582,7 +589,7 @@ function openEditor(existing?: Macro): void {
     const pasteBlock = document.createElement('div');
     pasteBlock.hidden = true;
     const pasteTextarea = document.createElement('textarea');
-    pasteTextarea.placeholder = 'adb root\nadb remount\nadb shell ...';
+    pasteTextarea.placeholder = t('adb root\nadb remount\nadb shell ...');
     pasteTextarea.rows = 6;
     pasteTextarea.style.width = '100%';
     pasteTextarea.style.fontFamily = 'var(--cp-mono)';
@@ -595,7 +602,7 @@ function openEditor(existing?: Macro): void {
     pasteBlock.appendChild(pasteTextarea);
     const pasteConfirmBtn = document.createElement('button');
     pasteConfirmBtn.type = 'button';
-    pasteConfirmBtn.textContent = 'Добавить шаги';
+    pasteConfirmBtn.textContent = t('Добавить шаги');
     pasteConfirmBtn.style.marginTop = 'var(--space-6)';
     pasteBlock.appendChild(pasteConfirmBtn);
     body.appendChild(pasteBlock);
@@ -618,8 +625,9 @@ function openEditor(existing?: Macro): void {
 
     const stepsHintEl = document.createElement('div');
     stepsHintEl.className = 'hint';
-    stepsHintEl.textContent =
-      '«Если пред. успешен/с ошибкой» смотрит на результат ближайшего ПРЕДЫДУЩЕГО обычного шага (задержки пропускаются); если такого шага нет или он сам был пропущен -- шаг тоже будет пропущен.';
+    stepsHintEl.textContent = t(
+      '«Если пред. успешен/с ошибкой» смотрит на результат ближайшего ПРЕДЫДУЩЕГО обычного шага (задержки пропускаются); если такого шага нет или он сам был пропущен -- шаг тоже будет пропущен.'
+    );
     body.appendChild(stepsHintEl);
 
     const flagsRow = document.createElement('div');
@@ -630,7 +638,7 @@ function openEditor(existing?: Macro): void {
     abortCheckbox.type = 'checkbox';
     abortCheckbox.checked = existing?.abortOnFirstFailure ?? false;
     abortLabel.appendChild(abortCheckbox);
-    abortLabel.append(' остановиться на первой ошибке');
+    abortLabel.append(` ${t('остановиться на первой ошибке')}`);
     flagsRow.appendChild(abortLabel);
 
     const autorunLabel = document.createElement('label');
@@ -639,7 +647,7 @@ function openEditor(existing?: Macro): void {
     autorunCheckbox.type = 'checkbox';
     autorunCheckbox.checked = existing?.autorunOnConnect ?? false;
     autorunLabel.appendChild(autorunCheckbox);
-    autorunLabel.append(' автозапуск при подключении устройства');
+    autorunLabel.append(` ${t('автозапуск при подключении устройства')}`);
     flagsRow.appendChild(autorunLabel);
     body.appendChild(flagsRow);
 
@@ -647,48 +655,50 @@ function openEditor(existing?: Macro): void {
     hotkeyRow.className = 'connect-row';
     const hotkeyLabel = document.createElement('span');
     hotkeyLabel.className = 'hint';
-    hotkeyLabel.textContent = 'Хоткей';
+    hotkeyLabel.textContent = t('Хоткей');
     hotkeyRow.appendChild(hotkeyLabel);
     const hotkeyInput = document.createElement('input');
-    hotkeyInput.placeholder = 'например: CommandOrControl+Alt+M (пусто — без хоткея)';
+    hotkeyInput.placeholder = t('например: CommandOrControl+Alt+M (пусто — без хоткея)');
     hotkeyInput.value = existing?.hotkeyAccelerator ?? '';
     hotkeyRow.appendChild(hotkeyInput);
     body.appendChild(hotkeyRow);
     const hotkeyHintEl = document.createElement('div');
     hotkeyHintEl.className = 'hint';
-    hotkeyHintEl.textContent =
-      'Формат Electron Accelerator (модификаторы через "+": CommandOrControl, Alt, Shift). Работает даже когда окно не в фокусе, но не для макросов с переменными ${ИМЯ} -- их некому спросить без открытого окна.';
+    hotkeyHintEl.textContent = t(
+      'Формат Electron Accelerator (модификаторы через "+": CommandOrControl, Alt, Shift). Работает даже когда окно не в фокусе, но не для макросов с переменными ${ИМЯ} -- их некому спросить без открытого окна.'
+    );
     body.appendChild(hotkeyHintEl);
 
     const scheduleRow = document.createElement('div');
     scheduleRow.className = 'connect-row';
     const scheduleLabel = document.createElement('span');
     scheduleLabel.className = 'hint';
-    scheduleLabel.textContent = 'Периодический запуск, мин';
+    scheduleLabel.textContent = t('Периодический запуск, мин');
     scheduleRow.appendChild(scheduleLabel);
     const scheduleInput = document.createElement('input');
     scheduleInput.type = 'number';
     scheduleInput.min = '1';
     scheduleInput.className = 'input-narrow';
-    scheduleInput.placeholder = 'выкл';
+    scheduleInput.placeholder = t('выкл');
     scheduleInput.value = existing?.scheduleIntervalMinutes ? String(existing.scheduleIntervalMinutes) : '';
     scheduleRow.appendChild(scheduleInput);
     body.appendChild(scheduleRow);
     const scheduleHintEl = document.createElement('div');
     scheduleHintEl.className = 'hint';
-    scheduleHintEl.textContent =
-      'Запускается сам на всех подключённых и готовых устройствах каждые N минут, независимо от открытой вкладки. Пусто -- не запускать по расписанию. Как и хоткей, недоступно макросам с переменными ${ИМЯ}.';
+    scheduleHintEl.textContent = t(
+      'Запускается сам на всех подключённых и готовых устройствах каждые N минут, независимо от открытой вкладки. Пусто -- не запускать по расписанию. Как и хоткей, недоступно макросам с переменными ${ИМЯ}.'
+    );
     body.appendChild(scheduleHintEl);
 
     body.appendChild(errorEl);
 
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
-    saveBtn.textContent = 'Сохранить';
+    saveBtn.textContent = t('Сохранить');
     saveBtn.addEventListener('click', () => {
       const name = nameInput.value.trim();
       if (!name) {
-        errorEl.textContent = 'Укажите имя макроса';
+        errorEl.textContent = t('Укажите имя макроса');
         return;
       }
       // Проверяем ДО вызова add/update -- раньше это определялось постфактум
@@ -700,7 +710,7 @@ function openEditor(existing?: Macro): void {
       // клиентская копия ради мгновенной проверки без похода на сервер.
       const hasMeaningfulStep = steps.some((s) => s.isDelay || s.argsLine.trim().length > 0);
       if (!hasMeaningfulStep) {
-        errorEl.textContent = 'Добавьте хотя бы один шаг с командой или задержкой';
+        errorEl.textContent = t('Добавьте хотя бы один шаг с командой или задержкой');
         return;
       }
       const hotkeyAccelerator = hotkeyInput.value.trim() || undefined;
@@ -732,14 +742,14 @@ function openEditor(existing?: Macro): void {
 }
 
 async function promptAddMacroTag(macro: Macro): Promise<void> {
-  const tag = await openTextPromptModal('Добавить тег', 'тег');
+  const tag = await openTextPromptModal(t('Добавить тег'), t('тег'));
   if (!tag || !tag.trim()) return;
   try {
     macros = await adbApi.macrosAddTag(macro.id, tag);
     renderTagFilter();
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -749,6 +759,6 @@ async function removeMacroTag(macro: Macro, tag: string): Promise<void> {
     renderTagFilter();
     renderList();
   } catch (error) {
-    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }

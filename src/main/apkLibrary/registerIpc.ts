@@ -12,6 +12,7 @@ import { FDroidUpdateInfo } from '../adb/types/FDroidUpdateInfo';
 import { showOpenDialogFor } from '../util/dialogs';
 import { mapWithConcurrency } from '../util/concurrency';
 import { filterReadyDevicesByTag } from '../util/deviceBatchTarget';
+import { t } from '../i18n';
 
 export function registerApkLibraryIpc(ctx: IpcContext): void {
   const { apkLibrary, apkTags } = ctx;
@@ -20,7 +21,7 @@ export function registerApkLibraryIpc(ctx: IpcContext): void {
   ipcMain.handle('apkLibrary:getDirectory', () => apkLibrary.getDirectory());
   ipcMain.handle('apkLibrary:chooseDirectory', async (event: IpcMainInvokeEvent) => {
     const result = await showOpenDialogFor(event, {
-      title: 'Выберите папку для библиотеки APK',
+      title: t('Выберите папку для библиотеки APK'),
       properties: ['openDirectory' as const, 'createDirectory' as const],
       defaultPath: apkLibrary.getDirectory(),
     });
@@ -30,7 +31,7 @@ export function registerApkLibraryIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('apkLibrary:addFiles', async (event: IpcMainInvokeEvent) => {
     const result = await showOpenDialogFor(event, {
-      title: 'Добавить APK в библиотеку',
+      title: t('Добавить APK в библиотеку'),
       properties: ['openFile' as const, 'multiSelections' as const],
       filters: [{ name: 'Android package', extensions: ['apk'] }],
     });

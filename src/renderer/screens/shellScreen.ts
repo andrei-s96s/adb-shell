@@ -4,6 +4,7 @@ import { batchTargetLabel, filterDevicesByTag } from '../deviceBatchTarget.js';
 import { openScreenshotPreview } from './screenshot.js';
 import { openIntentTesterModal } from './intentTester.js';
 import { openShellHistoryModal } from './shellHistoryModal.js';
+import { t } from '../i18n.js';
 
 let inputEl: HTMLInputElement;
 let logEl: HTMLDivElement;
@@ -68,7 +69,7 @@ export function initShellScreen(): void {
   onDeviceChanged((serial) => {
     logEl.innerHTML = '';
     if (!serial) {
-      appendLine('Нет подключённого устройства — выберите устройство слева', 'shell-out');
+      appendLine(t('Нет подключённого устройства — выберите устройство слева'), 'shell-out');
     }
     renderMirrorState();
   });
@@ -82,7 +83,7 @@ export function initShellScreen(): void {
 function renderMirrorState(): void {
   const serial = getCurrentSerial();
   const isMirroring = serial !== undefined && mirroringSerials.has(serial);
-  mirrorBtn.textContent = isMirroring ? 'Зеркалируется' : 'Зеркалировать';
+  mirrorBtn.textContent = isMirroring ? t('Зеркалируется') : t('Зеркалировать');
   mirrorBtn.disabled = !serial || isMirroring;
   mirrorRecordBtn.disabled = !serial || isMirroring;
 }
@@ -96,7 +97,7 @@ async function startMirror(): Promise<void> {
     mirroringSerials.add(serial);
     renderMirrorState();
   } catch (error) {
-    mirrorStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    mirrorStatusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -110,7 +111,7 @@ async function startMirrorWithRecording(): Promise<void> {
     mirroringSerials.add(serial);
     renderMirrorState();
   } catch (error) {
-    mirrorStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    mirrorStatusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -119,15 +120,15 @@ async function mirrorAll(): Promise<void> {
     const ready = (await adbApi.listDevices()).filter((d) => d.state === 'device');
     const devices = await filterDevicesByTag(ready);
     if (devices.length === 0) {
-      mirrorStatusEl.textContent = 'Нет готовых устройств';
+      mirrorStatusEl.textContent = t('Нет готовых устройств');
       return;
     }
     await adbApi.mirrorLaunchGrid(devices.map((d) => d.serial));
     for (const d of devices) mirroringSerials.add(d.serial);
-    mirrorStatusEl.textContent = `Зеркалирование${batchTargetLabel()}: ${devices.length} устройств`;
+    mirrorStatusEl.textContent = t('Зеркалирование{target}: {count} устройств', { target: batchTargetLabel(), count: devices.length });
     renderMirrorState();
   } catch (error) {
-    mirrorStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    mirrorStatusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`;
   }
 }
 
@@ -137,14 +138,17 @@ async function mirrorAll(): Promise<void> {
 async function screenshotAllDevices(): Promise<void> {
   const directory = await adbApi.selectScreenshotAllDir();
   if (!directory) return;
-  appendLine(`Скриншот со всех устройств${batchTargetLabel()} в ${directory}…`, 'shell-cmd');
+  appendLine(t('Скриншот со всех устройств{target} в {directory}…', { target: batchTargetLabel(), directory }), 'shell-cmd');
   try {
     const result = await adbApi.screenshotAllDevices(directory, getDeviceTagFilter());
     if (result.total === 0) {
-      appendLine('Нет готовых устройств', 'shell-err');
+      appendLine(t('Нет готовых устройств'), 'shell-err');
       return;
     }
-    appendLine(`Готово: ${result.successCount} из ${result.total}`, result.failures.length === 0 ? 'shell-out' : 'shell-err');
+    appendLine(
+      t('Готово: {ok} из {total}', { ok: result.successCount, total: result.total }),
+      result.failures.length === 0 ? 'shell-out' : 'shell-err'
+    );
     for (const failure of result.failures) appendLine(failure, 'shell-err');
   } catch (error) {
     appendLine(errorMessage(error), 'shell-err');
@@ -218,10 +222,10 @@ async function runCommand(): Promise<void> {
       await runBroadcast(command);
     } else {
       const output = await runOnDevice(serial, command);
-      appendLine(output.length > 0 ? output : '(нет вывода)', 'shell-out');
+      appendLine(output.length > 0 ? output : t('(нет вывода)'), 'shell-out');
     }
   } catch (error) {
-    appendLine(`Ошибка: ${errorMessage(error)}`, 'shell-err');
+    appendLine(`${t('Ошибка')}: ${errorMessage(error)}`, 'shell-err');
   } finally {
     runBtn.disabled = false;
     cancelBtn.disabled = true;
@@ -255,16 +259,17 @@ async function runBroadcast(command: string): Promise<void> {
   const ready = (await adbApi.listDevices()).filter((d) => d.state === 'device');
   const devices = await filterDevicesByTag(ready);
   if (devices.length === 0) {
-    appendLine('Нет подключённых устройств для broadcast', 'shell-err');
+    appendLine(t('Нет подключённых устройств для broadcast'), 'shell-err');
     return;
   }
-  if (getDeviceTagFilter()) appendLine(`Broadcast${batchTargetLabel()}: ${devices.length} устройств`, 'shell-cmd');
+  if (getDeviceTagFilter())
+    appendLine(t('Broadcast{target}: {count} устройств', { target: batchTargetLabel(), count: devices.length }), 'shell-cmd');
   for (const device of devices) {
     const label = device.model ? device.model.replace(/_/g, ' ') : device.serial;
     try {
       const output = await runOnDevice(device.serial, command);
       appendLine(`[${label}] ${command}`, 'shell-cmd');
-      appendLine(output.length > 0 ? output : '(нет вывода)', 'shell-out');
+      appendLine(output.length > 0 ? output : t('(нет вывода)'), 'shell-out');
     } catch (error) {
       appendLine(`[${label}] ${command}`, 'shell-cmd');
       appendLine(errorMessage(error), 'shell-err');

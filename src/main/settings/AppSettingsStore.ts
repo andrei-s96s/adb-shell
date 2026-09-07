@@ -36,6 +36,10 @@ export interface AppSettings {
    * "system" следует prefers-color-scheme (как было по умолчанию до этого
    * поля), "light"/"dark" форсируют конкретную тему независимо от ОС. */
   themePreference: 'system' | 'light' | 'dark';
+  /** Язык интерфейса. Применяется целиком при старте рендерера (см.
+   * renderer.ts/i18n.ts) -- смена в Настройках требует перезапуска
+   * приложения, а не перерисовки уже построенного интерфейса на лету. */
+  locale: 'ru' | 'en';
 }
 
 const CONFIG_FILE = 'app-settings.json';
@@ -50,6 +54,7 @@ const DEFAULTS: AppSettings = {
   // Swift-оригинал по умолчанию форсировал тёмную тему (не "системную") --
   // тот же выбор здесь, палитра CP.* и задумана в первую очередь как тёмная.
   themePreference: 'dark',
+  locale: 'ru',
 };
 
 export class AppSettingsStore {
@@ -57,7 +62,14 @@ export class AppSettingsStore {
 
   constructor() {
     const loaded = loadJsonStore<Partial<AppSettings>>(this.configPath, (p) => !!p && typeof p === 'object', {});
-    this.settings = { ...DEFAULTS, ...loaded };
+    // locale отсутствует в сохранённом файле и у пользователя, впервые
+    // запустившего версию, где появилось это поле, и у по-настоящему нового
+    // пользователя -- в обоих случаях явного выбора ещё не было, поэтому
+    // подставляем язык ОС, а не жёстко DEFAULTS.locale. Дальше это уже
+    // обычное персистентное поле: один раз сохранённый (в т.ч. этим же
+    // выводом) выбор всегда побеждает при следующих запусках.
+    const inferredLocale = loaded.locale ?? (app.getLocale().toLowerCase().startsWith('ru') ? 'ru' : 'en');
+    this.settings = { ...DEFAULTS, ...loaded, locale: inferredLocale };
   }
 
   private get configPath(): string {

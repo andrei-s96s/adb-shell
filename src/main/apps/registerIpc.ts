@@ -14,6 +14,7 @@ import { checkFDroidUpdate } from '../apkLibrary/FDroidUpdateChecker';
 import { downloadWithProgress } from '../util/download';
 import { mapWithConcurrency } from '../util/concurrency';
 import { showSaveDialogFor, showOpenDialogFor } from '../util/dialogs';
+import { t } from '../i18n';
 import { timestampForFilename } from '../util/timestamp';
 import { exportBundle, importBundle } from '../appBundles/AppBundleService';
 import { comparePackages } from '../adb/parsers/PackageDiff';
@@ -89,7 +90,7 @@ export function registerAppsIpc(ctx: IpcContext): void {
   // диалогам не имеет).
   ipcMain.handle('dialog:selectApk', async (event: IpcMainInvokeEvent) => {
     const result = await showOpenDialogFor(event, {
-      title: 'Выберите APK',
+      title: t('Выберите APK'),
       properties: ['openFile' as const],
       filters: [{ name: 'Android package', extensions: ['apk'] }],
     });
@@ -98,7 +99,7 @@ export function registerAppsIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('dialog:selectApks', async (event: IpcMainInvokeEvent) => {
     const result = await showOpenDialogFor(event, {
-      title: 'Выберите APK (можно несколько)',
+      title: t('Выберите APK (можно несколько)'),
       properties: ['openFile' as const, 'multiSelections' as const],
       filters: [{ name: 'Android package', extensions: ['apk'] }],
     });
@@ -179,7 +180,7 @@ export function registerAppsIpc(ctx: IpcContext): void {
   // AppBundleService.ts. Снапшоты устройства — deviceSnapshots/registerIpc.ts.
   ipcMain.handle('apps:exportSelected', async (event: IpcMainInvokeEvent, serial: string, packages: string[]) => {
     const result = await showSaveDialogFor(event, {
-      title: 'Экспорт набора приложений',
+      title: t('Экспорт набора приложений'),
       defaultPath: `apps-export-${timestampForFilename(new Date())}.zip`,
       filters: [{ name: 'ZIP', extensions: ['zip'] }],
     });
@@ -190,7 +191,7 @@ export function registerAppsIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('apps:importBundle', async (event: IpcMainInvokeEvent, serial: string) => {
     const result = await showOpenDialogFor(event, {
-      title: 'Импорт набора приложений',
+      title: t('Импорт набора приложений'),
       properties: ['openFile' as const],
       filters: [{ name: 'ZIP', extensions: ['zip'] }],
     });
@@ -204,7 +205,7 @@ export function registerAppsIpc(ctx: IpcContext): void {
     const basePath = paths.find((p) => p.endsWith('base.apk')) ?? paths[0];
     if (!basePath) return false;
     const result = await showSaveDialogFor(event, {
-      title: 'Экспортировать APK',
+      title: t('Экспортировать APK'),
       defaultPath: `${packageName}.apk`,
       filters: [{ name: 'APK', extensions: ['apk'] }],
     });

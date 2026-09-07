@@ -6,19 +6,20 @@
 import { adbApi, errorMessage } from '../api.js';
 import type { InstalledApp, DeviceSnapshotInfo, ManifestPackageDiff } from '../api.js';
 import { openModal } from '../modal.js';
+import { t, formatDateTime } from '../i18n.js';
 
 export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], onRestored: () => void): void {
-  openModal('Снапшоты устройства', (body) => {
+  openModal(t('Снапшоты устройства'), (body) => {
     const takeBtn = document.createElement('button');
     takeBtn.type = 'button';
-    takeBtn.textContent = 'Снять новый снапшот (все пользовательские приложения)';
+    takeBtn.textContent = t('Снять новый снапшот (все пользовательские приложения)');
     body.appendChild(takeBtn);
 
     // Сравнение двух снапшотов -- отмечаются чекбоксом в списке ниже, кнопка
     // появляется, когда отмечено ровно два.
     const diffBtn = document.createElement('button');
     diffBtn.type = 'button';
-    diffBtn.textContent = 'Сравнить выбранные';
+    diffBtn.textContent = t('Сравнить выбранные');
     diffBtn.hidden = true;
     body.appendChild(diffBtn);
 
@@ -60,14 +61,14 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
           for (const p of [...selectedForDiff]) if (!stillPresent.has(p)) selectedForDiff.delete(p);
           render();
         })
-        .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+        .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
     };
 
     function render(): void {
       listEl.innerHTML = '';
       updateDiffButton();
       if (snapshots.length === 0) {
-        listEl.innerHTML = '<li class="hint">Снапшотов ещё нет</li>';
+        listEl.innerHTML = `<li class="hint">${t('Снапшотов ещё нет')}</li>`;
         return;
       }
       for (const snap of snapshots) {
@@ -76,7 +77,7 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
 
         const diffCheckbox = document.createElement('input');
         diffCheckbox.type = 'checkbox';
-        diffCheckbox.title = 'Выбрать для сравнения (ровно два снапшота)';
+        diffCheckbox.title = t('Выбрать для сравнения (ровно два снапшота)');
         diffCheckbox.checked = selectedForDiff.has(snap.path);
         diffCheckbox.addEventListener('change', () => {
           if (diffCheckbox.checked) {
@@ -95,7 +96,11 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
         li.appendChild(diffCheckbox);
 
         const label = document.createElement('span');
-        label.textContent = `${snap.deviceLabel} — ${snap.appCount} прил. — ${new Date(snap.createdAtMs).toLocaleString('ru-RU')}`;
+        label.textContent = t('{device} — {count} прил. — {date}', {
+          device: snap.deviceLabel,
+          count: snap.appCount,
+          date: formatDateTime(snap.createdAtMs),
+        });
         li.appendChild(label);
 
         const actions = document.createElement('div');
@@ -103,7 +108,7 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
 
         const restoreBtn = document.createElement('button');
         restoreBtn.type = 'button';
-        restoreBtn.textContent = 'Восстановить';
+        restoreBtn.textContent = t('Восстановить');
         restoreBtn.addEventListener('click', () => {
           // Без disabled быстрый двойной клик запускал два параллельных
           // DeviceSnapshotService.restore() на одно и то же устройство --
@@ -111,15 +116,18 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
           // друг другу и перезаписывая один и тот же statusEl. Тот же
           // паттерн, что уже применён на takeBtn чуть выше.
           restoreBtn.disabled = true;
-          statusEl.textContent = 'Восстановление…';
+          statusEl.textContent = t('Восстановление…');
           adbApi
             .snapshotsRestore(snap.path, serial)
             .then((outcome) => {
               const failed = outcome.results.filter((r) => !r.success);
-              statusEl.textContent = `Восстановлено ${outcome.results.length - failed.length} из ${outcome.results.length}`;
+              statusEl.textContent = t('Восстановлено {ok} из {total}', {
+                ok: outcome.results.length - failed.length,
+                total: outcome.results.length,
+              });
               onRestored();
             })
-            .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`))
+            .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`))
             .finally(() => {
               restoreBtn.disabled = false;
             });
@@ -128,7 +136,7 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
 
         const revealBtn = document.createElement('button');
         revealBtn.type = 'button';
-        revealBtn.textContent = 'Показать в проводнике';
+        revealBtn.textContent = t('Показать в проводнике');
         revealBtn.addEventListener('click', () => void adbApi.snapshotsReveal(snap.path));
         actions.appendChild(revealBtn);
 
@@ -139,7 +147,7 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
           adbApi
             .snapshotsDelete(snap.path)
             .then(refresh)
-            .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
+            .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`));
         });
         actions.appendChild(deleteBtn);
 
@@ -151,11 +159,11 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
     takeBtn.addEventListener('click', () => {
       const packages = currentApps.filter((a) => !a.isSystem).map((a) => a.packageName);
       if (packages.length === 0) {
-        statusEl.textContent = 'Нет пользовательских приложений для снапшота';
+        statusEl.textContent = t('Нет пользовательских приложений для снапшота');
         return;
       }
       takeBtn.disabled = true;
-      statusEl.textContent = `Снимаю снапшот (${packages.length} приложений)…`;
+      statusEl.textContent = t('Снимаю снапшот ({count} приложений)…', { count: packages.length });
       adbApi
         .listDevices()
         .then((devices) => {
@@ -164,10 +172,10 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
           return adbApi.snapshotsTake(serial, packages, deviceLabel);
         })
         .then((outcome) => {
-          statusEl.textContent = `Снапшот готов: ${outcome.entryCount} приложений`;
+          statusEl.textContent = t('Снапшот готов: {count} приложений', { count: outcome.entryCount });
           refresh();
         })
-        .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`))
+        .catch((error) => (statusEl.textContent = `${t('Ошибка')}: ${errorMessage(error)}`))
         .finally(() => {
           takeBtn.disabled = false;
         });
@@ -183,8 +191,8 @@ export function openSnapshotsModal(serial: string, currentApps: InstalledApp[], 
  * тот же приём, что и diff версии/разрешений в apkInfo.ts, только между
  * двумя снапшотами, а не файлом и установленной версией. */
 function openSnapshotDiffModal(older: DeviceSnapshotInfo, newer: DeviceSnapshotInfo): void {
-  const fmt = (s: DeviceSnapshotInfo): string => `${s.deviceLabel} (${new Date(s.createdAtMs).toLocaleString('ru-RU')})`;
-  openModal(`Сравнение снапшотов`, (body) => {
+  const fmt = (s: DeviceSnapshotInfo): string => `${s.deviceLabel} (${formatDateTime(s.createdAtMs)})`;
+  openModal(t('Сравнение снапшотов'), (body) => {
     const header = document.createElement('div');
     header.className = 'hint';
     header.textContent = `${fmt(older)}  →  ${fmt(newer)}`;
@@ -192,14 +200,14 @@ function openSnapshotDiffModal(older: DeviceSnapshotInfo, newer: DeviceSnapshotI
 
     const resultEl = document.createElement('div');
     resultEl.style.marginTop = '10px';
-    resultEl.innerHTML = '<p class="hint">Сравнение…</p>';
+    resultEl.innerHTML = `<p class="hint">${t('Сравнение…')}</p>`;
     body.appendChild(resultEl);
 
     adbApi
       .snapshotsDiff(older.path, newer.path)
       .then((diff) => renderSnapshotDiff(resultEl, diff))
       .catch((error) => {
-        resultEl.innerHTML = `<p class="error">Ошибка: ${errorMessage(error)}</p>`;
+        resultEl.innerHTML = `<p class="error">${t('Ошибка')}: ${errorMessage(error)}</p>`;
       });
   });
 }
@@ -207,7 +215,7 @@ function openSnapshotDiffModal(older: DeviceSnapshotInfo, newer: DeviceSnapshotI
 function renderSnapshotDiff(container: HTMLDivElement, diff: ManifestPackageDiff[]): void {
   container.innerHTML = '';
   if (diff.length === 0) {
-    container.innerHTML = '<p class="hint">Отличий не найдено — список приложений и выданных разрешений идентичен</p>';
+    container.innerHTML = `<p class="hint">${t('Отличий не найдено — список приложений и выданных разрешений идентичен')}</p>`;
     return;
   }
   for (const entry of diff) {
@@ -219,11 +227,11 @@ function renderSnapshotDiff(container: HTMLDivElement, diff: ManifestPackageDiff
     card.appendChild(title);
 
     if (!entry.inA) {
-      card.appendChild(diffLine('Появился в новом снапшоте', 'var(--cp-emerald)'));
+      card.appendChild(diffLine(t('Появился в новом снапшоте'), 'var(--cp-emerald)'));
     } else if (!entry.inB) {
-      card.appendChild(diffLine('Пропал в новом снапшоте', 'var(--cp-crimson)'));
+      card.appendChild(diffLine(t('Пропал в новом снапшоте'), 'var(--cp-crimson)'));
     } else if (entry.versionA !== entry.versionB) {
-      card.appendChild(diffLine(`Версия: ${entry.versionA ?? '—'} → ${entry.versionB ?? '—'}`));
+      card.appendChild(diffLine(t('Версия: {from} → {to}', { from: entry.versionA ?? '—', to: entry.versionB ?? '—' })));
     }
     if (entry.addedPermissions.length > 0) card.appendChild(diffLine(`+ ${entry.addedPermissions.join(', ')}`, 'var(--cp-emerald)'));
     if (entry.removedPermissions.length > 0) card.appendChild(diffLine(`− ${entry.removedPermissions.join(', ')}`, 'var(--cp-crimson)'));

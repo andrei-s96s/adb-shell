@@ -17,12 +17,13 @@
 
 import { adbApi } from './api.js';
 import { getDeviceTagFilter } from './state.js';
+import { t } from './i18n.js';
 
 /** Поясняющая приписка для кнопки/лога -- пусто, если фильтр не активен
  * (тогда "все" без оговорок буквально значит "все"). */
 export function batchTargetLabel(): string {
   const tag = getDeviceTagFilter();
-  return tag ? ` (тег «${tag}»)` : '';
+  return tag ? ` ${t('(тег «{tag}»)', { tag })}` : '';
 }
 
 /** Сужает список устройств до тех, что несут активный тег-фильтр -- no-op,
