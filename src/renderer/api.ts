@@ -247,6 +247,12 @@ export interface DeviceSnapshotInfo {
   createdAtMs: number;
 }
 
+export interface OutdatedDuplicate {
+  packageName: string;
+  latestVersionCode: number;
+  latestFileName: string;
+}
+
 export interface ManifestPackageDiff {
   packageName: string;
   inA: boolean;
@@ -356,6 +362,7 @@ export interface AdbApi {
   apkLibraryRevealInFileManager(): Promise<string>;
   apkLibraryDownloadFromUrl(url: string, filename?: string): Promise<string>;
   apkLibraryCheckFDroidUpdates(): Promise<Record<string, FDroidUpdateInfo>>;
+  apkLibraryFindOutdatedDuplicates(): Promise<Record<string, OutdatedDuplicate>>;
   apkLibraryDownloadFDroidUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<string>;
   apkLibraryInstallToAllDevices(apkPath: string): Promise<InstallToAllResult>;
   apkLibraryTagsList(): Promise<Record<string, string[]>>;

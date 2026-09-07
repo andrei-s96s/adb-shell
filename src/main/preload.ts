@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo } from './adb/types/FDroidUpdateInfo';
+import { OutdatedDuplicate } from './apkLibrary/apkLibraryLogic';
 import { UpdateInfo, ReleaseAsset } from './updateChecker';
 import { MdnsDevice } from './adb/types/MdnsDevice';
 import { ConnectionProfile } from './adb/types/ConnectionProfile';
@@ -148,6 +149,8 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('apkLibrary:downloadFromUrl', url, filename),
   apkLibraryCheckFDroidUpdates: (): Promise<Record<string, FDroidUpdateInfo>> =>
     ipcRenderer.invoke('apkLibrary:checkFDroidUpdates'),
+  apkLibraryFindOutdatedDuplicates: (): Promise<Record<string, OutdatedDuplicate>> =>
+    ipcRenderer.invoke('apkLibrary:findOutdatedDuplicates'),
   apkLibraryDownloadFDroidUpdate: (file: ApkFile, update: FDroidUpdateInfo): Promise<string> =>
     ipcRenderer.invoke('apkLibrary:downloadFDroidUpdate', file, update),
   apkLibraryInstallToAllDevices: (

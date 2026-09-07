@@ -57,6 +57,7 @@ export function registerApkLibraryIpc(ctx: IpcContext): void {
     })
   );
   ipcMain.handle('apkLibrary:checkFDroidUpdates', () => apkLibrary.checkFDroidUpdates());
+  ipcMain.handle('apkLibrary:findOutdatedDuplicates', () => apkLibrary.findOutdatedDuplicates());
   ipcMain.handle('apkLibrary:downloadFDroidUpdate', (_e, file: ApkFile, update: FDroidUpdateInfo) =>
     apkLibrary.downloadFDroidUpdate(file, update)
   );

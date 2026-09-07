@@ -36,6 +36,7 @@ import { downloadWithProgress, DownloadProgress } from '../util/download';
 import { assertPathWithinDirectory } from '../util/pathSafety';
 import { mapWithConcurrency } from '../util/concurrency';
 import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
+import { findOutdatedDuplicates, InspectedApkFile, OutdatedDuplicate } from './apkLibraryLogic';
 
 const CONFIG_FILE = 'apk-library-config.json';
 
@@ -279,6 +280,30 @@ export class ApkLibraryService {
       }
     });
     return results;
+  }
+
+  /** Находит файлы библиотеки, для которых в ней же есть файл того же
+   * packageName с большим versionCode -- см. findOutdatedDuplicates() в
+   * apkLibraryLogic.ts про то, что именно считается "устаревшим". Ничего
+   * не удаляет сама, только сообщает; тот же worker-pool (mapWithConcurrency,
+   * лимит 4), что и checkFDroidUpdates() выше, и та же кэшированная
+   * getBadging()/inspect() -- если пользователь только что открывал
+   * библиотеку или проверял F-Droid обновления, aapt2 по этим файлам уже
+   * не перезапускается. */
+  async findOutdatedDuplicates(): Promise<Record<string, OutdatedDuplicate>> {
+    if (!ApkLibraryService.locateAapt2()) return {};
+    const files = await this.list();
+    const inspected = await mapWithConcurrency(files, 4, async (file): Promise<InspectedApkFile | undefined> => {
+      try {
+        const info = await this.inspect(file.path);
+        const versionCode = info.packageName && info.versionCode ? Number(info.versionCode) : undefined;
+        if (!info.packageName || versionCode === undefined || Number.isNaN(versionCode)) return undefined;
+        return { path: file.path, name: file.name, packageName: info.packageName, versionCode };
+      } catch {
+        return undefined;
+      }
+    });
+    return findOutdatedDuplicates(inspected.filter((f): f is InspectedApkFile => f !== undefined));
   }
 
   /** Скачивает более новую версию с F-Droid в библиотеку и удаляет старый

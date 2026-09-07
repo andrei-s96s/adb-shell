@@ -10,7 +10,7 @@
 // инлайн-добавление/удаление тегов у каждого файла.
 //
 import { adbApi, el, errorMessage } from '../api.js';
-import type { ApkFile, FDroidUpdateInfo } from '../api.js';
+import type { ApkFile, FDroidUpdateInfo, OutdatedDuplicate } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openApkInfoModal } from './apkInfo.js';
 import { openTextPromptModal } from '../modal.js';
@@ -31,10 +31,16 @@ let tagFilterEl: HTMLDivElement;
 let batchToolbarEl: HTMLDivElement;
 let files: ApkFile[] = [];
 let fdroidUpdates: Record<string, FDroidUpdateInfo> = {};
+/** path устаревшего файла -> описание более новой версии того же пакета,
+ * лежащей в этой же библиотеке -- порт findOutdatedDuplicates() из
+ * apkLibraryLogic.ts, тот же принцип бейджа/выбора, что и у fdroidUpdates
+ * выше, но источник "что новее" не сеть, а сама библиотека. */
+let outdatedDuplicates: Record<string, OutdatedDuplicate> = {};
 let tagsByPath: Record<string, string[]> = {};
 let activeTagFilter: string | undefined;
 let installingPath: string | undefined;
 let isCheckingUpdates = false;
+let isCheckingDuplicates = false;
 /** Мультивыбор чекбоксами -- "на все устройства" перенесено сюда из
  * действия на каждой строке (было редкое действие, занимавшее место на
  * каждой строке списка постоянно) -- теперь общая панель массовых
@@ -53,6 +59,8 @@ export function initApkLibraryScreen(): void {
   el<HTMLButtonElement>('apklibrary-add').addEventListener('click', () => void addFiles());
   el<HTMLButtonElement>('apklibrary-download').addEventListener('click', () => void downloadFromUrl());
   el<HTMLButtonElement>('apklibrary-check-updates').addEventListener('click', () => void checkForUpdates());
+  el<HTMLButtonElement>('apklibrary-check-duplicates').addEventListener('click', () => void checkForOutdatedDuplicates());
+  el<HTMLButtonElement>('apklibrary-select-outdated').addEventListener('click', () => selectOutdatedDuplicates());
   el<HTMLButtonElement>('apklibrary-install-selected').addEventListener('click', () => void installSelectedToCurrent());
   el<HTMLButtonElement>('apklibrary-install-selected-all').addEventListener('click', () => void installSelectedToAll());
   el<HTMLButtonElement>('apklibrary-delete-selected').addEventListener('click', () => void deleteSelected());
@@ -155,6 +163,8 @@ async function chooseDirectory(): Promise<void> {
     dirEl.textContent = dir;
     dirEl.title = dir;
     fdroidUpdates = {};
+    outdatedDuplicates = {};
+    el<HTMLButtonElement>('apklibrary-select-outdated').hidden = true;
     await refresh();
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
@@ -219,6 +229,31 @@ async function checkForUpdates(): Promise<void> {
   } finally {
     isCheckingUpdates = false;
   }
+}
+
+async function checkForOutdatedDuplicates(): Promise<void> {
+  if (isCheckingDuplicates) return;
+  isCheckingDuplicates = true;
+  statusEl.textContent = 'Поиск устаревших дублей в библиотеке…';
+  try {
+    outdatedDuplicates = await adbApi.apkLibraryFindOutdatedDuplicates();
+    const count = Object.keys(outdatedDuplicates).length;
+    statusEl.textContent = count > 0 ? `Найдено устаревших дублей: ${count}` : 'Дублей не найдено';
+    el<HTMLButtonElement>('apklibrary-select-outdated').hidden = count === 0;
+    renderList();
+  } catch (error) {
+    statusEl.textContent = `Ошибка проверки дублей: ${errorMessage(error)}`;
+  } finally {
+    isCheckingDuplicates = false;
+  }
+}
+
+/** Добавляет все найденные устаревшие файлы в selectedPaths -- дальше
+ * пользователь удаляет их уже существующей кнопкой "Удалить выбранные" в
+ * батч-панели, не нужно отдельное действие "удалить дубли". */
+function selectOutdatedDuplicates(): void {
+  for (const path of Object.keys(outdatedDuplicates)) selectedPaths.add(path);
+  renderList();
 }
 
 function renderList(): void {
@@ -288,6 +323,15 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
     const badge = document.createElement('span');
     badge.className = 'apk-update-badge';
     badge.textContent = `↑ F-Droid: ${update.latestVersionName ?? update.latestVersionCode}`;
+    main.appendChild(badge);
+  }
+
+  const outdated = outdatedDuplicates[file.path];
+  if (outdated) {
+    const badge = document.createElement('span');
+    badge.className = 'apk-update-badge';
+    badge.textContent = `⧉ устарела, есть ${outdated.latestFileName}`;
+    badge.title = `В библиотеке уже есть более новая версия (versionCode ${outdated.latestVersionCode}): ${outdated.latestFileName}`;
     main.appendChild(badge);
   }
 
@@ -454,6 +498,7 @@ async function deleteSelected(): Promise<void> {
     try {
       await adbApi.apkLibraryDeleteFile(file.path);
       delete fdroidUpdates[file.path];
+      delete outdatedDuplicates[file.path];
       deleted += 1;
     } catch {
       // Продолжаем остальные.
@@ -471,6 +516,7 @@ async function downloadUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<
   try {
     await adbApi.apkLibraryDownloadFDroidUpdate(file, update);
     delete fdroidUpdates[file.path];
+    delete outdatedDuplicates[file.path];
     statusEl.textContent = 'Обновлено';
     await refresh();
   } catch (error) {
@@ -485,6 +531,7 @@ async function deleteFile(file: ApkFile): Promise<void> {
   try {
     await adbApi.apkLibraryDeleteFile(file.path);
     delete fdroidUpdates[file.path];
+    delete outdatedDuplicates[file.path];
     await refresh();
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
