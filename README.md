@@ -226,6 +226,14 @@ npm run dist:win    # ADB Shell Setup X.Y.Z.exe (NSIS)
 npm run dist:linux  # ADB-Shell-X.Y.Z.AppImage (x86_64)
 ```
 
+**Релиз** — заметки к GitHub-релизу собираются из [CHANGELOG.md](CHANGELOG.md)
+(`scripts/changelog-extract.js`), а не автогенерируются GitHub'ом из списка
+коммитов. Перед тегом релиза: перенести содержимое `[Unreleased]` в новую
+секцию `## [X.Y.Z] - YYYY-MM-DD`, закоммитить, затем поставить тег
+`vX.Y.Z` — `.github/workflows/release.yml` подхватит его сам. Если секции
+для версии тега не найдётся, релиз-workflow упадёт явной ошибкой, а не
+опубликует релиз без заметок.
+
 ## Структура проекта
 
 ```

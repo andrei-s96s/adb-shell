@@ -88,16 +88,38 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ADB Shell ${{ steps.tag.outputs.tag }}
-          # Три ОС в матрице -- три отдельные джобы, каждая по очереди вызывает
-          # этот шаг. При generate_release_notes: true на всех трёх экшен
-          # каждый раз подтягивает уже обновлённое предыдущей джобой тело
-          # релиза и дописывает сгенерированные заметки заново -- в итоге
-          # "Full Changelog: ..." повторялся в теле релиза 3 раза (по разу на
-          # ОС). Генерируем заметки только на одном плече матрицы -- этого
-          # достаточно, заметки не зависят от того, под какой ОС собран файл.
-          generate_release_notes: ${{ matrix.os == 'ubuntu-latest' }}
           files: |
             release/*.exe
             release/*.zip
             release/*.AppImage
             release/*.sha256
+
+      # Курируемые заметки из CHANGELOG.md вместо generate_release_notes:
+      # true (сырой список коммитов без единого объяснения, зачем что-то
+      # менялось, вперемешку с чисто внутренним рефакторингом, который
+      # пользователю релиза не интересен). Падает явно (см.
+      # changelog-extract.js), если для этой версии нет секции в
+      # CHANGELOG.md -- значит, кто-то забыл перенести [Unreleased] в
+      # версионную секцию перед тегом, и лучше остановить релиз, чем
+      # опубликовать его без заметок.
+      #
+      # Отдельный шаг ПОСЛЕ Publish release (не body: в том же шаге) и
+      # только на одном плече матрицы -- та же причина, по которой раньше
+      # generate_release_notes был ограничен одним plecom: три параллельные
+      # job'ы матрицы обновляют ОДИН и тот же релиз, повторный вызов с тем
+      # же body на каждой из них -- лишний риск наткнуться на то же
+      # утроение, что уже было с автогенерацией.
+      - name: Set release notes from CHANGELOG.md
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          version="${{ steps.tag.outputs.tag }}"
+          version="${version#v}"
+          node scripts/changelog-extract.js "$version" > changelog-section.md
+
+      - name: Publish release notes
+        if: matrix.os == 'ubuntu-latest'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          body_path: changelog-section.md
