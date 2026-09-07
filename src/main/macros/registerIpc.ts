@@ -7,6 +7,8 @@ import { IpcContext } from '../ipcContext';
 import { runMacro } from './MacroRunner';
 import { parseSteps } from './macrosLogic';
 import { MacroStep } from '../adb/types/Macro';
+import { isReadyState, displayName } from '../adb/types/Device';
+import { mapWithConcurrency } from '../util/concurrency';
 import { showSaveDialogFor, showOpenDialogFor } from '../util/dialogs';
 
 export function registerMacrosIpc(ctx: IpcContext): void {
@@ -66,16 +68,57 @@ export function registerMacrosIpc(ctx: IpcContext): void {
   // вернул финальный ответ на invoke.
   ipcMain.handle(
     'macros:run',
-    (event: IpcMainInvokeEvent, macroId: string, serial: string, variables: Record<string, string>, runId: string) => {
+    async (event: IpcMainInvokeEvent, macroId: string, serial: string, variables: Record<string, string>, runId: string) => {
       const macro = macroStore.get(macroId);
       if (!macro) throw new Error('Макрос не найден');
-      return runMacro(macro, serial, ctx.adb, variables, (index, total, result) => {
+      const startedAtMs = Date.now();
+      const outcome = await runMacro(macro, serial, ctx.adb, variables, (index, total, result) => {
         if (!event.sender.isDestroyed()) {
           event.sender.send('macros:stepResult', runId, macroId, index, total, result);
         }
       });
+      // Лейбл устройства -- best-effort, не должен ронять сам запуск: если
+      // adb devices -l недоступен ровно в этот момент, в истории останется
+      // просто serial вместо модели, не хуже.
+      let deviceLabel = serial;
+      try {
+        const device = (await ctx.adb.listDevices()).find((d) => d.serial === serial);
+        if (device) deviceLabel = displayName(device);
+      } catch {
+        // Не критично -- см. выше.
+      }
+      ctx.macroRunHistory.record(macro, serial, deviceLabel, startedAtMs, outcome.completedFully, outcome.results);
+      return outcome;
     }
   );
+  // Запуск на всех готовых устройствах разом -- та же схема (mapWithConcurrency,
+  // лимит 3), что уже используют adb:screenshotAllDevices и
+  // apkLibrary:installToAllDevices. Без пошагового стриминга в UI (в отличие
+  // от macros:run) -- на N устройств разом это была бы уже другая, более
+  // сложная модель прогресса; здесь достаточно итогового результата на
+  // устройство, как и у прочих "на все" операций.
+  ipcMain.handle('macros:runOnAll', async (_e, macroId: string, variables: Record<string, string>) => {
+    const macro = macroStore.get(macroId);
+    if (!macro) throw new Error('Макрос не найден');
+    const devices = (await ctx.adb.listDevices()).filter((d) => isReadyState(d.state));
+    if (devices.length === 0) return { successCount: 0, total: 0, failures: [] as string[] };
+
+    const failures: string[] = [];
+    let successCount = 0;
+    await mapWithConcurrency(devices, 3, async (device) => {
+      const startedAtMs = Date.now();
+      try {
+        const outcome = await runMacro(macro, device.serial, ctx.adb, variables);
+        ctx.macroRunHistory.record(macro, device.serial, displayName(device), startedAtMs, outcome.completedFully, outcome.results);
+        if (outcome.completedFully) successCount += 1;
+        else failures.push(`${displayName(device)}: остановлено на ошибке`);
+      } catch (error) {
+        ctx.macroRunHistory.record(macro, device.serial, displayName(device), startedAtMs, false, []);
+        failures.push(`${displayName(device)}: ${(error as Error).message}`);
+      }
+    });
+    return { successCount, total: devices.length, failures };
+  });
   ipcMain.handle('macros:export', async (event: IpcMainInvokeEvent) => {
     const result = await showSaveDialogFor(event, {
       title: 'Экспорт макросов',

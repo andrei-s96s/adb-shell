@@ -240,6 +240,17 @@ export interface MacroRunOutcome {
   results: MacroRunResult[];
 }
 
+export interface MacroRunHistoryEntry {
+  id: string;
+  macroId: string;
+  macroName: string;
+  serial: string;
+  deviceLabel: string;
+  startedAtMs: number;
+  completedFully: boolean;
+  results: MacroRunResult[];
+}
+
 export interface BundleOperationResult {
   packageName: string;
   success: boolean;
@@ -441,9 +452,12 @@ export interface AdbApi {
   macrosRemoveTag(id: string, tag: string): Promise<Macro[]>;
   macrosActiveHotkeys(): Promise<string[]>;
   macrosRun(macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome>;
+  macrosRunOnAll(macroId: string, variables: Record<string, string>): Promise<InstallToAllResult>;
   onMacroStepResult(callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void): () => void;
   macrosExport(): Promise<boolean>;
   macrosImport(): Promise<Macro[]>;
+  macroRunHistoryList(): Promise<MacroRunHistoryEntry[]>;
+  macroRunHistoryClear(): Promise<MacroRunHistoryEntry[]>;
 
   enableWirelessDebugging(serial: string, port: number): Promise<string>;
   deviceIPAddress(serial: string): Promise<string | undefined>;

@@ -15,6 +15,7 @@ import { ApkLibraryService } from './apkLibrary/ApkLibraryService';
 import { ApkTagStore } from './apkLibrary/ApkTagStore';
 import { IntentPresetStore } from './intentPresets/IntentPresetStore';
 import { MacroStore } from './macros/MacroStore';
+import { MacroRunHistoryStore } from './macroRunHistory/MacroRunHistoryStore';
 import { AppIconService } from './appIcons/AppIconService';
 import { ShellHistoryStore } from './shellHistory/ShellHistoryStore';
 import { DeviceSnapshotService } from './deviceSnapshots/DeviceSnapshotService';
@@ -39,6 +40,7 @@ export interface IpcContext {
   readonly apkTags: ApkTagStore;
   readonly intentPresets: IntentPresetStore;
   readonly macroStore: MacroStore;
+  readonly macroRunHistory: MacroRunHistoryStore;
   readonly appIcons: AppIconService;
   readonly shellHistory: ShellHistoryStore;
   readonly deviceSnapshots: DeviceSnapshotService;

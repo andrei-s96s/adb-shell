@@ -17,6 +17,7 @@ import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
 import { IntentPreset } from './adb/types/IntentPreset';
 import { Macro, MacroStep, MacroRunResult } from './adb/types/Macro';
 import { DeviceHistoryEntry } from './deviceHistory/deviceHistoryLogic';
+import { MacroRunHistoryEntry } from './macroRunHistory/macroRunHistoryLogic';
 import { MacroRunOutcome } from './macros/MacroRunner';
 import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
 import { ManifestPackageDiff } from './appBundles/appBundleLogic';
@@ -241,6 +242,11 @@ contextBridge.exposeInMainWorld('adbApi', {
   macrosActiveHotkeys: (): Promise<string[]> => ipcRenderer.invoke('macros:activeHotkeys'),
   macrosRun: (macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome> =>
     ipcRenderer.invoke('macros:run', macroId, serial, variables, runId),
+  macrosRunOnAll: (
+    macroId: string,
+    variables: Record<string, string>
+  ): Promise<{ successCount: number; total: number; failures: string[] }> =>
+    ipcRenderer.invoke('macros:runOnAll', macroId, variables),
   onMacroStepResult: (callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void) => {
     const listener = (_e: IpcRendererEvent, runId: string, macroId: string, index: number, total: number, result: MacroRunResult) =>
       callback(runId, macroId, index, total, result);
@@ -249,6 +255,10 @@ contextBridge.exposeInMainWorld('adbApi', {
   },
   macrosExport: (): Promise<boolean> => ipcRenderer.invoke('macros:export'),
   macrosImport: (): Promise<Macro[]> => ipcRenderer.invoke('macros:import'),
+
+  // Журнал запусков макросов -- см. MacroRunHistoryStore
+  macroRunHistoryList: (): Promise<MacroRunHistoryEntry[]> => ipcRenderer.invoke('macroRunHistory:list'),
+  macroRunHistoryClear: (): Promise<MacroRunHistoryEntry[]> => ipcRenderer.invoke('macroRunHistory:clear'),
 
   // Wi-Fi отладка
   enableWirelessDebugging: (serial: string, port: number) =>

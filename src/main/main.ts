@@ -23,6 +23,7 @@ import { sanitizeDeviceLabel } from './deviceSnapshots/deviceSnapshotLogic';
 import { ApkTagStore } from './apkLibrary/ApkTagStore';
 import { IntentPresetStore } from './intentPresets/IntentPresetStore';
 import { MacroStore } from './macros/MacroStore';
+import { MacroRunHistoryStore } from './macroRunHistory/MacroRunHistoryStore';
 import { runMacro } from './macros/MacroRunner';
 import { variableNames } from './macros/macroRunnerLogic';
 import { DeviceSnapshotService } from './deviceSnapshots/DeviceSnapshotService';
@@ -45,6 +46,7 @@ import { registerShellIpc } from './shellHistory/registerIpc';
 import { registerIntentPresetsIpc } from './intentPresets/registerIpc';
 import { registerMirrorIpc } from './screenMirror/registerIpc';
 import { registerMacrosIpc } from './macros/registerIpc';
+import { registerMacroRunHistoryIpc } from './macroRunHistory/registerIpc';
 import { registerNetworkIpc } from './adb/registerNetworkIpc';
 import { registerMonitoringIpc } from './monitoring/registerIpc';
 import { registerSettingsIpc } from './settings/registerIpc';
@@ -72,6 +74,7 @@ const ctx: IpcContext = {
   apkTags: new ApkTagStore(),
   intentPresets: new IntentPresetStore(),
   macroStore: new MacroStore(),
+  macroRunHistory: new MacroRunHistoryStore(),
   appIcons: new AppIconService(),
   shellHistory: new ShellHistoryStore(),
   deviceSnapshots: new DeviceSnapshotService(),
@@ -298,6 +301,7 @@ function registerIpcHandlers(): void {
   registerIntentPresetsIpc(ctx);
   registerMirrorIpc(ctx);
   registerMacrosIpc(ctx);
+  registerMacroRunHistoryIpc(ctx);
   registerNetworkIpc(ctx);
   registerMonitoringIpc(ctx);
   registerSettingsIpc(ctx);

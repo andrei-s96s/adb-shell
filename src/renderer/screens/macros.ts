@@ -5,6 +5,7 @@ import { adbApi, el, errorMessage } from '../api.js';
 import type { Macro, MacroStep, MacroRunResult } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openModal, openTextPromptModal } from '../modal.js';
+import { openMacroRunHistoryModal } from './macroRunHistoryModal.js';
 
 /** Дубликат Macro.MAX_MACRO_STEP_DELAY_MS (main/adb/types/Macro.ts) -- тот
  * же принцип дублирования чистой константы, что и у extractVariableNames
@@ -111,6 +112,7 @@ export function initMacrosScreen(): void {
       })
       .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
   });
+  el<HTMLButtonElement>('macros-run-history').addEventListener('click', () => openMacroRunHistoryModal());
 
   // Список макросов не зависит от устройства -- перерисовываем только для
   // того, чтобы кнопка "Запустить" включалась/выключалась вместе с выбором.
@@ -201,6 +203,13 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
     if (serial) void startRun(macro, serial);
   });
   actions.appendChild(runBtn);
+
+  const runAllBtn = document.createElement('button');
+  runAllBtn.textContent = 'На всех';
+  runAllBtn.title = 'Запустить макрос на всех подключённых и готовых устройствах';
+  runAllBtn.disabled = runningMacroId !== undefined;
+  runAllBtn.addEventListener('click', () => void startRunOnAll(macro));
+  actions.appendChild(runAllBtn);
 
   const editBtn = document.createElement('button');
   editBtn.textContent = 'Изменить';
@@ -315,6 +324,46 @@ async function startRun(macro: Macro, serial: string): Promise<void> {
   } finally {
     runningMacroId = undefined;
     currentRunId = undefined;
+    renderList();
+  }
+}
+
+/** Запуск на всех подключённых и готовых устройствах разом -- та же
+ * подстановка переменных ОДИН раз на весь батч (не по разу на устройство --
+ * значение для ${ИМЯ} обычно одно и то же независимо от того, куда именно
+ * гонится макрос), что и у одиночного запуска. В отличие от startRun()
+ * здесь нет пошагового прогресса per-device (macros:runOnAll возвращает
+ * только итог) -- statusEl показывает "успешно X из Y" по завершении всего
+ * батча, тот же принцип, что и у apkLibrary.ts installSelectedToAll(). */
+async function startRunOnAll(macro: Macro): Promise<void> {
+  const varNames = extractVariableNames(macro);
+  const variables = varNames.length > 0 ? await promptVariables(macro.name, varNames) : {};
+  if (variables === undefined) return; // отменено в диалоге переменных
+
+  runningMacroId = macro.id;
+  renderList();
+  statusEl.textContent = `Выполняется «${macro.name}» на всех устройствах…`;
+  try {
+    const result = await adbApi.macrosRunOnAll(macro.id, variables);
+    statusEl.textContent =
+      result.total === 0
+        ? 'Нет готовых устройств'
+        : result.failures.length === 0
+          ? `Готово на всех: ${result.successCount}/${result.total}`
+          : `Готово: ${result.successCount}/${result.total}. Ошибки: ${result.failures.join('; ')}`;
+    if (result.total > 0) {
+      try {
+        new Notification(`Макрос «${macro.name}» на всех устройствах`, {
+          body: `Выполнен полностью: ${result.successCount} из ${result.total}`,
+        });
+      } catch {
+        // Notification может быть недоступен в некоторых окружениях -- не критично.
+      }
+    }
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  } finally {
+    runningMacroId = undefined;
     renderList();
   }
 }
