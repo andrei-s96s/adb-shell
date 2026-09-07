@@ -225,17 +225,37 @@ contextBridge.exposeInMainWorld('adbApi', {
     steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
-    hotkeyAccelerator?: string
-  ): Promise<Macro[]> => ipcRenderer.invoke('macros:add', name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
+    hotkeyAccelerator?: string,
+    scheduleIntervalMinutes?: number
+  ): Promise<Macro[]> =>
+    ipcRenderer.invoke(
+      'macros:add',
+      name,
+      steps,
+      autorunOnConnect,
+      abortOnFirstFailure,
+      hotkeyAccelerator,
+      scheduleIntervalMinutes
+    ),
   macrosUpdate: (
     id: string,
     name: string,
     steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
-    hotkeyAccelerator?: string
+    hotkeyAccelerator?: string,
+    scheduleIntervalMinutes?: number
   ): Promise<Macro[]> =>
-    ipcRenderer.invoke('macros:update', id, name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
+    ipcRenderer.invoke(
+      'macros:update',
+      id,
+      name,
+      steps,
+      autorunOnConnect,
+      abortOnFirstFailure,
+      hotkeyAccelerator,
+      scheduleIntervalMinutes
+    ),
   macrosParseScript: (rawText: string): Promise<MacroStep[]> => ipcRenderer.invoke('macros:parseScript', rawText),
   macrosRemove: (id: string): Promise<Macro[]> => ipcRenderer.invoke('macros:remove', id),
   macrosAddTag: (id: string, tag: string): Promise<Macro[]> => ipcRenderer.invoke('macros:addTag', id, tag),

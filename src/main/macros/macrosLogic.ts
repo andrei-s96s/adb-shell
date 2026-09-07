@@ -61,6 +61,19 @@ function sanitizeSteps(steps: MacroStep[]): MacroStep[] {
   return sanitized;
 }
 
+/** Минимальное значение периодического запуска -- 0 или отрицательное
+ * (опечатка, случайно очищенное поле) читается как "выключено", а не как
+ * "запускать непрерывно"; сама периодичность физически ограничена снизу
+ * частотой проверки таймера в main.ts (SCHEDULE_CHECK_INTERVAL_MS) в любом
+ * случае, 1 минута здесь просто отсекает откровенно бессмысленные значения
+ * до того, как они попадут в сохранённые данные. */
+const MIN_MACRO_SCHEDULE_MINUTES = 1;
+
+function sanitizeScheduleInterval(value: number | undefined): number | undefined {
+  if (!Number.isFinite(value) || (value as number) < MIN_MACRO_SCHEDULE_MINUTES) return undefined;
+  return Math.round(value as number);
+}
+
 export function addMacro(
   macros: Macro[],
   name: string,
@@ -68,12 +81,24 @@ export function addMacro(
   autorunOnConnect: boolean,
   abortOnFirstFailure: boolean,
   makeId: () => string,
-  hotkeyAccelerator?: string
+  hotkeyAccelerator?: string,
+  scheduleIntervalMinutes?: number
 ): Macro[] {
   const trimmedName = name.trim();
   const sanitizedSteps = sanitizeSteps(steps);
   if (trimmedName.length === 0 || sanitizedSteps.length === 0) return macros;
-  return [...macros, { id: makeId(), name: trimmedName, steps: sanitizedSteps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator }];
+  return [
+    ...macros,
+    {
+      id: makeId(),
+      name: trimmedName,
+      steps: sanitizedSteps,
+      autorunOnConnect,
+      abortOnFirstFailure,
+      hotkeyAccelerator,
+      scheduleIntervalMinutes: sanitizeScheduleInterval(scheduleIntervalMinutes),
+    },
+  ];
 }
 
 export function updateMacro(
@@ -83,13 +108,24 @@ export function updateMacro(
   steps: MacroStep[],
   autorunOnConnect: boolean,
   abortOnFirstFailure: boolean,
-  hotkeyAccelerator?: string
+  hotkeyAccelerator?: string,
+  scheduleIntervalMinutes?: number
 ): Macro[] {
   const trimmedName = name.trim();
   const sanitizedSteps = sanitizeSteps(steps);
   if (trimmedName.length === 0 || sanitizedSteps.length === 0) return macros;
   return macros.map((m) =>
-    m.id === id ? { ...m, name: trimmedName, steps: sanitizedSteps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator } : m
+    m.id === id
+      ? {
+          ...m,
+          name: trimmedName,
+          steps: sanitizedSteps,
+          autorunOnConnect,
+          abortOnFirstFailure,
+          hotkeyAccelerator,
+          scheduleIntervalMinutes: sanitizeScheduleInterval(scheduleIntervalMinutes),
+        }
+      : m
   );
 }
 

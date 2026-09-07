@@ -34,8 +34,24 @@ export class MacroStore {
     return this.macros.find((m) => m.id === id);
   }
 
-  add(name: string, steps: MacroStep[], autorunOnConnect: boolean, abortOnFirstFailure: boolean, hotkeyAccelerator?: string): Macro[] {
-    this.macros = addMacro(this.macros, name, steps, autorunOnConnect, abortOnFirstFailure, () => randomUUID(), hotkeyAccelerator);
+  add(
+    name: string,
+    steps: MacroStep[],
+    autorunOnConnect: boolean,
+    abortOnFirstFailure: boolean,
+    hotkeyAccelerator?: string,
+    scheduleIntervalMinutes?: number
+  ): Macro[] {
+    this.macros = addMacro(
+      this.macros,
+      name,
+      steps,
+      autorunOnConnect,
+      abortOnFirstFailure,
+      () => randomUUID(),
+      hotkeyAccelerator,
+      scheduleIntervalMinutes
+    );
     this.save();
     return this.macros;
   }
@@ -46,9 +62,19 @@ export class MacroStore {
     steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
-    hotkeyAccelerator?: string
+    hotkeyAccelerator?: string,
+    scheduleIntervalMinutes?: number
   ): Macro[] {
-    this.macros = updateMacro(this.macros, id, name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
+    this.macros = updateMacro(
+      this.macros,
+      id,
+      name,
+      steps,
+      autorunOnConnect,
+      abortOnFirstFailure,
+      hotkeyAccelerator,
+      scheduleIntervalMinutes
+    );
     this.save();
     return this.macros;
   }

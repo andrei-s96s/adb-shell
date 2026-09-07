@@ -26,7 +26,9 @@ import { IntentPresetStore } from './intentPresets/IntentPresetStore';
 import { MacroStore } from './macros/MacroStore';
 import { MacroRunHistoryStore } from './macroRunHistory/MacroRunHistoryStore';
 import { runMacro } from './macros/MacroRunner';
+import { runMacroOnDevices } from './macros/runMacroOnDevices';
 import { variableNames } from './macros/macroRunnerLogic';
+import { Macro } from './adb/types/Macro';
 import { DeviceSnapshotService } from './deviceSnapshots/DeviceSnapshotService';
 import { ScreenMirrorService } from './screenMirror/ScreenMirrorService';
 import { AppIconService } from './appIcons/AppIconService';
@@ -209,6 +211,60 @@ function applyMacroHotkeys(): void {
     if (ok) registeredMacroAccelerators.push(accelerator);
   }
 }
+
+/** Как часто проверяем, не пора ли сработать периодическому макросу --
+ * реальная периодичность конкретного макроса (scheduleIntervalMinutes)
+ * физически не может быть точнее этого шага, но минута точности более чем
+ * достаточна для фоновой задачи, которая всё равно меряется в минутах. */
+const SCHEDULE_CHECK_INTERVAL_MS = 30_000;
+/** Когда каждый периодический макрос срабатывал в последний раз -- только
+ * в памяти процесса, не персистится: пропуск одного тика из-за перезапуска
+ * приложения не считается ошибкой, отсчёт просто начинается заново. */
+const lastScheduledRunMs = new Map<string, number>();
+/** macroId, для которого сейчас выполняется предыдущий периодический запуск
+ * -- если сам батч (на всех устройствах) не успел закончиться до следующего
+ * тика проверки, новый запуск того же макроса не стартует поверх ещё
+ * идущего (иначе на медленном макросе с коротким интервалом они копились
+ * бы один на другой). */
+const scheduledMacrosInFlight = new Set<string>();
+
+async function runScheduledMacro(macro: Macro): Promise<void> {
+  scheduledMacrosInFlight.add(macro.id);
+  try {
+    // Переменные ${ИМЯ} никто не спросит в фоне -- та же причина, по
+    // которой их пропускает и глобальный хоткей (applyMacroHotkeys выше).
+    if (variableNames(macro).length > 0) return;
+    const devices = filterReadyDevicesByTag(await ctx.adb.listDevices(), ctx.deviceTags);
+    if (devices.length === 0) return;
+    await runMacroOnDevices(macro, devices, ctx.adb, {}, ctx.macroRunHistory);
+  } catch {
+    // Ошибка отдельного устройства уже осела в журнале запусков
+    // (runMacroOnDevices сам пишет туда результат на каждое устройство) --
+    // здесь ловим на случай, если упал сам listDevices(), чтобы это не
+    // уронило весь таймер проверки остальных макросов.
+  } finally {
+    scheduledMacrosInFlight.delete(macro.id);
+  }
+}
+
+/** Проверяет все макросы на предмет "пора сработать по расписанию" --
+ * вызывается раз в SCHEDULE_CHECK_INTERVAL_MS независимо от того, какая
+ * вкладка сейчас открыта (в отличие от autorunOnConnect, который
+ * запускается из renderer.ts по опросу устройств). */
+function checkScheduledMacros(): void {
+  const now = Date.now();
+  for (const macro of ctx.macroStore.list()) {
+    const intervalMinutes = macro.scheduleIntervalMinutes;
+    if (!intervalMinutes || intervalMinutes <= 0) continue;
+    if (scheduledMacrosInFlight.has(macro.id)) continue;
+    const last = lastScheduledRunMs.get(macro.id) ?? 0;
+    if (now - last < intervalMinutes * 60_000) continue;
+    lastScheduledRunMs.set(macro.id, now);
+    void runScheduledMacro(macro);
+  }
+}
+
+let scheduleCheckTimer: ReturnType<typeof setInterval> | undefined;
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -435,6 +491,8 @@ app.whenReady().then(() => {
   createWindow();
   applyHotkeySetting();
   applyMacroHotkeys();
+  checkScheduledMacros();
+  scheduleCheckTimer = setInterval(checkScheduledMacros, SCHEDULE_CHECK_INTERVAL_MS);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -450,4 +508,5 @@ app.on('before-quit', () => {
   ctx.logcatSessions.clear();
   globalShortcut.unregisterAll();
   ctx.screenMirror.stopAll();
+  clearInterval(scheduleCheckTimer);
 });

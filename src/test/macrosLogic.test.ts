@@ -142,6 +142,36 @@ test('updateMacro can change or clear an existing hotkeyAccelerator', () => {
   assert.equal(macros[0].hotkeyAccelerator, undefined);
 });
 
+test('addMacro stores a valid scheduleIntervalMinutes, undefined when omitted', () => {
+  const withSchedule = addMacro([], 'Flash', steps('adb root'), false, false, makeId, undefined, 30);
+  assert.equal(withSchedule[0].scheduleIntervalMinutes, 30);
+  const withoutSchedule = addMacro([], 'Other', steps('adb root'), false, false, makeId);
+  assert.equal(withoutSchedule[0].scheduleIntervalMinutes, undefined);
+});
+
+test('addMacro rejects a scheduleIntervalMinutes below the minimum (0, negative, NaN) as "disabled"', () => {
+  assert.equal(addMacro([], 'A', steps('adb root'), false, false, makeId, undefined, 0)[0].scheduleIntervalMinutes, undefined);
+  assert.equal(addMacro([], 'B', steps('adb root'), false, false, makeId, undefined, -5)[0].scheduleIntervalMinutes, undefined);
+  assert.equal(
+    addMacro([], 'C', steps('adb root'), false, false, makeId, undefined, Number.NaN)[0].scheduleIntervalMinutes,
+    undefined
+  );
+});
+
+test('addMacro rounds a fractional scheduleIntervalMinutes', () => {
+  const macros = addMacro([], 'Flash', steps('adb root'), false, false, makeId, undefined, 5.7);
+  assert.equal(macros[0].scheduleIntervalMinutes, 6);
+});
+
+test('updateMacro can change or clear an existing scheduleIntervalMinutes', () => {
+  let macros = addMacro([], 'Flash', steps('adb root'), false, false, makeId, undefined, 15);
+  const id = macros[0].id;
+  macros = updateMacro(macros, id, 'Flash', steps('adb root'), false, false, undefined, 45);
+  assert.equal(macros[0].scheduleIntervalMinutes, 45);
+  macros = updateMacro(macros, id, 'Flash', steps('adb root'), false, false, undefined, undefined);
+  assert.equal(macros[0].scheduleIntervalMinutes, undefined);
+});
+
 test('removeMacro deletes by id', () => {
   let macros = addMacro([], 'Flash', steps('adb root'), false, false, makeId);
   macros = removeMacro(macros, macros[0].id);

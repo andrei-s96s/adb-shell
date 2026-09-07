@@ -181,9 +181,13 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
   label.style.cursor = 'pointer';
   const hotkeyActive = !!macro.hotkeyAccelerator && activeHotkeyAccelerators.has(macro.hotkeyAccelerator);
   const hotkeyBadge = macro.hotkeyAccelerator ? (hotkeyActive ? '⌨' : '⌨⚠') : '';
-  const badges = [macro.autorunOnConnect ? '⚡' : '', macro.abortOnFirstFailure ? '⛔' : '', hotkeyBadge].filter(Boolean).join(' ');
+  const scheduleBadge = macro.scheduleIntervalMinutes ? '⏰' : '';
+  const badges = [macro.autorunOnConnect ? '⚡' : '', macro.abortOnFirstFailure ? '⛔' : '', hotkeyBadge, scheduleBadge]
+    .filter(Boolean)
+    .join(' ');
   const hotkeySuffix = macro.hotkeyAccelerator ? ` [${macro.hotkeyAccelerator}]` : '';
-  label.textContent = `${badges ? badges + ' ' : ''}${macro.name} (${macro.steps.length} шаг${macro.steps.length === 1 ? '' : 'ов'})${hotkeySuffix}`;
+  const scheduleSuffix = macro.scheduleIntervalMinutes ? ` (каждые ${macro.scheduleIntervalMinutes} мин)` : '';
+  label.textContent = `${badges ? badges + ' ' : ''}${macro.name} (${macro.steps.length} шаг${macro.steps.length === 1 ? '' : 'ов'})${hotkeySuffix}${scheduleSuffix}`;
   if (macro.hotkeyAccelerator && !hotkeyActive) {
     label.title = 'Хоткей назначен, но сейчас не активен -- занят другим макросом/приложением/ОС, либо у макроса есть переменные ${ИМЯ}';
   }
@@ -656,6 +660,26 @@ function openEditor(existing?: Macro): void {
       'Формат Electron Accelerator (модификаторы через "+": CommandOrControl, Alt, Shift). Работает даже когда окно не в фокусе, но не для макросов с переменными ${ИМЯ} -- их некому спросить без открытого окна.';
     body.appendChild(hotkeyHintEl);
 
+    const scheduleRow = document.createElement('div');
+    scheduleRow.className = 'connect-row';
+    const scheduleLabel = document.createElement('span');
+    scheduleLabel.className = 'hint';
+    scheduleLabel.textContent = 'Периодический запуск, мин';
+    scheduleRow.appendChild(scheduleLabel);
+    const scheduleInput = document.createElement('input');
+    scheduleInput.type = 'number';
+    scheduleInput.min = '1';
+    scheduleInput.className = 'input-narrow';
+    scheduleInput.placeholder = 'выкл';
+    scheduleInput.value = existing?.scheduleIntervalMinutes ? String(existing.scheduleIntervalMinutes) : '';
+    scheduleRow.appendChild(scheduleInput);
+    body.appendChild(scheduleRow);
+    const scheduleHintEl = document.createElement('div');
+    scheduleHintEl.className = 'hint';
+    scheduleHintEl.textContent =
+      'Запускается сам на всех подключённых и готовых устройствах каждые N минут, независимо от открытой вкладки. Пусто -- не запускать по расписанию. Как и хоткей, недоступно макросам с переменными ${ИМЯ}.';
+    body.appendChild(scheduleHintEl);
+
     body.appendChild(errorEl);
 
     const saveBtn = document.createElement('button');
@@ -680,9 +704,18 @@ function openEditor(existing?: Macro): void {
         return;
       }
       const hotkeyAccelerator = hotkeyInput.value.trim() || undefined;
+      const scheduleIntervalMinutes = scheduleInput.value.trim() ? Number(scheduleInput.value) : undefined;
       const action = existing
-        ? adbApi.macrosUpdate(existing.id, name, steps, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator)
-        : adbApi.macrosAdd(name, steps, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator);
+        ? adbApi.macrosUpdate(
+            existing.id,
+            name,
+            steps,
+            autorunCheckbox.checked,
+            abortCheckbox.checked,
+            hotkeyAccelerator,
+            scheduleIntervalMinutes
+          )
+        : adbApi.macrosAdd(name, steps, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator, scheduleIntervalMinutes);
       action
         .then((updated) => {
           macros = updated;

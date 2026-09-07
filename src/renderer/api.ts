@@ -226,6 +226,7 @@ export interface Macro {
   abortOnFirstFailure: boolean;
   hotkeyAccelerator?: string;
   tags?: string[];
+  scheduleIntervalMinutes?: number;
 }
 
 export interface MacroRunResult {
@@ -436,7 +437,8 @@ export interface AdbApi {
     steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
-    hotkeyAccelerator?: string
+    hotkeyAccelerator?: string,
+    scheduleIntervalMinutes?: number
   ): Promise<Macro[]>;
   macrosUpdate(
     id: string,
@@ -444,7 +446,8 @@ export interface AdbApi {
     steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
-    hotkeyAccelerator?: string
+    hotkeyAccelerator?: string,
+    scheduleIntervalMinutes?: number
   ): Promise<Macro[]>;
   macrosParseScript(rawText: string): Promise<MacroStep[]>;
   macrosRemove(id: string): Promise<Macro[]>;

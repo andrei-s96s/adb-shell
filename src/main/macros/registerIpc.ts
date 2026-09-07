@@ -8,8 +8,8 @@ import { runMacro } from './MacroRunner';
 import { parseSteps } from './macrosLogic';
 import { MacroStep } from '../adb/types/Macro';
 import { displayName } from '../adb/types/Device';
-import { mapWithConcurrency } from '../util/concurrency';
 import { filterReadyDevicesByTag } from '../util/deviceBatchTarget';
+import { runMacroOnDevices } from './runMacroOnDevices';
 import { showSaveDialogFor, showOpenDialogFor } from '../util/dialogs';
 
 export function registerMacrosIpc(ctx: IpcContext): void {
@@ -18,8 +18,16 @@ export function registerMacrosIpc(ctx: IpcContext): void {
   ipcMain.handle('macros:list', () => macroStore.list());
   ipcMain.handle(
     'macros:add',
-    (_e, name: string, steps: MacroStep[], autorunOnConnect: boolean, abortOnFirstFailure: boolean, hotkeyAccelerator?: string) => {
-      const updated = macroStore.add(name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
+    (
+      _e,
+      name: string,
+      steps: MacroStep[],
+      autorunOnConnect: boolean,
+      abortOnFirstFailure: boolean,
+      hotkeyAccelerator?: string,
+      scheduleIntervalMinutes?: number
+    ) => {
+      const updated = macroStore.add(name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator, scheduleIntervalMinutes);
       ctx.applyMacroHotkeys();
       return updated;
     }
@@ -33,9 +41,18 @@ export function registerMacrosIpc(ctx: IpcContext): void {
       steps: MacroStep[],
       autorunOnConnect: boolean,
       abortOnFirstFailure: boolean,
-      hotkeyAccelerator?: string
+      hotkeyAccelerator?: string,
+      scheduleIntervalMinutes?: number
     ) => {
-      const updated = macroStore.update(id, name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
+      const updated = macroStore.update(
+        id,
+        name,
+        steps,
+        autorunOnConnect,
+        abortOnFirstFailure,
+        hotkeyAccelerator,
+        scheduleIntervalMinutes
+      );
       ctx.applyMacroHotkeys();
       return updated;
     }
@@ -92,33 +109,19 @@ export function registerMacrosIpc(ctx: IpcContext): void {
       return outcome;
     }
   );
-  // Запуск на всех готовых устройствах разом -- та же схема (mapWithConcurrency,
-  // лимит 3), что уже используют adb:screenshotAllDevices и
-  // apkLibrary:installToAllDevices. Без пошагового стриминга в UI (в отличие
-  // от macros:run) -- на N устройств разом это была бы уже другая, более
+  // Запуск на всех готовых устройствах разом -- сама раскладка по устройствам
+  // (runMacroOnDevices.ts) переиспользуется и планировщиком периодических
+  // макросов в main.ts. Без пошагового стриминга в UI (в отличие от
+  // macros:run) -- на N устройств разом это была бы уже другая, более
   // сложная модель прогресса; здесь достаточно итогового результата на
-  // устройство, как и у прочих "на все" операций.
+  // устройство, как и у прочих "на все" операций (adb:screenshotAllDevices,
+  // apkLibrary:installToAllDevices).
   ipcMain.handle('macros:runOnAll', async (_e, macroId: string, variables: Record<string, string>, tag?: string) => {
     const macro = macroStore.get(macroId);
     if (!macro) throw new Error('Макрос не найден');
     const devices = filterReadyDevicesByTag(await ctx.adb.listDevices(), ctx.deviceTags, tag);
     if (devices.length === 0) return { successCount: 0, total: 0, failures: [] as string[] };
-
-    const failures: string[] = [];
-    let successCount = 0;
-    await mapWithConcurrency(devices, 3, async (device) => {
-      const startedAtMs = Date.now();
-      try {
-        const outcome = await runMacro(macro, device.serial, ctx.adb, variables);
-        ctx.macroRunHistory.record(macro, device.serial, displayName(device), startedAtMs, outcome.completedFully, outcome.results);
-        if (outcome.completedFully) successCount += 1;
-        else failures.push(`${displayName(device)}: остановлено на ошибке`);
-      } catch (error) {
-        ctx.macroRunHistory.record(macro, device.serial, displayName(device), startedAtMs, false, []);
-        failures.push(`${displayName(device)}: ${(error as Error).message}`);
-      }
-    });
-    return { successCount, total: devices.length, failures };
+    return runMacroOnDevices(macro, devices, ctx.adb, variables, ctx.macroRunHistory);
   });
   ipcMain.handle('macros:export', async (event: IpcMainInvokeEvent) => {
     const result = await showSaveDialogFor(event, {
