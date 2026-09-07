@@ -4,6 +4,7 @@
 // без запуска в Electron-рантайме.
 
 import { spawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -87,6 +88,15 @@ export class AdbService {
 
       let stdout = '';
       let stderr = '';
+      // StringDecoder (не chunk.toString('utf8') на каждом отдельном
+      // Buffer) -- если многобайтовый UTF-8 символ (кириллица в имени
+      // файла из `adb shell ls`, эмодзи в названии приложения) окажется
+      // разрезан ровно на границе двух 'data'-событий, toString('utf8') на
+      // обрывке декодирует его в U+FFFD молча, ещё до того, как вывод
+      // попадёт в парсеры -- StringDecoder копит незавершённый хвост байт
+      // и достраивает символ следующим чанком.
+      const stdoutDecoder = new StringDecoder('utf8');
+      const stderrDecoder = new StringDecoder('utf8');
       let settled = false;
       let timedOut = false;
       const timer = timeoutMs
@@ -97,8 +107,8 @@ export class AdbService {
           }, timeoutMs)
         : undefined;
 
-      child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString('utf8')));
-      child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
+      child.stdout?.on('data', (chunk: Buffer) => (stdout += stdoutDecoder.write(chunk)));
+      child.stderr?.on('data', (chunk: Buffer) => (stderr += stderrDecoder.write(chunk)));
       child.on('error', (error) => {
         if (settled) return;
         settled = true;
@@ -114,6 +124,8 @@ export class AdbService {
         // вывод (или вообще ничего) вместо понятной причины. Явно
         // отклоняем с сообщением, объясняющим, что произошло, а не что
         // именно устройство ответило (оно ничего не успело ответить).
+        stdout += stdoutDecoder.end();
+        stderr += stderrDecoder.end();
         if (timedOut) {
           reject(new AdbCommandError(`adb не ответил за ${Math.round(timeoutMs! / 1000)}с -- устройство могло зависнуть, потерять соединение или ждать системный диалог на экране`));
           return;
