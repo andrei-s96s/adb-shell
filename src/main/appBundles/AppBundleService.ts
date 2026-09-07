@@ -22,6 +22,7 @@ import { AdbService } from '../adb/AdbService';
 import { AppBundleEntry, AppBundleManifest, APKS_SUBDIRECTORY, BundleOperationResult, MANIFEST_FILE_NAME } from '../adb/types/AppBundleManifest';
 import { primaryApkPath } from '../adb/parsers/ApkPathParser';
 import { grantedRuntimePermissionNames } from './appBundleLogic';
+import { mapWithConcurrency } from '../util/concurrency';
 
 export interface ExportBundleOutcome {
   entryCount: number;
@@ -35,7 +36,21 @@ export interface ImportBundleOutcome {
 /** Тянет apk + выданные runtime-разрешения для каждого пакета из `packages`,
  * пишет manifest.json и zip'ует всё в destinationZip. Возвращает число
  * успешно вошедших в архив приложений (0 — ничего не экспортировано, файл
- * назначения не создаётся). */
+ * назначения не создаётся).
+ *
+ * Пакеты обрабатываются с ограниченным параллелизмом (mapWithConcurrency,
+ * лимит 3, как и в остальных операциях с устройством -- adb мультиплексирует
+ * несколько одновременных вызовов к одному serial поверх одного
+ * USB/сетевого соединения, тот же принцип уже используется в
+ * AdbService.deviceStats через Promise.all). Раньше шло строго
+ * последовательно (appDetail -> apkPaths -> pull на каждый пакет по
+ * очереди), заметно на снапшоте/наборе из десятков приложений. entries и
+ * results остаются в порядке `packages`, а не порядке завершения --
+ * mapWithConcurrency сохраняет позицию по индексу, это важно для
+ * детерминированности manifest.json. onProgress теперь сообщает число
+ * ЗАВЕРШЁННЫХ пакетов (может прийти не по порядку packageName при
+ * параллельном выполнении), а не номер начатого -- точнее отражает
+ * реальный прогресс, когда пакеты завершаются не по очереди. */
 export async function exportBundle(
   packages: string[],
   serial: string,
@@ -48,32 +63,37 @@ export async function exportBundle(
   const apksDir = path.join(workDir, APKS_SUBDIRECTORY);
   await fsPromises.mkdir(apksDir, { recursive: true });
 
-  const results: BundleOperationResult[] = [];
-  const entries: AppBundleEntry[] = [];
-
   try {
-    for (let i = 0; i < packages.length; i++) {
-      const pkg = packages[i];
-      onProgress?.(i + 1, packages.length, pkg);
+    let completed = 0;
+    const perPackage = await mapWithConcurrency(packages, 3, async (pkg) => {
+      const reportDone = (): void => {
+        completed += 1;
+        onProgress?.(completed, packages.length, pkg);
+      };
       try {
         const detail = await adb.appDetail(serial, pkg);
         const apkPaths = await adb.apkPaths(serial, pkg);
         const basePath = primaryApkPath(apkPaths);
         if (!basePath) {
-          results.push({ packageName: pkg, success: false, message: 'APK не найден на устройстве' });
-          continue;
+          reportDone();
+          return { result: { packageName: pkg, success: false, message: 'APK не найден на устройстве' }, entry: undefined };
         }
         const fileName = `${pkg}.apk`;
         const localApk = path.join(apksDir, fileName);
         await adb.pull(serial, basePath, localApk);
 
         const grantedRuntime = grantedRuntimePermissionNames(detail.permissions);
-        entries.push({ packageName: pkg, apkFileName: fileName, versionName: detail.versionName, permissions: grantedRuntime });
-        results.push({ packageName: pkg, success: true, message: `Разрешений: ${grantedRuntime.length}` });
+        const entry: AppBundleEntry = { packageName: pkg, apkFileName: fileName, versionName: detail.versionName, permissions: grantedRuntime };
+        reportDone();
+        return { result: { packageName: pkg, success: true, message: `Разрешений: ${grantedRuntime.length}` }, entry };
       } catch (error) {
-        results.push({ packageName: pkg, success: false, message: (error as Error).message });
+        reportDone();
+        return { result: { packageName: pkg, success: false, message: (error as Error).message }, entry: undefined };
       }
-    }
+    });
+
+    const results: BundleOperationResult[] = perPackage.map((p) => p.result);
+    const entries: AppBundleEntry[] = perPackage.flatMap((p) => (p.entry ? [p.entry] : []));
 
     if (entries.length === 0) {
       return { entryCount: 0, results };
