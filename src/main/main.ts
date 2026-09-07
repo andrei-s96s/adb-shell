@@ -27,6 +27,7 @@ import { FDroidUpdateInfo, fdroidDownloadUrl } from './adb/types/FDroidUpdateInf
 import { checkFDroidUpdate } from './apkLibrary/FDroidUpdateChecker';
 import { checkForUpdate, pickAssetForPlatform, findChecksumAsset, ReleaseAsset } from './updateChecker';
 import { downloadAndPrepareUpdate, launchPreparedUpdate } from './updateInstaller';
+import { downloadWithProgress } from './util/download';
 import { ConnectionProfileStore } from './connectionProfiles/ConnectionProfileStore';
 import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
 import { DevicePinStore } from './devicePins/DevicePinStore';
@@ -302,9 +303,9 @@ function registerIpcHandlers(): void {
   ipcMain.handle('apps:installFDroidUpdate', async (_e, serial: string, packageName: string, latestVersionCode: number) => {
     const tmpPath = path.join(os.tmpdir(), `fdroid-${packageName}-${latestVersionCode}.apk`);
     try {
-      const response = await fetch(fdroidDownloadUrl({ packageName, latestVersionCode, installedVersionCode: 0 }));
-      if (!response.ok) throw new Error(`HTTP ${response.status} при скачивании обновления`);
-      await fsPromises.writeFile(tmpPath, Buffer.from(await response.arrayBuffer()));
+      // Потоково в файл, не fetch().arrayBuffer() целиком в память -- тот же
+      // повод, что и в ApkLibraryService.downloadFDroidUpdate().
+      await downloadWithProgress(fdroidDownloadUrl({ packageName, latestVersionCode, installedVersionCode: 0 }), tmpPath);
       await adb.install(serial, tmpPath);
     } finally {
       await fsPromises.rm(tmpPath, { force: true });

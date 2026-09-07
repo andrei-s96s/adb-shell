@@ -261,8 +261,13 @@ export class ApkLibraryService {
   }
 
   /** Скачивает более новую версию с F-Droid в библиотеку и удаляет старый
-   * файл. Выполняется только по явному нажатию пользователя. */
-  async downloadFDroidUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<string> {
+   * файл. Выполняется только по явному нажатию пользователя. Потоково, как
+   * и downloadFromUrl() выше -- через тот же downloadWithProgress(), а не
+   * fetch().arrayBuffer() целиком в память: F-Droid отдаёт обычные APK,
+   * которые могут быть по сотне МБ (игры, приложения с большим количеством
+   * встроенных ассетов), а сборка всего файла в памяти перед записью на
+   * диск не нужна ни для чего, кроме лишнего пика памяти. */
+  async downloadFDroidUpdate(file: ApkFile, update: FDroidUpdateInfo, onProgress?: (progress: DownloadProgress) => void): Promise<string> {
     // basename -- update.packageName приходит из JSON-ответа F-Droid API
     // (см. FDroidUpdateChecker.ts), т.е. это сетевые данные, а не то, что
     // приложение само проверило/сгенерировало. Без этого скомпрометированный
@@ -271,10 +276,7 @@ export class ApkLibraryService {
     // класс проблемы, что и в importBundle (AppBundleService.ts).
     const destName = path.basename(`${update.packageName}_${update.latestVersionCode}.apk`);
     const destination = path.join(this.directory, destName);
-    const response = await fetch(fdroidDownloadUrl(update));
-    if (!response.ok) throw new Error(`HTTP ${response.status} при скачивании обновления`);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    fs.writeFileSync(destination, buffer);
+    await downloadWithProgress(fdroidDownloadUrl(update), destination, { onProgress });
     if (path.resolve(destination) !== path.resolve(file.path)) {
       try {
         fs.unlinkSync(file.path);
