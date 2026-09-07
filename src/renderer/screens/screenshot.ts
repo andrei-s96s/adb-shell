@@ -25,8 +25,8 @@ export async function openScreenshotPreview(serial: string): Promise<void> {
   img.style.maxWidth = '420px';
   img.style.maxHeight = '420px';
   img.style.display = 'block';
-  img.style.margin = '0 auto 12px';
-  img.style.borderRadius = '8px';
+  img.style.margin = '0 auto var(--space-12)';
+  img.style.borderRadius = 'var(--radius-8)';
   modal.body.appendChild(img);
 
   const toolbar = document.createElement('div');

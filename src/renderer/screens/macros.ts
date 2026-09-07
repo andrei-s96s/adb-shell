@@ -136,7 +136,7 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
   if (expandedMacroId === macro.id) {
     const stepsEl = document.createElement('ul');
     stepsEl.className = 'scroll-list small';
-    stepsEl.style.marginTop = '6px';
+    stepsEl.style.marginTop = 'var(--space-6)';
     const results = lastResults.get(macro.id);
     macro.steps.forEach((step, index) => {
       const stepLi = document.createElement('li');
@@ -227,7 +227,7 @@ function openEditor(existing?: Macro): void {
     nameInput.placeholder = 'Имя макроса';
     nameInput.value = existing?.name ?? '';
     nameInput.style.width = '100%';
-    nameInput.style.marginBottom = '8px';
+    nameInput.style.marginBottom = 'var(--space-8)';
     body.appendChild(nameInput);
 
     const textarea = document.createElement('textarea');
@@ -235,9 +235,9 @@ function openEditor(existing?: Macro): void {
     textarea.rows = 10;
     textarea.style.width = '100%';
     textarea.style.fontFamily = 'var(--cp-mono)';
-    textarea.style.fontSize = '12px';
-    textarea.style.padding = '8px';
-    textarea.style.borderRadius = '8px';
+    textarea.style.fontSize = 'var(--fs-12)';
+    textarea.style.padding = 'var(--space-8)';
+    textarea.style.borderRadius = 'var(--radius-8)';
     textarea.style.border = '1px solid var(--cp-hairline)';
     textarea.style.background = 'var(--cp-bg-panel-alt)';
     textarea.style.color = 'var(--cp-text-primary)';
