@@ -3,6 +3,7 @@ import type { LogLevel, LogLine } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { parseLogLine, levelLabel } from '../logLineParser.js';
 import { openCrashTracesModal } from './crashTraces.js';
+import { onTabVisibilityChanged } from '../tabs.js';
 
 const MAX_LINES = 5000;
 
@@ -20,6 +21,14 @@ let isRunning = false;
 let unsubscribe: (() => void) | undefined;
 let unsubscribeEnded: (() => void) | undefined;
 let activeSerial: string | undefined;
+// Тумблер видимости вкладки -- НЕ останавливает поток adb logcat самого по
+// себе (Start/Stop остаётся только ручным управлением пользователя, строки
+// продолжают копиться в allLines, ничего не теряется), только пропускает
+// дорогую отрисовку, пока вкладка скрыта -- initTabs() (renderer.ts) уже
+// произвёл первую активацию до подписки этого экрана на
+// onTabVisibilityChanged, поэтому исходное "true" ниже сразу
+// перезаписывается реальным состоянием прямо из DOM.
+let tabVisible = true;
 
 // Живой стрим может отдавать десятки-сотни строк в секунду -- раньше
 // каждая ОТДЕЛЬНАЯ строка синхронно вызывала renderLog() (полный
@@ -104,13 +113,20 @@ export function initLogcatScreen(): void {
     if (serial) openCrashTracesModal(serial);
   });
 
+  tabVisible = document.getElementById('tab-logcat')?.classList.contains('active') ?? true;
+
   unsubscribe = adbApi.onLogcatLine((serial, rawLine) => {
     if (serial !== activeSerial) return;
     const parsed = parseLogLine(rawLine);
     if (!parsed) return;
     allLines.push(parsed);
     if (allLines.length > MAX_LINES) allLines.splice(0, allLines.length - MAX_LINES);
-    scheduleAppend(parsed);
+    // Пока вкладка скрыта, поток НЕ останавливается (Start/Stop -- только
+    // ручное управление, строки не должны теряться, пока пользователь
+    // работает в другой вкладке) -- просто не тратим на отрисовку скрытого
+    // DOM ничего сверх push() выше. onTabVisibilityChanged ниже разом
+    // перерисует всё накопленное при возврате на вкладку.
+    if (tabVisible) scheduleAppend(parsed);
   });
   // Процесс adb logcat мог завершиться сам (устройство отключили, оборвалось
   // Wi-Fi-соединение) -- без этого стрим молча замолкал: кнопки продолжали
@@ -128,6 +144,17 @@ export function initLogcatScreen(): void {
     renderLog();
     statusEl.textContent = serial ? '' : 'Нет подключённого устройства — выберите устройство слева';
     updateButtons();
+  });
+
+  onTabVisibilityChanged((tabId, isVisible) => {
+    if (tabId !== 'logcat') return;
+    const wasHidden = !tabVisible;
+    tabVisible = isVisible;
+    // Разом отрисовать всё, что накопилось в allLines, пока вкладка была
+    // скрыта -- полная пересборка (не инкрементальный append) ровно потому,
+    // что это тот же случай "нужно отразить весь набор целиком", что и у
+    // смены фильтра.
+    if (isVisible && wasHidden) renderLog();
   });
 
   updateButtons();

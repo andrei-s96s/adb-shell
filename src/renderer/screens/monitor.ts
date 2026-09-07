@@ -1,6 +1,7 @@
 import { adbApi, el, errorMessage } from '../api.js';
 import type { DeviceStats, RunningProcess, SecurityFinding, AppUsageStat } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
+import { onTabVisibilityChanged } from '../tabs.js';
 
 const POLL_INTERVAL_MS = 2000;
 const HISTORY_LENGTH = 30;
@@ -20,6 +21,12 @@ let securityListEl: HTMLUListElement;
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let cpuHistory: number[] = [];
 let statsHistory: DeviceStats[] = [];
+// Тумблер видимости вкладки -- initTabs() (renderer.ts) вызывается раньше
+// initMonitorScreen() и производит первую активацию ДО того, как этот
+// экран успевает подписаться на onTabVisibilityChanged, поэтому исходное
+// значение здесь ("true") ниже сразу перезаписывается реальным состоянием
+// прямо из DOM, а не остаётся угаданным дефолтом.
+let tabVisible = true;
 
 export function initMonitorScreen(): void {
   statusEl = el<HTMLDivElement>('monitor-status');
@@ -31,6 +38,8 @@ export function initMonitorScreen(): void {
   usageListEl = el<HTMLUListElement>('monitor-usage-list');
   securityListEl = el<HTMLUListElement>('monitor-security-list');
   el<HTMLButtonElement>('monitor-export-csv').addEventListener('click', () => void exportCsv());
+
+  tabVisible = document.getElementById('tab-monitor')?.classList.contains('active') ?? true;
 
   onDeviceChanged((serial) => {
     stopPolling();
@@ -44,19 +53,45 @@ export function initMonitorScreen(): void {
     usageListEl.innerHTML = '';
     securityListEl.innerHTML = '';
     if (serial) {
-      startPolling(serial);
+      // Секции ниже одноразовые (не поллинг) -- незачем гейтить их
+      // видимостью вкладки, они просто готовят данные к моменту, когда
+      // пользователь заглянет на вкладку.
+      if (tabVisible) startPolling(serial);
       void loadSecurity(serial);
       void loadUsageStats(serial);
     } else {
       statusEl.textContent = 'Нет подключённого устройства — выберите устройство слева';
     }
   });
+
+  // tabs.ts переключал вкладки чисто CSS-классом, без единого сигнала
+  // "вкладка скрылась/показалась" -- поллинг (4 adb-запроса каждые 2с,
+  // см. AdbService.deviceStatsAndProcesses) продолжал молотить в фоне,
+  // пока пользователь работал в Files/Apps/Shell. Возобновление НЕ сбрасывает
+  // alertArmState (в отличие от startPolling при смене устройства) -- иначе
+  // каждое возвращение на вкладку с всё ещё высоким CPU/низким зарядом
+  // перевзводило бы уже сработавшее уведомление и слало бы его заново без
+  // единого реального изменения показателя.
+  onTabVisibilityChanged((tabId, isVisible) => {
+    if (tabId !== 'monitor') return;
+    tabVisible = isVisible;
+    if (!isVisible) {
+      stopPolling();
+      return;
+    }
+    const serial = getCurrentSerial();
+    if (serial && !pollTimer) beginPollingLoop(serial);
+  });
+}
+
+function beginPollingLoop(serial: string): void {
+  void poll(serial);
+  pollTimer = setInterval(() => void poll(serial), POLL_INTERVAL_MS);
 }
 
 function startPolling(serial: string): void {
   void adbApi.resetAlertArm();
-  void poll(serial);
-  pollTimer = setInterval(() => void poll(serial), POLL_INTERVAL_MS);
+  beginPollingLoop(serial);
 }
 
 function stopPolling(): void {
