@@ -247,6 +247,16 @@ export interface DeviceSnapshotInfo {
   createdAtMs: number;
 }
 
+export interface ManifestPackageDiff {
+  packageName: string;
+  inA: boolean;
+  inB: boolean;
+  versionA?: string;
+  versionB?: string;
+  addedPermissions: string[];
+  removedPermissions: string[];
+}
+
 export interface InstallBatchFileResult {
   apkPath: string;
   success: boolean;
@@ -336,6 +346,7 @@ export interface AdbApi {
   snapshotsRestore(snapshotPath: string, serial: string): Promise<ImportBundleOutcome>;
   snapshotsDelete(snapshotPath: string): Promise<void>;
   snapshotsReveal(snapshotPath: string): Promise<void>;
+  snapshotsDiff(pathA: string, pathB: string): Promise<ManifestPackageDiff[]>;
 
   apkLibraryList(): Promise<ApkFile[]>;
   apkLibraryGetDirectory(): Promise<string>;

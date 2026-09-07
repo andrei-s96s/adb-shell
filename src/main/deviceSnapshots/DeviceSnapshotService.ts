@@ -7,6 +7,7 @@
 // без диалога сохранения.
 
 import { app } from 'electron';
+import AdmZip from 'adm-zip';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -15,6 +16,7 @@ import { AdbService } from '../adb/AdbService';
 import { exportBundle, importBundle, ExportBundleOutcome, ImportBundleOutcome } from '../appBundles/AppBundleService';
 import { makeSnapshotFilename, parseSnapshotFilename, snapshotsToPruneAfterTaking } from './deviceSnapshotLogic';
 import { assertPathWithinDirectory } from '../util/pathSafety';
+import { AppBundleManifest, MANIFEST_FILE_NAME } from '../adb/types/AppBundleManifest';
 
 export interface DeviceSnapshotInfo {
   path: string;
@@ -97,6 +99,20 @@ export class DeviceSnapshotService {
     onProgress?: (index: number, total: number, packageName: string) => void
   ): Promise<ImportBundleOutcome> {
     return importBundle(snapshotPath, serial, adb, onProgress);
+  }
+
+  /** Читает manifest.json ИЗНУТРИ снапшота без распаковки всех apk на диск
+   * (AdmZip.getEntry -- та же библиотека, что уже используется для чтения
+   * записей архива в importBundle/AppBundleService.ts, но без extractAllTo)
+   * -- нужно для сравнения двух снапшотов между собой (см.
+   * appBundles/appBundleLogic.ts diffManifests), где сами apk не нужны
+   * вовсе, только список пакетов/версий/разрешений. */
+  readManifest(snapshotPath: string): AppBundleManifest {
+    assertPathWithinDirectory(snapshotPath, this.directory);
+    const zip = new AdmZip(snapshotPath);
+    const entry = zip.getEntry(MANIFEST_FILE_NAME);
+    if (!entry) throw new Error('В снапшоте не найден manifest.json');
+    return JSON.parse(entry.getData().toString('utf8')) as AppBundleManifest;
   }
 
   delete(snapshotPath: string): void {

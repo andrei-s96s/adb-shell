@@ -17,6 +17,7 @@ import { IntentPreset } from './adb/types/IntentPreset';
 import { Macro } from './adb/types/Macro';
 import { MacroRunOutcome } from './macros/MacroRunner';
 import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
+import { ManifestPackageDiff } from './appBundles/appBundleLogic';
 import { DeviceSnapshotInfo } from './deviceSnapshots/DeviceSnapshotService';
 import { ApkManifestInfo } from './adb/types/ApkManifestInfo';
 import { DownloadProgress } from './util/download';
@@ -134,6 +135,7 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('snapshots:restore', snapshotPath, serial),
   snapshotsDelete: (snapshotPath: string): Promise<void> => ipcRenderer.invoke('snapshots:delete', snapshotPath),
   snapshotsReveal: (snapshotPath: string): Promise<void> => ipcRenderer.invoke('snapshots:reveal', snapshotPath),
+  snapshotsDiff: (pathA: string, pathB: string): Promise<ManifestPackageDiff[]> => ipcRenderer.invoke('snapshots:diff', pathA, pathB),
 
   // Библиотека APK — доступна без подключённого устройства
   apkLibraryList: (): Promise<ApkFile[]> => ipcRenderer.invoke('apkLibrary:list'),
