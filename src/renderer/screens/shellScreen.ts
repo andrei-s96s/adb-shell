@@ -7,6 +7,7 @@ import { openShellHistoryModal } from './shellHistoryModal.js';
 let inputEl: HTMLInputElement;
 let logEl: HTMLDivElement;
 let runBtn: HTMLButtonElement;
+let cancelBtn: HTMLButtonElement;
 let broadcastEl: HTMLInputElement;
 let mirrorBtn: HTMLButtonElement;
 let mirrorRecordBtn: HTMLButtonElement;
@@ -18,6 +19,7 @@ export function initShellScreen(): void {
   inputEl = el<HTMLInputElement>('shell-input');
   logEl = el<HTMLDivElement>('shell-log');
   runBtn = el<HTMLButtonElement>('shell-run');
+  cancelBtn = el<HTMLButtonElement>('shell-cancel');
   broadcastEl = el<HTMLInputElement>('shell-broadcast');
   mirrorBtn = el<HTMLButtonElement>('shell-mirror');
   mirrorRecordBtn = el<HTMLButtonElement>('shell-mirror-record');
@@ -26,6 +28,9 @@ export function initShellScreen(): void {
   void refreshHistoryDatalist();
 
   runBtn.addEventListener('click', () => void runCommand());
+  cancelBtn.addEventListener('click', () => {
+    if (runningSerial) void adbApi.killShell(runningSerial);
+  });
   inputEl.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') void runCommand();
   });
@@ -172,11 +177,25 @@ function parseRawAdbCommand(command: string): string | undefined {
   return line.length > 0 ? line : undefined;
 }
 
+/** serial устройства, для которого ПРЯМО СЕЙЧАС летит adb shell()/runRaw() --
+ * adb.shell()/runRaw() намеренно без таймаута (см. комментарий в
+ * AdbService.ts), поэтому единственный способ прервать реально зависшую
+ * команду -- явно, кнопкой "Отмена" ниже (killShell по этому serial).
+ * В broadcast-режиме обновляется на каждой итерации runBroadcast(), так
+ * что "Отмена" прерывает именно то устройство, на котором цикл завис
+ * сейчас, а не обязательно текущее выбранное в сайдбаре. */
+let runningSerial: string | undefined;
+
 /** Выполняет одну команду на устройстве -- маршрутизирует между "сырым"
  * adb (см. parseRawAdbCommand) и обычным adb shell. */
 function runOnDevice(serial: string, command: string): Promise<string> {
   const rawArgs = parseRawAdbCommand(command);
-  return rawArgs !== undefined ? adbApi.runRaw(serial, rawArgs) : adbApi.shell(serial, command);
+  runningSerial = serial;
+  const promise = rawArgs !== undefined ? adbApi.runRaw(serial, rawArgs) : adbApi.shell(serial, command);
+  promise.finally(() => {
+    if (runningSerial === serial) runningSerial = undefined;
+  });
+  return promise;
 }
 
 async function runCommand(): Promise<void> {
@@ -187,6 +206,7 @@ async function runCommand(): Promise<void> {
   appendLine(`$ ${command}`, 'shell-cmd');
   inputEl.value = '';
   runBtn.disabled = true;
+  cancelBtn.disabled = false;
   // Запись в историю происходит один раз независимо от broadcast-режима,
   // до ветвления -- порт того же порядка, что в ShellRunnerView.swift.
   void adbApi.shellHistoryRecord(command).then(() => refreshHistoryDatalist());
@@ -201,6 +221,7 @@ async function runCommand(): Promise<void> {
     appendLine(`Ошибка: ${errorMessage(error)}`, 'shell-err');
   } finally {
     runBtn.disabled = false;
+    cancelBtn.disabled = true;
   }
 }
 

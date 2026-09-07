@@ -90,7 +90,10 @@ export class AdbService {
     return exeName;
   }
 
-  run(args: string[], options: { serial?: string; timeoutMs?: number } = {}): Promise<ProcessResult> {
+  run(
+    args: string[],
+    options: { serial?: string; timeoutMs?: number; onSpawn?: (cancel: () => void) => void } = {}
+  ): Promise<ProcessResult> {
     const allArgs = options.serial ? ['-s', options.serial, ...args] : args;
     // timeoutMs: 0 -- явное "без таймаута" (см. shell()/runRaw()), undefined --
     // "вызывающий код не думал об этом", получает разумный дефолт (см.
@@ -118,8 +121,24 @@ export class AdbService {
       const stderrDecoder = new StringDecoder('utf8');
       let settled = false;
       let timedOut = false;
+      let cancelled = false;
       let outputOverflowed = false;
       let outputBytes = 0;
+      // onSpawn -- единственный способ для вызывающей стороны прервать ЭТОТ
+      // конкретный запуск, пока он ещё выполняется (run() иначе отдаёт
+      // результат только промисом, разрешающимся по завершении). cancel()
+      // -- симметрично kill() по таймауту ниже, но со своим отдельным
+      // флагом, чтобы close-хендлер мог отличить "отменено явно" от
+      // "истекло время" и дать вызывающей стороне понятную причину, а не
+      // тихо зарезолвить пустым/обрезанным результатом. Нужен shell()/
+      // runRaw() ниже для отмены зависшей shell-команды по serial -- см.
+      // killShell().
+      const cancel = (): void => {
+        if (settled) return;
+        cancelled = true;
+        child.kill();
+      };
+      options.onSpawn?.(cancel);
       const timer = timeoutMs
         ? setTimeout(() => {
             if (settled) return;
@@ -176,6 +195,10 @@ export class AdbService {
         stderr += stderrDecoder.end();
         if (timedOut) {
           reject(new AdbCommandError(`adb не ответил за ${Math.round(timeoutMs! / 1000)}с -- устройство могло зависнуть, потерять соединение или ждать системный диалог на экране`));
+          return;
+        }
+        if (cancelled) {
+          reject(new AdbCommandError('Команда отменена пользователем'));
           return;
         }
         if (outputOverflowed) {
@@ -250,7 +273,7 @@ export class AdbService {
     // загрузки и т.п.) -- в отличие от структурированных методов ниже
     // (у них есть DEFAULT_TIMEOUT_MS, см. комментарий над классом), здесь
     // нет заранее известного "должно быть быстро".
-    const result = await this.run(['shell', command], { serial, timeoutMs: 0 });
+    const result = await this.runTrackedShell(serial, ['shell', command]);
     return combinedOutput(result);
   }
 
@@ -267,8 +290,50 @@ export class AdbService {
     // timeoutMs: 0 -- та же причина, что и в shell() выше (в т.ч. используется
     // макросами, где отдельный шаг вроде `adb wait-for-device` намеренно
     // ждёт неопределённое время).
-    const result = await this.run(tokens, { serial, timeoutMs: 0 });
+    const result = await this.runTrackedShell(serial, tokens);
     return combinedOutput(result);
+  }
+
+  /** shell()/runRaw() -- ЕДИНСТВЕННОЕ исключение из общего DEFAULT_TIMEOUT_MS
+   * (timeoutMs: 0, см. комментарии там), поэтому зависшая команда раньше
+   * не имела вообще никакого выхода, кроме перезапуска всего приложения.
+   * Отслеживает cancel() (см. run()) активного вызова по serial, чтобы
+   * killShell() ниже мог явно прервать его по нажатию кнопки в UI. Один
+   * активный вызов на serial ожидается (UI дизейблит "Выполнить", пока
+   * предыдущий не завершился) -- защитная проверка при очистке всё равно
+   * не даёт случайно затереть трассировку более нового вызова, если он
+   * всё же пересёкся (например, шаг макроса на том же устройстве). */
+  private activeShellCancellers = new Map<string, () => void>();
+
+  private runTrackedShell(serial: string, args: string[]): Promise<ProcessResult> {
+    let myCancel: (() => void) | undefined;
+    const promise = this.run(args, {
+      serial,
+      timeoutMs: 0,
+      onSpawn: (cancel) => {
+        myCancel = cancel;
+        this.activeShellCancellers.set(serial, cancel);
+      },
+    });
+    const cleanup = (): void => {
+      if (myCancel && this.activeShellCancellers.get(serial) === myCancel) {
+        this.activeShellCancellers.delete(serial);
+      }
+    };
+    promise.then(cleanup, cleanup);
+    return promise;
+  }
+
+  /** Явно прерывает зависшую shell()/runRaw() команду для serial, если
+   * такая сейчас выполняется. Возвращает false, если для этого serial
+   * сейчас ничего не выполняется -- не ошибка, просто нечего прерывать
+   * (например, пользователь успел кликнуть "Отмена" уже после того, как
+   * команда сама завершилась). */
+  killShell(serial: string): boolean {
+    const cancel = this.activeShellCancellers.get(serial);
+    if (!cancel) return false;
+    cancel();
+    return true;
   }
 
   /** Открывает deep link на устройстве. Используется intent-тестером. */

@@ -101,7 +101,14 @@ export class DemoAdbService extends AdbService {
     return [...this.apps.values()].filter((s) => s.installed).map((s) => s.profile);
   }
 
-  override async run(args: string[], _options: { serial?: string; timeoutMs?: number } = {}): Promise<ProcessResult> {
+  // _options.onSpawn (см. AdbService.run() -- даёт killShell() возможность
+  // прервать зависшую команду) намеренно не вызывается: demoDelay() ниже
+  // -- максимум 180мс, демо-командам нечего "зависать", а kill()-ить тут
+  // просто нечего (нет настоящего child-процесса).
+  override async run(
+    args: string[],
+    _options: { serial?: string; timeoutMs?: number; onSpawn?: (cancel: () => void) => void } = {}
+  ): Promise<ProcessResult> {
     await demoDelay();
 
     if (args[0] === 'shell') {

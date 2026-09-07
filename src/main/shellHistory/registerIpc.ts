@@ -7,6 +7,10 @@ import { IpcContext } from '../ipcContext';
 export function registerShellIpc(ctx: IpcContext): void {
   ipcMain.handle('adb:shell', (_e, serial: string, command: string) => ctx.adb.shell(serial, command));
   ipcMain.handle('adb:runRaw', (_e, serial: string, argsLine: string) => ctx.adb.runRaw(serial, argsLine));
+  // Прерывает зависшую shell()/runRaw() -- обе намеренно без таймаута (см.
+  // комментарий в AdbService.ts), поэтому единственный выход из реального
+  // зависания раньше был перезапуск всего приложения.
+  ipcMain.handle('adb:killShell', (_e, serial: string) => ctx.adb.killShell(serial));
 
   const { shellHistory } = ctx;
   ipcMain.handle('shellHistory:list', () => shellHistory.list());

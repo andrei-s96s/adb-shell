@@ -383,6 +383,7 @@ export interface AdbApi {
 
   shell(serial: string, command: string): Promise<string>;
   runRaw(serial: string, argsLine: string): Promise<string>;
+  killShell(serial: string): Promise<boolean>;
 
   shellHistoryList(): Promise<SavedCommand[]>;
   shellHistoryRecord(text: string): Promise<SavedCommand[]>;
