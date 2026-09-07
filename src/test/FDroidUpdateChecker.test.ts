@@ -1,7 +1,23 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseFDroidResponse } from '../main/apkLibrary/FDroidUpdateChecker';
+import { parseFDroidResponse, fdroidPackageUrl } from '../main/apkLibrary/FDroidUpdateChecker';
 import { fdroidDownloadUrl } from '../main/adb/types/FDroidUpdateInfo';
+
+test('fdroidPackageUrl builds the documented endpoint for a normal package name', () => {
+  assert.equal(fdroidPackageUrl('org.fdroid.fdroid'), 'https://f-droid.org/api/v1/packages/org.fdroid.fdroid');
+});
+
+test('fdroidPackageUrl percent-encodes a packageName that could otherwise escape the path segment', () => {
+  const url = fdroidPackageUrl('../../search?x=1');
+  assert.equal(url, 'https://f-droid.org/api/v1/packages/..%2F..%2Fsearch%3Fx%3D1');
+  // Слэши и "?" остаются процент-закодированными внутри одного path-сегмента
+  // -- URL-парсер не переинтерпретирует их как отдельные "../" сегменты или
+  // как начало query string, host остаётся f-droid.org.
+  const parsed = new URL(url);
+  assert.equal(parsed.host, 'f-droid.org');
+  assert.equal(parsed.pathname, '/api/v1/packages/..%2F..%2Fsearch%3Fx%3D1');
+  assert.equal(parsed.search, '');
+});
 
 // Реальный формат ответа https://f-droid.org/api/v1/packages/<pkg> —
 // suggestedVersionCode приходит ЧИСЛОМ, не строкой (та же ловушка, что уже

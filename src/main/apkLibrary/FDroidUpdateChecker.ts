@@ -14,13 +14,24 @@ interface PackagesResponse {
   packages?: Array<{ versionName?: string; versionCode?: number }>;
 }
 
+/** packageName может прийти из манифеста произвольного локального .apk
+ * (пользователь мог перетащить/скачать что угодно с расширением .apk,
+ * aapt2 просто отражает то, что записано в AndroidManifest.xml без
+ * валидации формата) -- encodeURIComponent не даёт специально собранному
+ * имени вида "../../search?x" исказить путь запроса. Вынесено в чистую
+ * функцию по той же причине, что и parseFDroidResponse ниже -- сеть мокать
+ * неудобно, а построение URL стоит покрыть тестом. */
+export function fdroidPackageUrl(packageName: string): string {
+  return `https://f-droid.org/api/v1/packages/${encodeURIComponent(packageName)}`;
+}
+
 /** undefined = пакета нет в каталоге F-Droid, сеть недоступна, или
  * установленная версия уже не старше самой свежей в каталоге. */
 export async function checkFDroidUpdate(packageName: string, installedVersionCode: number): Promise<FDroidUpdateInfo | undefined> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12_000);
-    const response = await fetch(`https://f-droid.org/api/v1/packages/${packageName}`, { signal: controller.signal });
+    const response = await fetch(fdroidPackageUrl(packageName), { signal: controller.signal });
     clearTimeout(timer);
     if (!response.ok) return undefined;
     const data = await response.text();
