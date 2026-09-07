@@ -398,7 +398,7 @@ export interface AdbApi {
   apkLibraryCheckFDroidUpdates(): Promise<Record<string, FDroidUpdateInfo>>;
   apkLibraryFindOutdatedDuplicates(): Promise<Record<string, OutdatedDuplicate>>;
   apkLibraryDownloadFDroidUpdate(file: ApkFile, update: FDroidUpdateInfo): Promise<string>;
-  apkLibraryInstallToAllDevices(apkPath: string): Promise<InstallToAllResult>;
+  apkLibraryInstallToAllDevices(apkPath: string, tag?: string): Promise<InstallToAllResult>;
   apkLibraryTagsList(): Promise<Record<string, string[]>>;
   apkLibraryAddTag(filePath: string, tag: string): Promise<Record<string, string[]>>;
   apkLibraryRemoveTag(filePath: string, tag: string): Promise<Record<string, string[]>>;
@@ -452,7 +452,7 @@ export interface AdbApi {
   macrosRemoveTag(id: string, tag: string): Promise<Macro[]>;
   macrosActiveHotkeys(): Promise<string[]>;
   macrosRun(macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome>;
-  macrosRunOnAll(macroId: string, variables: Record<string, string>): Promise<InstallToAllResult>;
+  macrosRunOnAll(macroId: string, variables: Record<string, string>, tag?: string): Promise<InstallToAllResult>;
   onMacroStepResult(callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void): () => void;
   macrosExport(): Promise<boolean>;
   macrosImport(): Promise<Macro[]>;
@@ -494,7 +494,7 @@ export interface AdbApi {
   clipboardWriteImagePng(base64Png: string): Promise<void>;
   saveScreenshot(base64Png: string): Promise<boolean>;
   selectScreenshotAllDir(): Promise<string | undefined>;
-  screenshotAllDevices(directory: string): Promise<InstallToAllResult>;
+  screenshotAllDevices(directory: string, tag?: string): Promise<InstallToAllResult>;
   setHotkeySelectedSerial(serial: string | undefined): Promise<void>;
 
   startLogcat(serial: string): Promise<void>;

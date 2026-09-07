@@ -3,7 +3,8 @@
 
 import { adbApi, el, errorMessage } from '../api.js';
 import type { Macro, MacroStep, MacroRunResult } from '../api.js';
-import { onDeviceChanged, getCurrentSerial } from '../state.js';
+import { onDeviceChanged, getCurrentSerial, getDeviceTagFilter } from '../state.js';
+import { batchTargetLabel } from '../deviceBatchTarget.js';
 import { openModal, openTextPromptModal } from '../modal.js';
 import { openMacroRunHistoryModal } from './macroRunHistoryModal.js';
 
@@ -206,7 +207,9 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
 
   const runAllBtn = document.createElement('button');
   runAllBtn.textContent = 'На всех';
-  runAllBtn.title = 'Запустить макрос на всех подключённых и готовых устройствах';
+  runAllBtn.title =
+    'Запустить макрос на всех подключённых и готовых устройствах' +
+    (getDeviceTagFilter() ? ` с тегом «${getDeviceTagFilter()}» (см. фильтр слева)` : '');
   runAllBtn.disabled = runningMacroId !== undefined;
   runAllBtn.addEventListener('click', () => void startRunOnAll(macro));
   actions.appendChild(runAllBtn);
@@ -342,9 +345,9 @@ async function startRunOnAll(macro: Macro): Promise<void> {
 
   runningMacroId = macro.id;
   renderList();
-  statusEl.textContent = `Выполняется «${macro.name}» на всех устройствах…`;
+  statusEl.textContent = `Выполняется «${macro.name}» на всех устройствах${batchTargetLabel()}…`;
   try {
-    const result = await adbApi.macrosRunOnAll(macro.id, variables);
+    const result = await adbApi.macrosRunOnAll(macro.id, variables, getDeviceTagFilter());
     statusEl.textContent =
       result.total === 0
         ? 'Нет готовых устройств'

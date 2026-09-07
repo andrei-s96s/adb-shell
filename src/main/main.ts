@@ -18,7 +18,8 @@ import { AppSettingsStore, DEFAULT_SCREENSHOT_HOTKEY } from './settings/AppSetti
 import { timestampForFilename } from './util/timestamp';
 import { showSaveDialogFor, showOpenDialogFor } from './util/dialogs';
 import { mapWithConcurrency } from './util/concurrency';
-import { isReadyState, displayName } from './adb/types/Device';
+import { filterReadyDevicesByTag } from './util/deviceBatchTarget';
+import { displayName } from './adb/types/Device';
 import { sanitizeDeviceLabel } from './deviceSnapshots/deviceSnapshotLogic';
 import { ApkTagStore } from './apkLibrary/ApkTagStore';
 import { IntentPresetStore } from './intentPresets/IntentPresetStore';
@@ -383,8 +384,8 @@ function registerIpcHandlers(): void {
     });
     return result.canceled || result.filePaths.length === 0 ? undefined : result.filePaths[0];
   });
-  ipcMain.handle('adb:screenshotAllDevices', async (_e, directory: string) => {
-    const devices = (await ctx.adb.listDevices()).filter((d) => isReadyState(d.state));
+  ipcMain.handle('adb:screenshotAllDevices', async (_e, directory: string, tag?: string) => {
+    const devices = filterReadyDevicesByTag(await ctx.adb.listDevices(), ctx.deviceTags, tag);
     if (devices.length === 0) {
       return { successCount: 0, total: 0, failures: [] as string[] };
     }

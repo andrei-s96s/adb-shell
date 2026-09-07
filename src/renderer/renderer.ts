@@ -1,6 +1,6 @@
 import { adbApi, el, errorMessage } from './api.js';
 import type { Device, MdnsDevice, ConnectionProfile } from './api.js';
-import { setCurrentSerial, getCurrentSerial, onDeviceChanged } from './state.js';
+import { setCurrentSerial, getCurrentSerial, onDeviceChanged, getDeviceTagFilter, setDeviceTagFilter } from './state.js';
 import { openTextPromptModal } from './modal.js';
 import { openDeviceHistoryModal } from './screens/deviceHistoryModal.js';
 import { initTabs } from './tabs.js';
@@ -48,7 +48,6 @@ let pinnedSerials: string[] = [];
  * macros.ts (ApkTagStore), но ключ здесь serial, а не путь к файлу/id
  * макроса, см. DeviceTagStore. */
 let tagsBySerial: Record<string, string[]> = {};
-let activeDeviceTagFilter: string | undefined;
 let mdnsDevices: MdnsDevice[] = [];
 let profiles: ConnectionProfile[] = [];
 /** Демо-режим -- одно виртуальное устройство без реального adb, см.
@@ -247,13 +246,13 @@ function deviceStateBadge(state: Device['state']): { icon: string; hint: string 
 function renderDeviceTagFilter(): void {
   const allTags = [...new Set(Object.values(tagsBySerial).flat())].sort();
   deviceTagFilterEl.innerHTML = '';
-  if (activeDeviceTagFilter && !allTags.includes(activeDeviceTagFilter)) activeDeviceTagFilter = undefined;
+  if (getDeviceTagFilter() && !allTags.includes(getDeviceTagFilter()!)) setDeviceTagFilter(undefined);
   for (const tag of allTags) {
     const chip = document.createElement('span');
-    chip.className = 'tag-chip' + (tag === activeDeviceTagFilter ? ' active' : '');
+    chip.className = 'tag-chip' + (tag === getDeviceTagFilter() ? ' active' : '');
     chip.textContent = tag;
     chip.addEventListener('click', () => {
-      activeDeviceTagFilter = activeDeviceTagFilter === tag ? undefined : tag;
+      setDeviceTagFilter(getDeviceTagFilter() === tag ? undefined : tag);
       renderDeviceTagFilter();
       renderDeviceList();
     });
@@ -285,8 +284,8 @@ async function removeDeviceTag(device: Device, tag: string): Promise<void> {
 
 function renderDeviceList(): void {
   deviceListEl.innerHTML = '';
-  const visibleDevices = activeDeviceTagFilter
-    ? devices.filter((d) => (tagsBySerial[d.serial] ?? []).includes(activeDeviceTagFilter!))
+  const visibleDevices = getDeviceTagFilter()
+    ? devices.filter((d) => (tagsBySerial[d.serial] ?? []).includes(getDeviceTagFilter()!))
     : devices;
   if (visibleDevices.length === 0 && devices.length > 0) {
     const li = document.createElement('li');

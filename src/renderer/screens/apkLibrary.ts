@@ -11,7 +11,8 @@
 //
 import { adbApi, el, errorMessage } from '../api.js';
 import type { ApkFile, FDroidUpdateInfo, OutdatedDuplicate } from '../api.js';
-import { onDeviceChanged, getCurrentSerial } from '../state.js';
+import { onDeviceChanged, getCurrentSerial, getDeviceTagFilter } from '../state.js';
+import { batchTargetLabel } from '../deviceBatchTarget.js';
 import { openApkInfoModal } from './apkInfo.js';
 import { openTextPromptModal } from '../modal.js';
 
@@ -456,13 +457,13 @@ async function installSelectedToCurrent(): Promise<void> {
 async function installSelectedToAll(): Promise<void> {
   if (selectedPaths.size === 0) return;
   const targets = files.filter((f) => selectedPaths.has(f.path));
-  statusEl.textContent = `Установка ${targets.length} файлов на все готовые устройства…`;
+  statusEl.textContent = `Установка ${targets.length} файлов на все готовые устройства${batchTargetLabel()}…`;
   let successCount = 0;
   let totalAttempts = 0;
   const failures: string[] = [];
   for (const file of targets) {
     try {
-      const result = await adbApi.apkLibraryInstallToAllDevices(file.path);
+      const result = await adbApi.apkLibraryInstallToAllDevices(file.path, getDeviceTagFilter());
       totalAttempts += result.total;
       successCount += result.successCount;
       failures.push(...result.failures);

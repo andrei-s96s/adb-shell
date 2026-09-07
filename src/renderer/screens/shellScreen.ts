@@ -1,5 +1,6 @@
 import { adbApi, el, errorMessage } from '../api.js';
-import { onDeviceChanged, getCurrentSerial } from '../state.js';
+import { onDeviceChanged, getCurrentSerial, getDeviceTagFilter } from '../state.js';
+import { batchTargetLabel, filterDevicesByTag } from '../deviceBatchTarget.js';
 import { openScreenshotPreview } from './screenshot.js';
 import { openIntentTesterModal } from './intentTester.js';
 import { openShellHistoryModal } from './shellHistoryModal.js';
@@ -115,13 +116,15 @@ async function startMirrorWithRecording(): Promise<void> {
 
 async function mirrorAll(): Promise<void> {
   try {
-    const devices = (await adbApi.listDevices()).filter((d) => d.state === 'device');
+    const ready = (await adbApi.listDevices()).filter((d) => d.state === 'device');
+    const devices = await filterDevicesByTag(ready);
     if (devices.length === 0) {
       mirrorStatusEl.textContent = 'Нет готовых устройств';
       return;
     }
     await adbApi.mirrorLaunchGrid(devices.map((d) => d.serial));
     for (const d of devices) mirroringSerials.add(d.serial);
+    mirrorStatusEl.textContent = `Зеркалирование${batchTargetLabel()}: ${devices.length} устройств`;
     renderMirrorState();
   } catch (error) {
     mirrorStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
@@ -134,9 +137,9 @@ async function mirrorAll(): Promise<void> {
 async function screenshotAllDevices(): Promise<void> {
   const directory = await adbApi.selectScreenshotAllDir();
   if (!directory) return;
-  appendLine(`Скриншот со всех устройств в ${directory}…`, 'shell-cmd');
+  appendLine(`Скриншот со всех устройств${batchTargetLabel()} в ${directory}…`, 'shell-cmd');
   try {
-    const result = await adbApi.screenshotAllDevices(directory);
+    const result = await adbApi.screenshotAllDevices(directory, getDeviceTagFilter());
     if (result.total === 0) {
       appendLine('Нет готовых устройств', 'shell-err');
       return;
@@ -249,11 +252,13 @@ async function refreshHistoryDatalist(): Promise<void> {
  * прогоняет команду по очереди (не параллельно) на всех подключённых и
  * готовых устройствах, каждая запись в истории со своим префиксом. */
 async function runBroadcast(command: string): Promise<void> {
-  const devices = (await adbApi.listDevices()).filter((d) => d.state === 'device');
+  const ready = (await adbApi.listDevices()).filter((d) => d.state === 'device');
+  const devices = await filterDevicesByTag(ready);
   if (devices.length === 0) {
     appendLine('Нет подключённых устройств для broadcast', 'shell-err');
     return;
   }
+  if (getDeviceTagFilter()) appendLine(`Broadcast${batchTargetLabel()}: ${devices.length} устройств`, 'shell-cmd');
   for (const device of devices) {
     const label = device.model ? device.model.replace(/_/g, ' ') : device.serial;
     try {

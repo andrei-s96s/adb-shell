@@ -6,11 +6,12 @@
 
 import { ipcMain, IpcMainInvokeEvent, shell } from 'electron';
 import { IpcContext } from '../ipcContext';
-import { isReadyState, displayName } from '../adb/types/Device';
+import { displayName } from '../adb/types/Device';
 import { ApkFile } from '../adb/types/ApkFile';
 import { FDroidUpdateInfo } from '../adb/types/FDroidUpdateInfo';
 import { showOpenDialogFor } from '../util/dialogs';
 import { mapWithConcurrency } from '../util/concurrency';
+import { filterReadyDevicesByTag } from '../util/deviceBatchTarget';
 
 export function registerApkLibraryIpc(ctx: IpcContext): void {
   const { apkLibrary, apkTags } = ctx;
@@ -68,8 +69,8 @@ export function registerApkLibraryIpc(ctx: IpcContext): void {
   // как и у остальных операций с потенциально многими устройствами
   // (AppIconService.MAX_CONCURRENT), чтобы не упереться в пропускную
   // способность общего USB-хаба при большом числе подключённых устройств.
-  ipcMain.handle('apkLibrary:installToAllDevices', async (_e, apkPath: string) => {
-    const devices = (await ctx.adb.listDevices()).filter((d) => isReadyState(d.state));
+  ipcMain.handle('apkLibrary:installToAllDevices', async (_e, apkPath: string, tag?: string) => {
+    const devices = filterReadyDevicesByTag(await ctx.adb.listDevices(), ctx.deviceTags, tag);
     if (devices.length === 0) {
       return { successCount: 0, total: 0, failures: [] as string[] };
     }

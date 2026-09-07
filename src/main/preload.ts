@@ -170,9 +170,10 @@ contextBridge.exposeInMainWorld('adbApi', {
   apkLibraryDownloadFDroidUpdate: (file: ApkFile, update: FDroidUpdateInfo): Promise<string> =>
     ipcRenderer.invoke('apkLibrary:downloadFDroidUpdate', file, update),
   apkLibraryInstallToAllDevices: (
-    apkPath: string
+    apkPath: string,
+    tag?: string
   ): Promise<{ successCount: number; total: number; failures: string[] }> =>
-    ipcRenderer.invoke('apkLibrary:installToAllDevices', apkPath),
+    ipcRenderer.invoke('apkLibrary:installToAllDevices', apkPath, tag),
   apkLibraryTagsList: (): Promise<Record<string, string[]>> => ipcRenderer.invoke('apkLibrary:tagsList'),
   apkLibraryAddTag: (filePath: string, tag: string): Promise<Record<string, string[]>> =>
     ipcRenderer.invoke('apkLibrary:addTag', filePath, tag),
@@ -244,9 +245,10 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('macros:run', macroId, serial, variables, runId),
   macrosRunOnAll: (
     macroId: string,
-    variables: Record<string, string>
+    variables: Record<string, string>,
+    tag?: string
   ): Promise<{ successCount: number; total: number; failures: string[] }> =>
-    ipcRenderer.invoke('macros:runOnAll', macroId, variables),
+    ipcRenderer.invoke('macros:runOnAll', macroId, variables, tag),
   onMacroStepResult: (callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void) => {
     const listener = (_e: IpcRendererEvent, runId: string, macroId: string, index: number, total: number, result: MacroRunResult) =>
       callback(runId, macroId, index, total, result);
@@ -309,8 +311,8 @@ contextBridge.exposeInMainWorld('adbApi', {
   clipboardWriteImagePng: (base64Png: string): Promise<void> => ipcRenderer.invoke('clipboard:writeImagePng', base64Png),
   saveScreenshot: (base64Png: string): Promise<boolean> => ipcRenderer.invoke('dialog:saveScreenshot', base64Png),
   selectScreenshotAllDir: (): Promise<string | undefined> => ipcRenderer.invoke('dialog:selectScreenshotAllDir'),
-  screenshotAllDevices: (directory: string): Promise<{ successCount: number; total: number; failures: string[] }> =>
-    ipcRenderer.invoke('adb:screenshotAllDevices', directory),
+  screenshotAllDevices: (directory: string, tag?: string): Promise<{ successCount: number; total: number; failures: string[] }> =>
+    ipcRenderer.invoke('adb:screenshotAllDevices', directory, tag),
   setHotkeySelectedSerial: (serial: string | undefined): Promise<void> =>
     ipcRenderer.invoke('hotkey:setSelectedSerial', serial),
 

@@ -7,8 +7,9 @@ import { IpcContext } from '../ipcContext';
 import { runMacro } from './MacroRunner';
 import { parseSteps } from './macrosLogic';
 import { MacroStep } from '../adb/types/Macro';
-import { isReadyState, displayName } from '../adb/types/Device';
+import { displayName } from '../adb/types/Device';
 import { mapWithConcurrency } from '../util/concurrency';
+import { filterReadyDevicesByTag } from '../util/deviceBatchTarget';
 import { showSaveDialogFor, showOpenDialogFor } from '../util/dialogs';
 
 export function registerMacrosIpc(ctx: IpcContext): void {
@@ -97,10 +98,10 @@ export function registerMacrosIpc(ctx: IpcContext): void {
   // от macros:run) -- на N устройств разом это была бы уже другая, более
   // сложная модель прогресса; здесь достаточно итогового результата на
   // устройство, как и у прочих "на все" операций.
-  ipcMain.handle('macros:runOnAll', async (_e, macroId: string, variables: Record<string, string>) => {
+  ipcMain.handle('macros:runOnAll', async (_e, macroId: string, variables: Record<string, string>, tag?: string) => {
     const macro = macroStore.get(macroId);
     if (!macro) throw new Error('Макрос не найден');
-    const devices = (await ctx.adb.listDevices()).filter((d) => isReadyState(d.state));
+    const devices = filterReadyDevicesByTag(await ctx.adb.listDevices(), ctx.deviceTags, tag);
     if (devices.length === 0) return { successCount: 0, total: 0, failures: [] as string[] };
 
     const failures: string[] = [];
