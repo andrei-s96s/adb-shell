@@ -20,7 +20,7 @@
 
 import { app, shell } from 'electron';
 import { execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import AdmZip from 'adm-zip';
@@ -49,10 +49,18 @@ function downloadDir(): string {
 // и повторную попытку.
 const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
 
+/** checksumUrl -- ссылка на опубликованный release.yml ассет
+ * `<assetName>.sha256` (см. findChecksumAsset в updateChecker.ts),
+ * undefined для релизов без него (обновление тогда идёт без сверки, как и
+ * раньше). HTTPS защищает канал скачивания, но не защищает от
+ * компрометации самого релиза (утёкший токен публикации, ошибка при
+ * аплоаде) -- на Windows скачанный .exe запускается сразу без единого
+ * подтверждения пользователя, так что сверка перед запуском не лишняя. */
 export async function downloadAndPrepareUpdate(
   url: string,
   assetName: string,
-  onProgress?: (progress: DownloadProgress) => void
+  onProgress?: (progress: DownloadProgress) => void,
+  checksumUrl?: string
 ): Promise<PreparedUpdate> {
   const destPath = path.join(downloadDir(), assetName);
   try {
@@ -61,6 +69,10 @@ export async function downloadAndPrepareUpdate(
     // Перебрасываем как UpdateInstallError -- вызывающий код (main.ts)
     // и раньше ожидал именно этот тип для сообщения об ошибке скачивания.
     throw new UpdateInstallError((error as Error).message);
+  }
+
+  if (checksumUrl) {
+    await verifyChecksumOrThrow(destPath, checksumUrl);
   }
 
   if (assetName.endsWith('.exe')) {
@@ -116,6 +128,66 @@ export async function downloadAndPrepareUpdate(
   }
 
   throw new UpdateInstallError(`Неизвестный тип файла обновления: ${assetName}`);
+}
+
+/** Скачивает <assetName>.sha256 (обычный текстовый файл: голый hex-дайджест
+ * или традиционный формат `sha256sum` -- "<hex>  <filename>"), сверяет с
+ * фактическим sha256 скачанного файла. При несовпадении удаляет скачанный
+ * файл и бросает -- не оставляет на диске файл, не прошедший проверку, и
+ * не даёт installAndPrepareUpdate дойти до launchPreparedUpdate() (который
+ * на Windows запускает .exe без единого подтверждения пользователя). */
+async function verifyChecksumOrThrow(filePath: string, checksumUrl: string): Promise<void> {
+  const expected = await fetchExpectedSha256(checksumUrl);
+  const actual = await sha256OfFile(filePath);
+  if (actual !== expected) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // Не критично -- главное, что мы не продолжаем с этим файлом дальше.
+    }
+    throw new UpdateInstallError(
+      'Скачанный файл обновления не прошёл проверку контрольной суммы -- возможно, повреждён при скачивании или подменён. Установка отменена.'
+    );
+  }
+}
+
+/** Разбирает содержимое ассета `<файл>.sha256` -- голый hex-дайджест или
+ * традиционный вывод `sha256sum` вида "<hex>  <filename>" (первый
+ * пробельно-отделённый токен покрывает оба случая). Вынесено в чистую
+ * функцию отдельно от fetch -- сеть/Electron мокать неудобно, а разбор
+ * стоит покрыть тестом (тот же принцип, что и у fdroidPackageUrl/
+ * parseFDroidResponse в apkLibrary/FDroidUpdateChecker.ts). */
+export function parseSha256Text(text: string): string {
+  const hex = text.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+  if (!/^[0-9a-f]{64}$/.test(hex)) {
+    throw new UpdateInstallError('Файл контрольной суммы обновления повреждён или имеет неожиданный формат');
+  }
+  return hex;
+}
+
+async function fetchExpectedSha256(checksumUrl: string): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetch(checksumUrl);
+  } catch (error) {
+    throw new UpdateInstallError(`Не удалось скачать контрольную сумму обновления: ${(error as Error).message}`);
+  }
+  if (!response.ok) {
+    throw new UpdateInstallError(`Не удалось скачать контрольную сумму обновления (HTTP ${response.status})`);
+  }
+  return parseSha256Text(await response.text());
+}
+
+/** Потоково (не читая весь файл в память -- он может быть сотни МБ), как и
+ * само скачивание в util/download.ts. */
+function sha256OfFile(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
 }
 
 /** Убирает распаковки предыдущих попыток обновления того же релиза

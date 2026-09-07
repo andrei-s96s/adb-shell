@@ -25,7 +25,7 @@ import { isReadyState, displayName } from './adb/types/Device';
 import { ApkFile } from './adb/types/ApkFile';
 import { FDroidUpdateInfo, fdroidDownloadUrl } from './adb/types/FDroidUpdateInfo';
 import { checkFDroidUpdate } from './apkLibrary/FDroidUpdateChecker';
-import { checkForUpdate, pickAssetForPlatform, ReleaseAsset } from './updateChecker';
+import { checkForUpdate, pickAssetForPlatform, findChecksumAsset, ReleaseAsset } from './updateChecker';
 import { downloadAndPrepareUpdate, launchPreparedUpdate } from './updateInstaller';
 import { ConnectionProfileStore } from './connectionProfiles/ConnectionProfileStore';
 import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
@@ -152,9 +152,15 @@ function registerIpcHandlers(): void {
   ipcMain.handle('app:downloadUpdate', async (event: IpcMainInvokeEvent, assets: ReleaseAsset[]) => {
     const asset = pickAssetForPlatform(assets, process.platform);
     if (!asset) throw new Error('Не найден подходящий файл обновления для этой платформы в этом релизе');
-    const prepared = await downloadAndPrepareUpdate(asset.url, asset.name, (progress) => {
-      if (!event.sender.isDestroyed()) event.sender.send('app:downloadProgress', progress);
-    });
+    const checksumAsset = findChecksumAsset(assets, asset.name);
+    const prepared = await downloadAndPrepareUpdate(
+      asset.url,
+      asset.name,
+      (progress) => {
+        if (!event.sender.isDestroyed()) event.sender.send('app:downloadProgress', progress);
+      },
+      checksumAsset?.url
+    );
     await launchPreparedUpdate(prepared);
   });
   ipcMain.handle('app:openExternal', (_e, url: string) => {

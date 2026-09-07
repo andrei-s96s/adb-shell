@@ -69,6 +69,15 @@ export function pickAssetForPlatform(assets: ReleaseAsset[], platform: NodeJS.Pl
   return assets.find((a) => a.name.endsWith(suffix));
 }
 
+/** Ассет с контрольной суммой (sha256, hex) конкретного файла релиза, если
+ * release.yml его опубликовал -- по соглашению `<имя файла>.sha256` рядом с
+ * самим файлом (см. updateInstaller.ts про сверку). undefined для релизов,
+ * опубликованных до появления этой проверки -- скачивание/установка тогда
+ * идёт как раньше, без сверки, а не падает ошибкой. */
+export function findChecksumAsset(assets: ReleaseAsset[], assetName: string): ReleaseAsset | undefined {
+  return assets.find((a) => a.name === `${assetName}.sha256`);
+}
+
 /** Сравнение версий вида "1.2.3": >0 если a новее b, 0 если равны, <0 если
  * a старее. Нечисловые/отсутствующие компоненты считаются нулём. */
 export function compareVersions(a: string, b: string): number {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compareVersions, findLatestRelease, pickAssetForPlatform } from '../main/updateChecker';
+import { compareVersions, findLatestRelease, pickAssetForPlatform, findChecksumAsset } from '../main/updateChecker';
 import type { GitHubReleaseRaw, ReleaseAsset } from '../main/updateChecker';
 
 test('compareVersions orders numerically, not lexicographically', () => {
@@ -84,4 +84,18 @@ test('pickAssetForPlatform returns undefined when no asset matches the platform'
 test('pickAssetForPlatform returns undefined for an unsupported platform', () => {
   const assets: ReleaseAsset[] = [{ name: 'ADB Shell Setup 1.3.0.exe', url: 'win' }];
   assert.equal(pickAssetForPlatform(assets, 'freebsd'), undefined);
+});
+
+test('findChecksumAsset finds the <name>.sha256 companion asset for a given file', () => {
+  const assets: ReleaseAsset[] = [
+    { name: 'ADB Shell Setup 1.3.0.exe', url: 'win' },
+    { name: 'ADB Shell Setup 1.3.0.exe.sha256', url: 'win-sum' },
+    { name: 'ADB-Shell-1.3.0.AppImage', url: 'linux' },
+  ];
+  assert.equal(findChecksumAsset(assets, 'ADB Shell Setup 1.3.0.exe')?.url, 'win-sum');
+});
+
+test('findChecksumAsset returns undefined for an older release published without checksums', () => {
+  const assets: ReleaseAsset[] = [{ name: 'ADB Shell Setup 1.3.0.exe', url: 'win' }];
+  assert.equal(findChecksumAsset(assets, 'ADB Shell Setup 1.3.0.exe'), undefined);
 });

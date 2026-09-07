@@ -45,6 +45,24 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: npm run dist:linux
 
+      # Контрольные суммы -- приложение (updateInstaller.ts) сверяет их перед
+      # запуском скачанного файла обновления: HTTPS защищает канал
+      # скачивания, но не защищает от компрометации самого релиза (утёкший
+      # токен публикации, ошибка при аплоаде), а на Windows скачанный .exe
+      # запускается сразу без единого подтверждения пользователя. Через
+      # node (не shasum/sha256sum — их набор отличается между Windows/macOS/
+      # Linux раннерами), <файл>.sha256 рядом с каждым уже собранным файлом,
+      # чтобы не зависеть от общего SHA256SUMS.txt при аплоаде из трёх
+      # независимых job'ов матрицы (у каждой job — только её собственные
+      # файлы в release/).
+      - name: Generate checksums
+        shell: bash
+        run: |
+          for f in release/*.exe release/*.zip release/*.AppImage; do
+            [ -f "$f" ] || continue
+            node -e "const fs=require('fs');const crypto=require('crypto');const h=crypto.createHash('sha256').update(fs.readFileSync(process.argv[1])).digest('hex');fs.writeFileSync(process.argv[1]+'.sha256', h+'\n');" "$f"
+          done
+
       - name: Determine tag
         id: tag
         shell: bash
@@ -72,3 +90,4 @@ jobs:
             release/*.exe
             release/*.zip
             release/*.AppImage
+            release/*.sha256
