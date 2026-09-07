@@ -292,6 +292,8 @@ contextBridge.exposeInMainWorld('adbApi', {
   crashTraces: (serial: string): Promise<CrashTraceFile[]> => ipcRenderer.invoke('adb:crashTraces', serial),
   readCrashTrace: (serial: string, filePath: string): Promise<string> =>
     ipcRenderer.invoke('adb:readCrashTrace', serial, filePath),
+  bugreport: (serial: string): Promise<string | undefined> => ipcRenderer.invoke('adb:bugreport', serial),
+  killBugreport: (serial: string): Promise<boolean> => ipcRenderer.invoke('adb:killBugreport', serial),
   comparePackages: (serialA: string, serialB: string): Promise<PackageDiffResult> =>
     ipcRenderer.invoke('adb:comparePackages', serialA, serialB),
 

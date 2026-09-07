@@ -336,6 +336,52 @@ export class AdbService {
     return true;
   }
 
+  // MARK: Bugreport
+
+  /** Отслеживает cancel() активного `adb bugreport` по serial -- ОТДЕЛЬНАЯ
+   * от activeShellCancellers карта, а не переиспользование runTrackedShell()/
+   * killShell() выше: у обоих ровно один активный вызов ожидается на serial,
+   * но это два независимых действия пользователя (вкладка Shell и кнопка
+   * "Bugreport…" в Мониторинге) -- если бы они делили один слот по serial,
+   * запуск одного втихую перехватывал бы "Отмена" у другого. */
+  private activeBugreportCancellers = new Map<string, () => void>();
+
+  /** `adb bugreport <path>` -- полный диагностический архив устройства
+   * (логи, dumpsys, состояние системы целиком), который сама adb пишет
+   * напрямую в указанный локальный файл. Может занимать от десятков секунд
+   * до нескольких минут в зависимости от устройства -- timeoutMs: 0, та же
+   * причина, что и у shell()/runRaw() (нет заранее известного "должно быть
+   * быстро"), плюс killBugreport() ниже даёт explicit способ прервать. */
+  async bugreport(serial: string, outputPath: string): Promise<void> {
+    let myCancel: (() => void) | undefined;
+    const promise = this.run(['bugreport', outputPath], {
+      serial,
+      timeoutMs: 0,
+      onSpawn: (cancel) => {
+        myCancel = cancel;
+        this.activeBugreportCancellers.set(serial, cancel);
+      },
+    });
+    const cleanup = (): void => {
+      if (myCancel && this.activeBugreportCancellers.get(serial) === myCancel) {
+        this.activeBugreportCancellers.delete(serial);
+      }
+    };
+    promise.then(cleanup, cleanup);
+    const result = await promise;
+    if (result.exitCode !== 0) throw new AdbCommandError(combinedOutput(result));
+  }
+
+  /** Явно прерывает `adb bugreport`, если он сейчас выполняется для этого
+   * serial -- тот же контракт, что и у killShell() (false, если нечего
+   * прерывать, не ошибка). */
+  killBugreport(serial: string): boolean {
+    const cancel = this.activeBugreportCancellers.get(serial);
+    if (!cancel) return false;
+    cancel();
+    return true;
+  }
+
   /** Открывает deep link на устройстве. Используется intent-тестером. */
   async openDeepLink(serial: string, uri: string): Promise<string> {
     return this.shell(serial, `am start -a android.intent.action.VIEW -d ${singleQuoted(uri)}`);

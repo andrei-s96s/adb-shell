@@ -479,6 +479,8 @@ export interface AdbApi {
   usageStats(serial: string): Promise<AppUsageStat[]>;
   crashTraces(serial: string): Promise<CrashTraceFile[]>;
   readCrashTrace(serial: string, filePath: string): Promise<string>;
+  bugreport(serial: string): Promise<string | undefined>;
+  killBugreport(serial: string): Promise<boolean>;
   comparePackages(serialA: string, serialB: string): Promise<PackageDiffResult>;
 
   settingsGet(): Promise<AppSettings>;

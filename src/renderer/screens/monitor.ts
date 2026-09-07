@@ -10,6 +10,9 @@ const HISTORY_LENGTH = 30;
 const CSV_HISTORY_LIMIT = 120;
 
 let statusEl: HTMLDivElement;
+let bugreportBtn: HTMLButtonElement;
+let bugreportCancelBtn: HTMLButtonElement;
+let bugreportStatusEl: HTMLSpanElement;
 let cpuValueEl: HTMLDivElement;
 let memValueEl: HTMLDivElement;
 let batteryValueEl: HTMLDivElement;
@@ -27,6 +30,9 @@ let statsHistory: DeviceStats[] = [];
 // значение здесь ("true") ниже сразу перезаписывается реальным состоянием
 // прямо из DOM, а не остаётся угаданным дефолтом.
 let tabVisible = true;
+/** Serial, для которого сейчас идёт adb bugreport -- нужен кнопке "Отмена"
+ * (тот же принцип, что и runningSerial/killShell в shellScreen.ts). */
+let runningBugreportSerial: string | undefined;
 
 export function initMonitorScreen(): void {
   statusEl = el<HTMLDivElement>('monitor-status');
@@ -38,6 +44,13 @@ export function initMonitorScreen(): void {
   usageListEl = el<HTMLUListElement>('monitor-usage-list');
   securityListEl = el<HTMLUListElement>('monitor-security-list');
   el<HTMLButtonElement>('monitor-export-csv').addEventListener('click', () => void exportCsv());
+  bugreportBtn = el<HTMLButtonElement>('monitor-bugreport');
+  bugreportCancelBtn = el<HTMLButtonElement>('monitor-bugreport-cancel');
+  bugreportStatusEl = el<HTMLSpanElement>('monitor-bugreport-status');
+  bugreportBtn.addEventListener('click', () => void runBugreport());
+  bugreportCancelBtn.addEventListener('click', () => {
+    if (runningBugreportSerial) void adbApi.killBugreport(runningBugreportSerial);
+  });
 
   tabVisible = document.getElementById('tab-monitor')?.classList.contains('active') ?? true;
 
@@ -52,6 +65,7 @@ export function initMonitorScreen(): void {
     processListEl.innerHTML = '';
     usageListEl.innerHTML = '';
     securityListEl.innerHTML = '';
+    bugreportBtn.disabled = !serial;
     if (serial) {
       // Секции ниже одноразовые (не поллинг) -- незачем гейтить их
       // видимостью вкладки, они просто готовят данные к моменту, когда
@@ -181,6 +195,29 @@ function formatUsageDuration(totalSeconds: number): string {
   if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
   if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
   return `${s}s`;
+}
+
+/** `adb bugreport` -- полный диагностический архив устройства. Может
+ * занимать несколько минут (см. AdbService.bugreport), поэтому отдельный
+ * bugreportStatusEl, а не общий statusEl -- тот перезаписывается на каждом
+ * тике поллинга (POLL_INTERVAL_MS выше) и стёр бы прогресс почти сразу. */
+async function runBugreport(): Promise<void> {
+  const serial = getCurrentSerial();
+  if (!serial) return;
+  runningBugreportSerial = serial;
+  bugreportBtn.disabled = true;
+  bugreportCancelBtn.disabled = false;
+  bugreportStatusEl.textContent = 'Собираю bugreport… (может занять несколько минут)';
+  try {
+    const savedPath = await adbApi.bugreport(serial);
+    bugreportStatusEl.textContent = savedPath ? `Сохранён: ${savedPath}` : '';
+  } catch (error) {
+    bugreportStatusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  } finally {
+    runningBugreportSerial = undefined;
+    bugreportBtn.disabled = false;
+    bugreportCancelBtn.disabled = true;
+  }
 }
 
 async function exportCsv(): Promise<void> {

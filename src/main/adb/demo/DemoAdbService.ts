@@ -197,6 +197,23 @@ export class DemoAdbService extends AdbService {
         }
         return ok('');
       }
+      // Та же причина, что и у pull выше -- реальный `adb bugreport <path>`
+      // пишет файл сам, downstream-код (main.ts, IPC-хендлер) ожидает файл
+      // по итоговому пути независимо от режима; без этого случая демо
+      // бодро отрапортовало бы успех, ничего не записав, и попытка открыть
+      // результат в проводнике сломалась бы на "файл не найден".
+      case 'bugreport': {
+        const [localPath] = rest;
+        try {
+          fs.writeFileSync(
+            localPath,
+            'Это файл-заглушка демо-режима ADB Shell.\nНастоящий adb bugreport собрал бы полный диагностический архив устройства (логи, dumpsys, состояние системы).\n'
+          );
+        } catch {
+          return fail(`cannot create ${localPath}: демо-режим не смог записать локальный файл`);
+        }
+        return ok('');
+      }
 
       case 'forward':
         return this.runForwardReverse('forward', rest);
