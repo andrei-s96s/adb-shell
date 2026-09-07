@@ -6,7 +6,6 @@
 
 import { ipcMain, IpcMainInvokeEvent, shell } from 'electron';
 import { IpcContext } from '../ipcContext';
-import { ApkLibraryService } from './ApkLibraryService';
 import { isReadyState, displayName } from '../adb/types/Device';
 import { ApkFile } from '../adb/types/ApkFile';
 import { FDroidUpdateInfo } from '../adb/types/FDroidUpdateInfo';
@@ -45,7 +44,7 @@ export function registerApkLibraryIpc(ctx: IpcContext): void {
     apkLibrary.importFiles(paths.filter((p) => p.toLowerCase().endsWith('.apk')));
     return apkLibrary.list();
   });
-  ipcMain.handle('apkLibrary:inspect', (_e, apkPath: string) => ApkLibraryService.inspect(apkPath));
+  ipcMain.handle('apkLibrary:inspect', (_e, apkPath: string) => apkLibrary.inspect(apkPath));
   ipcMain.handle('apkLibrary:getIcon', async (_e, apkPath: string) => {
     const icon = await apkLibrary.extractIcon(apkPath);
     return icon ? `data:${icon.mimeType};base64,${icon.data.toString('base64')}` : undefined;

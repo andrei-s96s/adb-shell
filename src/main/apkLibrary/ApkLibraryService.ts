@@ -20,6 +20,7 @@
 import { app } from 'electron';
 import AdmZip from 'adm-zip';
 import * as fs from 'node:fs';
+import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { spawn } from 'node:child_process';
 
@@ -34,6 +35,7 @@ import { checkFDroidUpdate } from './FDroidUpdateChecker';
 import { downloadWithProgress, DownloadProgress } from '../util/download';
 import { assertPathWithinDirectory } from '../util/pathSafety';
 import { mapWithConcurrency } from '../util/concurrency';
+import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
 const CONFIG_FILE = 'apk-library-config.json';
 
@@ -46,6 +48,13 @@ export class ApkLibraryService {
    * включает mtime -- если пользователь заменит файл по тому же пути новой
    * версией apk, кеш не отдаст иконку от старой. */
   private iconCache = new Map<string, AppIcon>();
+  /** Тот же принцип и тот же формат ключа (apkPath:mtime), что и у
+   * iconCache выше, но для сырого текста `aapt2 dump badging` -- inspect()
+   * (просмотр манифеста в UI) и extractIcon() (поиск пути иконки внутри
+   * манифеста) раньше независимо перезапускали aapt2 на один и тот же
+   * файл, каждый со своим отдельным spawn; checkFDroidUpdates() вдобавок
+   * вызывает inspect() на КАЖДЫЙ файл библиотеки. */
+  private badgingCache = new Map<string, string>();
 
   constructor() {
     this.directory = this.loadSavedDirectory() ?? path.join(app.getPath('documents'), 'AdbShell', 'APK');
@@ -69,22 +78,12 @@ export class ApkLibraryService {
   }
 
   private loadSavedDirectory(): string | undefined {
-    try {
-      const raw = fs.readFileSync(this.configPath, 'utf8');
-      const parsed = JSON.parse(raw) as { directory?: string };
-      return typeof parsed.directory === 'string' && parsed.directory.length > 0 ? parsed.directory : undefined;
-    } catch {
-      return undefined;
-    }
+    const parsed = loadJsonStore<{ directory?: string }>(this.configPath, (p) => !!p && typeof p === 'object', {});
+    return typeof parsed.directory === 'string' && parsed.directory.length > 0 ? parsed.directory : undefined;
   }
 
   private saveDirectory(): void {
-    try {
-      fs.mkdirSync(path.dirname(this.configPath), { recursive: true });
-      fs.writeFileSync(this.configPath, JSON.stringify({ directory: this.directory }));
-    } catch {
-      // Не критично — просто не переживёт перезапуск, каталог всё равно рабочий.
-    }
+    saveJsonStore(this.configPath, { directory: this.directory });
   }
 
   getDirectory(): string {
@@ -97,26 +96,34 @@ export class ApkLibraryService {
     this.saveDirectory();
   }
 
-  list(): ApkFile[] {
+  /** Асинхронно (fs/promises), не fs.readdirSync/statSync -- эта функция
+   * вызывается на каждое открытие/обновление вкладки "Библиотека APK", а
+   * раньше синхронно блокировала весь main-процесс (все IPC-хендлеры,
+   * не только этой вкладки) на время сканирования папки, чувствительно
+   * при большом числе файлов. stat() по файлам идёт без ограничения
+   * параллелизма (в отличие от adb-вызовов/spawn -- это дешёвые локальные
+   * syscall на метаданные, не сетевые/процессные операции, лимитировать
+   * их нет повода). */
+  async list(): Promise<ApkFile[]> {
     let entries: string[];
     try {
-      entries = fs.readdirSync(this.directory);
+      entries = await fsPromises.readdir(this.directory);
     } catch {
       return [];
     }
-    const files = entries
-      .filter((name) => name.toLowerCase().endsWith('.apk'))
-      .map((name): ApkFile | undefined => {
+    const apkNames = entries.filter((name) => name.toLowerCase().endsWith('.apk'));
+    const files = await Promise.all(
+      apkNames.map(async (name): Promise<ApkFile | undefined> => {
         const fullPath = path.join(this.directory, name);
         try {
-          const stat = fs.statSync(fullPath);
+          const stat = await fsPromises.stat(fullPath);
           return { path: fullPath, name, sizeBytes: stat.size, modifiedMs: stat.mtimeMs };
         } catch {
           return undefined;
         }
       })
-      .filter((f): f is ApkFile => f !== undefined);
-    return files.sort((a, b) => b.modifiedMs - a.modifiedMs);
+    );
+    return files.filter((f): f is ApkFile => f !== undefined).sort((a, b) => b.modifiedMs - a.modifiedMs);
   }
 
   /** Копирует выбранные файлы в библиотеку (перезаписывая одноимённые). */
@@ -176,12 +183,31 @@ export class ApkLibraryService {
     return undefined;
   }
 
-  /** Читает манифест локального .apk через aapt2 dump badging — без
-   * установки на устройство. */
-  static async inspect(apkPath: string): Promise<ApkManifestInfo> {
+  /** aapt2 dump badging, с кэшем по (apkPath, mtime) в badgingCache -- общий
+   * для inspect() и extractIcon() ниже, которые раньше независимо
+   * перезапускали aapt2 на один и тот же файл. */
+  private async getBadging(apkPath: string): Promise<string> {
     const aapt2 = ApkLibraryService.locateAapt2();
     if (!aapt2) throw new Error('aapt2 не найден — сборка без вшитого бинарника');
+    let mtimeMs = 0;
+    try {
+      mtimeMs = fs.statSync(apkPath).mtimeMs;
+    } catch {
+      // Файл мог исчезнуть между list() и этим вызовом -- не критично,
+      // просто не закешируется осмысленно (mtimeMs остаётся 0).
+    }
+    const cacheKey = `${apkPath}:${mtimeMs}`;
+    const cached = this.badgingCache.get(cacheKey);
+    if (cached !== undefined) return cached;
     const output = await runCapturingStdout(aapt2, ['dump', 'badging', apkPath]);
+    this.badgingCache.set(cacheKey, output);
+    return output;
+  }
+
+  /** Читает манифест локального .apk через aapt2 dump badging — без
+   * установки на устройство. */
+  async inspect(apkPath: string): Promise<ApkManifestInfo> {
+    const output = await this.getBadging(apkPath);
     return parseApkBadging(output);
   }
 
@@ -203,7 +229,7 @@ export class ApkLibraryService {
     if (cached) return cached;
 
     try {
-      const badging = await runCapturingStdout(aapt2, ['dump', 'badging', apkPath]);
+      const badging = await this.getBadging(apkPath);
       const iconEntry = parseIconPath(badging);
       if (!iconEntry) return undefined;
 
@@ -239,11 +265,11 @@ export class ApkLibraryService {
    * но список файлов и обычная установка работают всё равно). */
   async checkFDroidUpdates(): Promise<Record<string, FDroidUpdateInfo>> {
     if (!ApkLibraryService.locateAapt2()) return {};
-    const files = this.list();
+    const files = await this.list();
     const results: Record<string, FDroidUpdateInfo> = {};
     await mapWithConcurrency(files, 4, async (file) => {
       try {
-        const info = await ApkLibraryService.inspect(file.path);
+        const info = await this.inspect(file.path);
         const versionCode = info.packageName && info.versionCode ? Number(info.versionCode) : undefined;
         if (!info.packageName || versionCode === undefined || Number.isNaN(versionCode)) return;
         const update = await checkFDroidUpdate(info.packageName, versionCode);
