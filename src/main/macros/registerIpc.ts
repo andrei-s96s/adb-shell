@@ -21,13 +21,23 @@ export function registerMacrosIpc(ctx: IpcContext): void {
       macroStore.update(id, name, rawText, autorunOnConnect, abortOnFirstFailure)
   );
   ipcMain.handle('macros:remove', (_e, id: string) => macroStore.remove(id));
-  // Выполнение -- см. MacroRunner.ts про то, почему результаты шагов не
-  // транслируются построчно, а возвращаются одним ответом по завершении.
-  ipcMain.handle('macros:run', (_e, macroId: string, serial: string, variables: Record<string, string>) => {
-    const macro = macroStore.get(macroId);
-    if (!macro) throw new Error('Макрос не найден');
-    return runMacro(macro, serial, ctx.adb, variables);
-  });
+  // Выполнение -- runId генерирует renderer (macros.ts/renderer.ts/
+  // commandPalette.ts) ДО вызова, а не main после, потому что renderer
+  // должен знать его заранее, чтобы сопоставлять с ним приходящие
+  // 'macros:stepResult' события, пока сам run() ещё не завершился и не
+  // вернул финальный ответ на invoke.
+  ipcMain.handle(
+    'macros:run',
+    (event: IpcMainInvokeEvent, macroId: string, serial: string, variables: Record<string, string>, runId: string) => {
+      const macro = macroStore.get(macroId);
+      if (!macro) throw new Error('Макрос не найден');
+      return runMacro(macro, serial, ctx.adb, variables, (index, total, result) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('macros:stepResult', runId, macroId, index, total, result);
+        }
+      });
+    }
+  );
   ipcMain.handle('macros:export', async (event: IpcMainInvokeEvent) => {
     const result = await showSaveDialogFor(event, {
       title: 'Экспорт макросов',

@@ -130,7 +130,7 @@ function openCommandPalette(): void {
       selectDeviceFromPalette(result.serial);
     } else {
       const serial = getCurrentSerial();
-      if (serial) adbApi.macrosRun(result.id, serial, {}).catch(() => {});
+      if (serial) adbApi.macrosRun(result.id, serial, {}, crypto.randomUUID()).catch(() => {});
       document.querySelector<HTMLButtonElement>('#tabs button[data-tab="macros"]')?.click();
     }
     close();

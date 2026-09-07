@@ -132,7 +132,7 @@ async function triggerAutorunMacros(currentDevices: Device[]): Promise<void> {
 
   for (const serial of newlyReady) {
     for (const macro of autorunMacros) {
-      adbApi.macrosRun(macro.id, serial, {}).catch(() => {});
+      adbApi.macrosRun(macro.id, serial, {}, crypto.randomUUID()).catch(() => {});
     }
   }
 }

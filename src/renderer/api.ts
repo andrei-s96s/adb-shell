@@ -406,7 +406,8 @@ export interface AdbApi {
     abortOnFirstFailure: boolean
   ): Promise<Macro[]>;
   macrosRemove(id: string): Promise<Macro[]>;
-  macrosRun(macroId: string, serial: string, variables: Record<string, string>): Promise<MacroRunOutcome>;
+  macrosRun(macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome>;
+  onMacroStepResult(callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void): () => void;
   macrosExport(): Promise<boolean>;
   macrosImport(): Promise<Macro[]>;
 

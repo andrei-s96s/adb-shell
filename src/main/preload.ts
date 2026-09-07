@@ -15,7 +15,7 @@ import { DeviceStats } from './adb/types/DeviceStats';
 import { RunningProcess } from './adb/types/RunningProcess';
 import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
 import { IntentPreset } from './adb/types/IntentPreset';
-import { Macro } from './adb/types/Macro';
+import { Macro, MacroRunResult } from './adb/types/Macro';
 import { MacroRunOutcome } from './macros/MacroRunner';
 import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
 import { ManifestPackageDiff } from './appBundles/appBundleLogic';
@@ -213,8 +213,14 @@ contextBridge.exposeInMainWorld('adbApi', {
     abortOnFirstFailure: boolean
   ): Promise<Macro[]> => ipcRenderer.invoke('macros:update', id, name, rawText, autorunOnConnect, abortOnFirstFailure),
   macrosRemove: (id: string): Promise<Macro[]> => ipcRenderer.invoke('macros:remove', id),
-  macrosRun: (macroId: string, serial: string, variables: Record<string, string>): Promise<MacroRunOutcome> =>
-    ipcRenderer.invoke('macros:run', macroId, serial, variables),
+  macrosRun: (macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome> =>
+    ipcRenderer.invoke('macros:run', macroId, serial, variables, runId),
+  onMacroStepResult: (callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void) => {
+    const listener = (_e: IpcRendererEvent, runId: string, macroId: string, index: number, total: number, result: MacroRunResult) =>
+      callback(runId, macroId, index, total, result);
+    ipcRenderer.on('macros:stepResult', listener);
+    return () => ipcRenderer.removeListener('macros:stepResult', listener);
+  },
   macrosExport: (): Promise<boolean> => ipcRenderer.invoke('macros:export'),
   macrosImport: (): Promise<Macro[]> => ipcRenderer.invoke('macros:import'),
 

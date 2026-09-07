@@ -12,9 +12,19 @@ let macros: Macro[] = [];
 let runningMacroId: string | undefined;
 /** Результаты последнего запуска, по macro.id -- шаги сверяются по индексу
  * (как в оригинале: шаг вроде "wait-for-device" может повторяться, сверка
- * по тексту была бы неоднозначной). */
+ * по тексту была бы неоднозначной). Заполняется теперь ИНКРЕМЕНТАЛЬНО, по
+ * мере прихода 'macros:stepResult' (см. подписку в initMacrosScreen), а не
+ * только целиком по завершении -- renderRow() ниже уже был готов к
+ * частично заполненному массиву (незаполненные индексы просто не
+ * получают ✓/✗), это ровно то поведение, которое нужно для живого
+ * прогресса. */
 const lastResults = new Map<string, MacroRunResult[]>();
 let expandedMacroId: string | undefined;
+/** runId запуска, который СЕЙЧАС отслеживается этим экраном (см.
+ * onMacroStepResult выше) -- отличает "мой" запуск (через кнопку
+ * "Запустить" здесь) от другого запуска того же macroId, случайно
+ * совпавшего по времени (автозапуск на другом устройстве). */
+let currentRunId: string | undefined;
 
 const VARIABLE_RE = /\$\{([A-Za-z0-9_]+)\}/g;
 
@@ -33,6 +43,24 @@ function extractVariableNames(macro: Macro): string[] {
 export function initMacrosScreen(): void {
   listEl = el<HTMLUListElement>('macros-list');
   statusEl = el<HTMLDivElement>('macros-status');
+
+  // Живой прогресс шагов -- runMacro() на main-стороне зовёт onStep() после
+  // КАЖДОГО шага, а не только в самом конце (см. MacroRunner.ts); runId
+  // сопоставляет событие с ТЕМ ЗАПУСКОМ, который сейчас отслеживается здесь
+  // (currentRunId ниже), а не с каким-то другим — макрос мог параллельно
+  // запуститься автозапуском на другом устройстве, currentRunId отличает
+  // "мой" запуск от "чужого" с тем же macroId.
+  adbApi.onMacroStepResult((runId, macroId, index, total, result) => {
+    if (runId !== currentRunId) return;
+    const results = lastResults.get(macroId) ?? [];
+    results[index] = result;
+    lastResults.set(macroId, results);
+    if (runningMacroId === macroId) {
+      const macro = macros.find((m) => m.id === macroId);
+      statusEl.textContent = `Выполняется «${macro?.name ?? macroId}» — шаг ${index + 1}/${total}…`;
+    }
+    if (expandedMacroId === macroId) renderList();
+  });
 
   el<HTMLButtonElement>('macros-new').addEventListener('click', () => openEditor());
   el<HTMLButtonElement>('macros-export').addEventListener('click', () => {
@@ -161,12 +189,19 @@ async function startRun(macro: Macro, serial: string): Promise<void> {
   if (variables === undefined) return; // отменено в диалоге переменных
 
   runningMacroId = macro.id;
+  currentRunId = crypto.randomUUID();
+  // Разворачиваем и очищаем результаты СРАЗУ, не дожидаясь ответа -- шаги
+  // начинают заполняться (см. onMacroStepResult в initMacrosScreen) уже во
+  // время выполнения, разворачивать список только по завершении больше не
+  // нужно. Иначе здесь ещё видны были бы результаты ПРЕДЫДУЩЕГО запуска
+  // этого же макроса, пока не придёт первый шаг нового.
+  lastResults.set(macro.id, []);
+  expandedMacroId = macro.id;
   renderList();
   statusEl.textContent = `Выполняется «${macro.name}»…`;
   try {
-    const outcome = await adbApi.macrosRun(macro.id, serial, variables);
+    const outcome = await adbApi.macrosRun(macro.id, serial, variables, currentRunId);
     lastResults.set(macro.id, outcome.results);
-    expandedMacroId = macro.id;
     statusEl.textContent = outcome.completedFully ? 'Готово' : 'Остановлено на ошибке';
     try {
       new Notification(`Макрос «${macro.name}»`, {
@@ -179,6 +214,7 @@ async function startRun(macro: Macro, serial: string): Promise<void> {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   } finally {
     runningMacroId = undefined;
+    currentRunId = undefined;
     renderList();
   }
 }
