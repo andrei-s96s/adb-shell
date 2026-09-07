@@ -317,6 +317,24 @@ textarea {
   outline: 1px solid var(--cp-gold);
 }
 
+/* Проблемные состояния устройства -- та же пара "цветная рамка + лёгкая
+   подсветка фона", что и у .ready выше, только сигнал не "готово", а
+   "нужно внимание". offline мягче (золото, как и .selected outline выше --
+   часто это просто мимолётная перезагрузка, а не ошибка), unauthorized и
+   noPermissions — оба требуют явного действия пользователя (подтвердить
+   диалог на экране устройства / поправить udev-правила), поэтому оба на
+   том же crimson, что и текст ошибок в остальном приложении. */
+#device-list li.state-offline {
+  border-color: var(--cp-gold);
+  background: color-mix(in srgb, var(--cp-gold) 10%, var(--cp-bg-panel-alt));
+}
+
+#device-list li.state-unauthorized,
+#device-list li.state-noPermissions {
+  border-color: var(--cp-crimson);
+  background: color-mix(in srgb, var(--cp-crimson) 10%, var(--cp-bg-panel-alt));
+}
+
 #device-list li.empty {
   color: var(--cp-text-muted);
   background: none;

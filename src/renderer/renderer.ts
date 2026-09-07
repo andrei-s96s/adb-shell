@@ -147,6 +147,34 @@ function deviceLabel(device: Device): string {
   return device.model ? device.model.replace(/_/g, ' ') : device.serial;
 }
 
+/** Значок + подсказка для состояний, которые сами по себе не объясняют, что
+ * пользователю с ними делать -- "offline"/"unauthorized"/"no permissions" в
+ * сыром виде ничем не отличались от простого технического ярлыка (см.
+ * .state-* классы в theme.css про цветовую часть той же индикации). undefined
+ * для "device"/"unknown" -- готовому устройству бейдж не нужен, а
+ * "unknown" — и так самый нейтральный статус без конкретного объяснения. */
+function deviceStateBadge(state: Device['state']): { icon: string; hint: string } | undefined {
+  switch (state) {
+    case 'offline':
+      return {
+        icon: '🔌',
+        hint: 'Устройство отключено или сейчас перезагружается — если долго не проходит, переподключите кабель/устройство',
+      };
+    case 'unauthorized':
+      return {
+        icon: '🔒',
+        hint: 'Устройство не авторизовано — подтвердите на его экране запрос «Разрешить отладку по USB?»',
+      };
+    case 'noPermissions':
+      return {
+        icon: '🚫',
+        hint: 'adb не может получить доступ к устройству — обычно нужно поправить udev-правила (Linux) или переподключить устройство',
+      };
+    default:
+      return undefined;
+  }
+}
+
 function renderDeviceList(): void {
   deviceListEl.innerHTML = '';
   if (devices.length === 0) {
@@ -169,7 +197,8 @@ function renderDeviceList(): void {
   }
   for (const device of devices) {
     const li = document.createElement('li');
-    li.className = 'row' + (device.state === 'device' ? ' ready' : '') + (device.serial === getCurrentSerial() ? ' selected' : '');
+    const stateClass = device.state !== 'device' && device.state !== 'unknown' ? ` state-${device.state}` : '';
+    li.className = 'row' + (device.state === 'device' ? ' ready' : '') + stateClass + (device.serial === getCurrentSerial() ? ' selected' : '');
 
     const main = document.createElement('div');
     main.className = 'device-row-main';
@@ -205,8 +234,12 @@ function renderDeviceList(): void {
 
     const label = document.createElement('span');
     label.className = 'device-row-label';
-    label.textContent = `${deviceLabel(device)} — ${device.state}`;
-    label.title = device.serial;
+    const badge = deviceStateBadge(device.state);
+    label.textContent = `${badge ? badge.icon + ' ' : ''}${deviceLabel(device)} — ${device.state}`;
+    // Подсказка про конкретное состояние важнее serial'а, когда есть что
+    // объяснять -- serial всё равно виден в самом тексте для готового
+    // устройства, а для проблемного он куда менее полезен, чем "что делать".
+    label.title = badge ? badge.hint : device.serial;
     label.addEventListener('click', () => selectDevice(device.serial));
     main.appendChild(label);
 

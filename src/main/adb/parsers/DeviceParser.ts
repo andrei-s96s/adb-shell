@@ -8,11 +8,6 @@ const KNOWN_STATES: Record<string, DeviceState> = {
   offline: 'offline',
   unauthorized: 'unauthorized',
 };
-// Примечание (сохранено из оригинала): реальный статус "нет прав" adb
-// печатает как ДВА слова "no permissions" через пробел. Токенизация ниже
-// режет строку по пробелам и сравнивает только один токен (parts[1]) —
-// то же ограничение, что и в исходном Swift-парсере, портируется с
-// сохранением поведения, а не молча исправляется в рамках этого переноса.
 
 export function parseDevices(output: string): Device[] {
   const devices: Device[] = [];
@@ -28,7 +23,18 @@ export function parseDevices(output: string): Device[] {
 
     const serial = parts[0];
     const stateRaw = parts[1];
-    const state: DeviceState = KNOWN_STATES[stateRaw] ?? 'unknown';
+    // Реальный статус "нет прав" (типично на Linux без нужных udev-правил)
+    // adb печатает как ДВА слова "no permissions" через пробел, за которыми
+    // следует произвольный свободный текст-подсказка ("(missing udev
+    // rules? ...); see [...]"), а не структурированные model:/product:/
+    // transport_id: токены -- отсюда и раньше не распознавался, единственный
+    // токен parts[1] равнялся "no", а не "no permissions" целиком. Раньше
+    // это сохранялось нарочно как известное ограничение, унаследованное из
+    // оригинального Swift-парсера -- исправлено здесь: пользователь, у
+    // которого это реально происходит, видит "нет прав", а не "unknown" без
+    // единой подсказки, что делать.
+    const isNoPermissions = stateRaw === 'no' && parts[2] === 'permissions';
+    const state: DeviceState = isNoPermissions ? 'noPermissions' : KNOWN_STATES[stateRaw] ?? 'unknown';
 
     let model: string | undefined;
     let product: string | undefined;

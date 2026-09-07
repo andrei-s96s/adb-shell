@@ -38,6 +38,19 @@ test('parses unauthorized state', () => {
   assert.equal(devices[0]?.state, 'unauthorized');
 });
 
+test('parses the two-word "no permissions" state (typically missing udev rules on Linux)', () => {
+  const output = [
+    'List of devices attached',
+    '0123456789ABCDEF       no permissions (missing udev rules? user is in the plugdev group; are your udev rules wrong?); see [http://developer.android.com/tools/device.html]',
+  ].join('\n');
+
+  const devices = parseDevices(output);
+  assert.equal(devices.length, 1);
+  assert.equal(devices[0].serial, '0123456789ABCDEF');
+  assert.equal(devices[0].state, 'noPermissions');
+  assert.equal(devices[0].model, undefined);
+});
+
 test('empty device list produces empty array', () => {
   assert.deepEqual(parseDevices('List of devices attached\n'), []);
 });
