@@ -101,6 +101,22 @@ contextBridge.exposeInMainWorld('adbApi', {
     packages: string[]
   ): Promise<{ packageName: string; success: boolean; message: string }[]> =>
     ipcRenderer.invoke('apps:deleteSelected', serial, packages),
+  appsForceStopSelected: (
+    serial: string,
+    packages: string[]
+  ): Promise<{ packageName: string; success: boolean; message: string }[]> =>
+    ipcRenderer.invoke('apps:forceStopSelected', serial, packages),
+  appsClearDataSelected: (
+    serial: string,
+    packages: string[]
+  ): Promise<{ packageName: string; success: boolean; message: string }[]> =>
+    ipcRenderer.invoke('apps:clearDataSelected', serial, packages),
+  appsSetEnabledSelected: (
+    serial: string,
+    packages: string[],
+    enabled: boolean
+  ): Promise<{ packageName: string; success: boolean; message: string }[]> =>
+    ipcRenderer.invoke('apps:setEnabledSelected', serial, packages, enabled),
   appsInstallBatch: (
     serial: string,
     apkPaths: string[]

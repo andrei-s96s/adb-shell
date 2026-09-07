@@ -83,6 +83,10 @@ export function initAppsScreen(): void {
     if (serial) openSnapshotsModal(serial, apps, () => void loadApps(serial));
   });
   el<HTMLButtonElement>('apps-export-selected').addEventListener('click', () => void exportSelected());
+  el<HTMLButtonElement>('apps-force-stop-selected').addEventListener('click', () => void forceStopSelected());
+  el<HTMLButtonElement>('apps-clear-data-selected').addEventListener('click', () => void clearDataSelectedBatch());
+  el<HTMLButtonElement>('apps-enable-selected').addEventListener('click', () => void setEnabledSelectedBatch(true));
+  el<HTMLButtonElement>('apps-disable-selected').addEventListener('click', () => void setEnabledSelectedBatch(false));
   el<HTMLButtonElement>('apps-delete-selected').addEventListener('click', () => void deleteSelected());
 
   onDeviceChanged((serial) => {
@@ -186,6 +190,63 @@ async function deleteSelected(): Promise<void> {
   } catch (error) {
     statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
   }
+}
+
+/** Общий раннер для батч-операций над выбранными пакетами (force-stop,
+ * очистка данных, вкл/выкл) -- те же статус/подсчёт успехов-неудач/
+ * уведомление, что и у deleteSelected() выше, но без специфичных для
+ * удаления шагов (полная перезагрузка списка, сброс выделения). Возвращает
+ * serial и итог вызвавшей функции, чтобы та сама решила, что обновить
+ * дальше (deleteSelected/exportSelected выше написаны раньше и оставлены
+ * как есть, без миграции на этот хелпер). */
+async function runBatchPackageAction(
+  actionVerb: string,
+  apiCall: (serial: string, packages: string[]) => Promise<{ packageName: string; success: boolean; message: string }[]>
+): Promise<{ serial: string; results: { packageName: string; success: boolean; message: string }[] } | undefined> {
+  const serial = getCurrentSerial();
+  if (!serial || selectedForBatch.size === 0) return undefined;
+  const packages = [...selectedForBatch];
+  statusEl.textContent = `${actionVerb} (${packages.length})…`;
+  try {
+    const results = await apiCall(serial, packages);
+    const failed = results.filter((r) => !r.success);
+    statusEl.textContent =
+      failed.length === 0
+        ? `${actionVerb}: готово (${results.length})`
+        : `${actionVerb}: ${results.length - failed.length} из ${results.length}. Ошибки: ${failed.map((f) => f.message).join('; ')}`;
+    if (results.length > 1) {
+      try {
+        new Notification(actionVerb, { body: `Готово: ${results.length - failed.length} из ${results.length}` });
+      } catch {
+        // Не критично.
+      }
+    }
+    return { serial, results };
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+    return undefined;
+  }
+}
+
+async function forceStopSelected(): Promise<void> {
+  const outcome = await runBatchPackageAction('Force stop', adbApi.appsForceStopSelected);
+  if (outcome && selectedForBatch.size === 1) void loadDetail(outcome.serial, [...selectedForBatch][0]);
+}
+
+async function clearDataSelectedBatch(): Promise<void> {
+  const outcome = await runBatchPackageAction('Очистка данных', adbApi.appsClearDataSelected);
+  if (outcome && selectedForBatch.size === 1) void loadDetail(outcome.serial, [...selectedForBatch][0]);
+}
+
+async function setEnabledSelectedBatch(enabled: boolean): Promise<void> {
+  const outcome = await runBatchPackageAction(enabled ? 'Включение' : 'Отключение', (serial, packages) =>
+    adbApi.appsSetEnabledSelected(serial, packages, enabled)
+  );
+  if (!outcome) return;
+  // isEnabled отражается прямо в подписи строки ("(выкл)") -- в отличие от
+  // force-stop/очистки данных, список нужно перерисовать.
+  await loadApps(outcome.serial);
+  if (selectedForBatch.size === 1) void loadDetail(outcome.serial, [...selectedForBatch][0]);
 }
 
 /** Порт AppsViewModel.exportSelected -- выбранные приложения вместе с их

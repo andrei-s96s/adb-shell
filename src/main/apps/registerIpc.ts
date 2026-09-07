@@ -121,6 +121,47 @@ export function registerAppsIpc(ctx: IpcContext): void {
     }
     return results;
   });
+  // Батч-версии force-stop/очистки данных/вкл-выкл -- одиночные IPC-хендлеры
+  // (adb:forceStop и т.п. выше) уже были, недоставало только версии "на все
+  // выбранные разом" для панели мультивыбора в apps.ts. Тот же паттерн, что
+  // и у apps:deleteSelected -- последовательно, не параллельно, каждая
+  // неудача не прерывает остальные.
+  ipcMain.handle('apps:forceStopSelected', async (_e, serial: string, packages: string[]) => {
+    const results: { packageName: string; success: boolean; message: string }[] = [];
+    for (const pkg of [...packages].sort()) {
+      try {
+        await ctx.adb.forceStop(serial, pkg);
+        results.push({ packageName: pkg, success: true, message: 'OK' });
+      } catch (error) {
+        results.push({ packageName: pkg, success: false, message: (error as Error).message });
+      }
+    }
+    return results;
+  });
+  ipcMain.handle('apps:clearDataSelected', async (_e, serial: string, packages: string[]) => {
+    const results: { packageName: string; success: boolean; message: string }[] = [];
+    for (const pkg of [...packages].sort()) {
+      try {
+        await ctx.adb.clearData(serial, pkg);
+        results.push({ packageName: pkg, success: true, message: 'OK' });
+      } catch (error) {
+        results.push({ packageName: pkg, success: false, message: (error as Error).message });
+      }
+    }
+    return results;
+  });
+  ipcMain.handle('apps:setEnabledSelected', async (_e, serial: string, packages: string[], enabled: boolean) => {
+    const results: { packageName: string; success: boolean; message: string }[] = [];
+    for (const pkg of [...packages].sort()) {
+      try {
+        await ctx.adb.setEnabled(serial, pkg, enabled);
+        results.push({ packageName: pkg, success: true, message: 'OK' });
+      } catch (error) {
+        results.push({ packageName: pkg, success: false, message: (error as Error).message });
+      }
+    }
+    return results;
+  });
   ipcMain.handle('apps:installBatch', async (_e, serial: string, apkPaths: string[]) => {
     const results: { apkPath: string; success: boolean; message: string }[] = [];
     for (const apkPath of apkPaths) {

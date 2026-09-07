@@ -253,7 +253,10 @@ export interface InstallBatchFileResult {
   message: string;
 }
 
-export interface UninstallBatchResult {
+/** Общая форма результата для всех "на все выбранные разом" операций над
+ * пакетами (удаление, force-stop, очистка данных, вкл/выкл) -- не только
+ * удаление, несмотря на то что появился вместе с ним первым. */
+export interface PackageBatchResult {
   packageName: string;
   success: boolean;
   message: string;
@@ -320,7 +323,10 @@ export interface AdbApi {
   selectApkFile(): Promise<string | undefined>;
   selectApkFiles(): Promise<string[]>;
 
-  appsDeleteSelected(serial: string, packages: string[]): Promise<UninstallBatchResult[]>;
+  appsDeleteSelected(serial: string, packages: string[]): Promise<PackageBatchResult[]>;
+  appsForceStopSelected(serial: string, packages: string[]): Promise<PackageBatchResult[]>;
+  appsClearDataSelected(serial: string, packages: string[]): Promise<PackageBatchResult[]>;
+  appsSetEnabledSelected(serial: string, packages: string[], enabled: boolean): Promise<PackageBatchResult[]>;
   appsInstallBatch(serial: string, apkPaths: string[]): Promise<InstallBatchFileResult[]>;
   appsExportSelected(serial: string, packages: string[]): Promise<ExportBundleOutcome | undefined>;
   appsImportBundle(serial: string): Promise<ImportBundleOutcome | undefined>;
