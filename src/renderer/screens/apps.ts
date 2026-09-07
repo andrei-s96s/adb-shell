@@ -22,6 +22,7 @@ let detailEl: HTMLDivElement;
 let statusEl: HTMLDivElement;
 let searchEl: HTMLInputElement;
 let showSystemEl: HTMLInputElement;
+let onlyFDroidUpdatesEl: HTMLInputElement;
 let batchToolbarEl: HTMLDivElement;
 let apps: InstalledApp[] = [];
 /** Найденные на F-Droid обновления для установленных приложений, по
@@ -60,14 +61,17 @@ export function initAppsScreen(): void {
   statusEl = el<HTMLDivElement>('apps-status');
   searchEl = el<HTMLInputElement>('apps-search');
   showSystemEl = el<HTMLInputElement>('apps-show-system');
+  onlyFDroidUpdatesEl = el<HTMLInputElement>('apps-only-fdroid-updates');
   batchToolbarEl = el<HTMLDivElement>('apps-batch-toolbar');
 
   // Debounce -- ввод короткого запроса из нескольких символов иначе означает
   // столько же полных перерисовок списка подряд (renderList() пересоздаёт
-  // все строки), заметно на списке из сотни+ приложений. showSystemEl --
-  // дискретный чекбокс, не поток событий как ввод текста, дебаунс ему не нужен.
+  // все строки), заметно на списке из сотни+ приложений. showSystemEl/
+  // onlyFDroidUpdatesEl -- дискретные чекбоксы, не поток событий как ввод
+  // текста, дебаунс им не нужен.
   searchEl.addEventListener('input', scheduleSearchRender);
   showSystemEl.addEventListener('change', renderList);
+  onlyFDroidUpdatesEl.addEventListener('change', renderList);
   void loadDefaultShowSystemApps().then((value) => {
     showSystemEl.checked = value;
   });
@@ -118,7 +122,13 @@ function scheduleSearchRender(): void {
 function filteredApps(): InstalledApp[] {
   const query = searchEl.value.trim().toLowerCase();
   const showSystem = showSystemEl.checked;
-  return apps.filter((a) => (showSystem || !a.isSystem) && (!query || a.packageName.toLowerCase().includes(query)));
+  const onlyFDroidUpdates = onlyFDroidUpdatesEl.checked;
+  return apps.filter(
+    (a) =>
+      (showSystem || !a.isSystem) &&
+      (!query || a.packageName.toLowerCase().includes(query)) &&
+      (!onlyFDroidUpdates || fdroidUpdates[a.packageName] !== undefined)
+  );
 }
 
 async function exportCsv(): Promise<void> {
