@@ -95,7 +95,10 @@ contextBridge.exposeInMainWorld('adbApi', {
   selectApkFile: (): Promise<string | undefined> => ipcRenderer.invoke('dialog:selectApk'),
   selectApkFiles: (): Promise<string[]> => ipcRenderer.invoke('dialog:selectApks'),
 
-  appsDeleteSelected: (serial: string, packages: string[]): Promise<number> =>
+  appsDeleteSelected: (
+    serial: string,
+    packages: string[]
+  ): Promise<{ packageName: string; success: boolean; message: string }[]> =>
     ipcRenderer.invoke('apps:deleteSelected', serial, packages),
   appsInstallBatch: (
     serial: string,

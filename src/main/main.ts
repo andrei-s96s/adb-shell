@@ -351,14 +351,17 @@ function registerIpcHandlers(): void {
   // последовательно, не параллельно, тот же порядок, что и в оригинале.
   ipcMain.handle('apps:deleteSelected', async (_e, serial: string, packages: string[]) => {
     const sorted = [...packages].sort();
+    const results: { packageName: string; success: boolean; message: string }[] = [];
     for (const pkg of sorted) {
       try {
         await adb.uninstall(serial, pkg);
-      } catch {
+        results.push({ packageName: pkg, success: true, message: 'OK' });
+      } catch (error) {
         // Продолжаем остальные -- одна неудача не должна прерывать пакет.
+        results.push({ packageName: pkg, success: false, message: (error as Error).message });
       }
     }
-    return sorted.length;
+    return results;
   });
   ipcMain.handle('apps:installBatch', async (_e, serial: string, apkPaths: string[]) => {
     const results: { apkPath: string; success: boolean; message: string }[] = [];

@@ -138,14 +138,18 @@ async function deleteSelected(): Promise<void> {
   const packages = [...selectedForBatch];
   statusEl.textContent = `Удаление ${packages.length}…`;
   try {
-    const count = await adbApi.appsDeleteSelected(serial, packages);
+    const results = await adbApi.appsDeleteSelected(serial, packages);
+    const failed = results.filter((r) => !r.success);
     clearSelection();
     await loadApps(serial);
     renderDetail();
-    statusEl.textContent = `Удалено: ${count}`;
-    if (count > 1) {
+    statusEl.textContent =
+      failed.length === 0
+        ? `Удалено: ${results.length}`
+        : `Удалено ${results.length - failed.length} из ${results.length}. Ошибки: ${failed.map((f) => f.message).join('; ')}`;
+    if (results.length > 1) {
       try {
-        new Notification('Пакетное удаление', { body: `Удалено приложений: ${count}` });
+        new Notification('Пакетное удаление', { body: `Удалено ${results.length - failed.length} из ${results.length}` });
       } catch {
         // Не критично.
       }

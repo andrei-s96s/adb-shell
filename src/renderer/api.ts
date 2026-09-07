@@ -253,6 +253,12 @@ export interface InstallBatchFileResult {
   message: string;
 }
 
+export interface UninstallBatchResult {
+  packageName: string;
+  success: boolean;
+  message: string;
+}
+
 export type LogLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface LogLine {
@@ -314,7 +320,7 @@ export interface AdbApi {
   selectApkFile(): Promise<string | undefined>;
   selectApkFiles(): Promise<string[]>;
 
-  appsDeleteSelected(serial: string, packages: string[]): Promise<number>;
+  appsDeleteSelected(serial: string, packages: string[]): Promise<UninstallBatchResult[]>;
   appsInstallBatch(serial: string, apkPaths: string[]): Promise<InstallBatchFileResult[]>;
   appsExportSelected(serial: string, packages: string[]): Promise<ExportBundleOutcome | undefined>;
   appsImportBundle(serial: string): Promise<ImportBundleOutcome | undefined>;
