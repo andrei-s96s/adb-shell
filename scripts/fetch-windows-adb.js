@@ -15,6 +15,16 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const URL = 'https://dl.google.com/android/repository/platform-tools-latest-windows.zip';
+// Google не публикует надёжно версионированные архивы под КАЖДЫЙ релиз
+// platform-tools по предсказуемому URL (проверено: platform-tools_rXX.X.X-
+// windows.zip существует для части старых версий, но не для самой свежей на
+// момент проверки) -- "закрепить" версию, скачивая с другого URL, поэтому
+// нельзя. Вместо этого сверяем Pkg.Revision из уже скачанного архива с этой
+// константой и падаем с понятной ошибкой при расхождении -- сборка на разных
+// датах (или пересборка старого тега) не должна тихо получать другой
+// adb.exe без чьего-либо решения. Обновление намеренное: увидев ошибку
+// ниже, проверьте новую версию и, если она устраивает, замените число тут.
+const PINNED_VERSION = '37.0.1';
 const ROOT = path.join(__dirname, '..');
 const CACHE_DIR = path.join(ROOT, '.cache');
 const ZIP_PATH = path.join(CACHE_DIR, 'platform-tools-windows.zip');
@@ -35,6 +45,21 @@ function extractZip(zipPath, destDir) {
     );
   } else {
     execFileSync('unzip', ['-oq', zipPath, '-d', destDir], { stdio: 'inherit' });
+  }
+}
+
+function checkPinnedVersion(sourceDir) {
+  const propsPath = path.join(sourceDir, 'source.properties');
+  if (!fs.existsSync(propsPath)) return; // не критично -- вдруг формат архива когда-то изменится
+  const props = fs.readFileSync(propsPath, 'utf8');
+  const match = props.match(/^Pkg\.Revision=(.+)$/m);
+  const actualVersion = match?.[1]?.trim();
+  if (actualVersion && actualVersion !== PINNED_VERSION) {
+    throw new Error(
+      `Google отдал platform-tools ${actualVersion}, а запинована версия ${PINNED_VERSION} (см. PINNED_VERSION в ` +
+        `${path.basename(__filename)}). Скорее всего Google выпустил новую версию с момента последнего обновления ` +
+        `константы -- если ${actualVersion} устраивает, замените PINNED_VERSION и удалите .cache/platform-tools-windows.zip.`
+    );
   }
 }
 
@@ -60,6 +85,8 @@ async function main() {
   extractZip(ZIP_PATH, EXTRACT_DIR);
 
   const sourceDir = path.join(EXTRACT_DIR, 'platform-tools');
+  checkPinnedVersion(sourceDir);
+
   for (const file of REQUIRED_FILES) {
     const source = path.join(sourceDir, file);
     if (!fs.existsSync(source)) {
