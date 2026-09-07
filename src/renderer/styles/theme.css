@@ -269,6 +269,15 @@ textarea {
   color: var(--cp-text-muted);
 }
 
+/* min-height -- без него список устройств мог схлопнуться почти до нуля
+   (реально пойманный баг: живьём, при переполнении сайдбара снизу
+   секциями сопряжения/профилей подключения, #device-list с flex:1 +
+   overflow-y:auto -- единственный гибкий элемент среди в основном
+   жёстких по высоте соседей -- отдавал ВСЮ нехватку места себе одному,
+   вплоть до видимой высоты в 1px, при том что #sidebar и так уже
+   прокручивается целиком (overflow-y:auto там же). Устройства -- самое
+   важное содержимое сайдбара, ему нельзя ужиматься в ноль, даже если
+   остальное не помещается -- пусть тогда прокручивается сам #sidebar. */
 #device-list {
   list-style: none;
   margin: 0;
@@ -277,6 +286,7 @@ textarea {
   flex-direction: column;
   gap: var(--space-4);
   flex: 1;
+  min-height: 120px;
   overflow-y: auto;
 }
 
@@ -783,6 +793,27 @@ input[type='checkbox']:checked::after {
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
+}
+
+/* Сопряжение по коду / Профили подключения -- нужны редко (once-per-device
+   настройка, не каждодневное действие), но раньше были ВСЕГДА развёрнуты
+   и вместе с остальным сайдбаром вытесняли список устройств почти в ноль
+   (см. min-height у #device-list выше). <details> сворачивает их по
+   умолчанию -- родная разметка браузера, ничего не нужно писать на JS. */
+.sidebar-section {
+  margin-top: var(--space-10);
+}
+
+.sidebar-section > summary {
+  cursor: pointer;
+  /* section-title обычно margin-top для отступа от предыдущего блока --
+     здесь этот отступ уже даёт .sidebar-section сам на себе, повторно
+     на summary он был бы двойным. */
+  margin-top: 0;
+}
+
+.sidebar-section > :not(summary) {
+  margin-top: var(--space-8);
 }
 
 /* Приложения */
