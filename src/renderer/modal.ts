@@ -35,21 +35,28 @@ export function openModal(title: string, build: (body: HTMLDivElement, modal: Mo
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 
+  // Снимается в close() при ЛЮБОМ способе закрытия (кнопка, клик по фону,
+  // Escape, программный modal.close() из кода экрана, которым закрывается
+  // большинство модалок после завершения действия) -- раньше снимался
+  // только при закрытии именно через Escape, так что document копил бы
+  // этот слушатель до конца жизни приложения при любом другом способе
+  // закрыть модалку.
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') handle.close();
+  };
+
   const handle: ModalHandle = {
     body,
-    close: () => overlay.remove(),
+    close: () => {
+      document.removeEventListener('keydown', onKeydown);
+      overlay.remove();
+    },
   };
 
   closeBtn.addEventListener('click', () => handle.close());
   overlay.addEventListener('click', (event) => {
     if (event.target === overlay) handle.close();
   });
-  const onKeydown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape') {
-      handle.close();
-      document.removeEventListener('keydown', onKeydown);
-    }
-  };
   document.addEventListener('keydown', onKeydown);
 
   build(body, handle);
