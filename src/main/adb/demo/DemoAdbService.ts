@@ -16,7 +16,7 @@
 // main.ts переключает между реальным AdbService и этим классом через
 // мутабельную переменную `adb` (demoMode:set) -- см. комментарий там.
 
-import { AdbService } from '../AdbService';
+import { AdbService, MONITOR_STATS_COMMAND, MONITOR_STATS_SEPARATOR } from '../AdbService';
 import { ProcessResult } from '../types/ProcessResult';
 import { DEMO_APPS, DEMO_GETPROP, DEMO_SERIAL, DEMO_IP, DemoAppProfile } from './demoData';
 import {
@@ -312,13 +312,21 @@ export class DemoAdbService extends AdbService {
       return ok('');
     }
 
-    if (cmdLine === 'dumpsys cpuinfo') return ok(formatCpuInfo(this.jitteredCpuPercent()));
-    if (cmdLine === 'cat /proc/meminfo') return ok(formatMemInfo(8_144_408, this.jitteredMemAvailableKB()));
-    if (cmdLine === 'dumpsys battery') {
+    // Один объединённый вызов вместо четырёх отдельных (dumpsys cpuinfo +
+    // cat /proc/meminfo + dumpsys battery + ps -A) -- см.
+    // AdbService.deviceStatsAndProcesses() про то, почему и как склеены.
+    // Тот же MONITOR_STATS_SEPARATOR, тем же порядком секций.
+    if (cmdLine === MONITOR_STATS_COMMAND) {
       const { level, charging } = this.jitteredBattery();
-      return ok(formatBattery(level, 285, charging));
+      return ok(
+        [
+          formatCpuInfo(this.jitteredCpuPercent()),
+          formatMemInfo(8_144_408, this.jitteredMemAvailableKB()),
+          formatBattery(level, 285, charging),
+          formatPs(this.demoProcessList()),
+        ].join(`\n${MONITOR_STATS_SEPARATOR}\n`)
+      );
     }
-    if (cmdLine === 'ps -A -o PID,PPID,USER,RSS,NAME') return ok(formatPs(this.demoProcessList()));
     if (cmdLine.startsWith('kill ')) return ok('');
 
     if (cmdLine === 'which su') return ok('');

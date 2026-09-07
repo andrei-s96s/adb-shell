@@ -118,13 +118,18 @@ test('pull actually writes a local placeholder file', async () => {
   }
 });
 
-test('deviceStats returns sane, in-range values', async () => {
+test('deviceStatsAndProcesses returns sane, in-range values for both halves of the merged call', async () => {
   const adb = new DemoAdbService();
-  const stats = await adb.deviceStats(DEMO_SERIAL);
+  const { stats, processes } = await adb.deviceStatsAndProcesses(DEMO_SERIAL);
   assert.ok(stats.cpuPercent !== undefined && stats.cpuPercent >= 0 && stats.cpuPercent <= 100);
   assert.ok(stats.memTotalKB > 0);
   assert.ok(stats.memUsedKB >= 0 && stats.memUsedKB <= stats.memTotalKB);
   assert.ok(stats.batteryLevel !== undefined && stats.batteryLevel >= 0 && stats.batteryLevel <= 100);
+  // Подтверждает, что MONITOR_STATS_SEPARATOR действительно разрезал
+  // объединённый demo-вывод на все 4 секции, а не только на первую (cpu) --
+  // пустой processes означал бы, что parseProcessList получил не тот кусок.
+  assert.ok(processes.length > 0);
+  assert.ok(processes.every((p) => typeof p.pid === 'number' && p.name.length > 0));
 });
 
 test('port forwarding: add, list, remove round-trip', async () => {

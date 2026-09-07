@@ -11,6 +11,7 @@ import { CrashTraceFile } from './adb/types/CrashTraceFile';
 import { PackageDiffResult } from './adb/parsers/PackageDiff';
 import { AppSettings } from './settings/AppSettingsStore';
 import { DeviceStats } from './adb/types/DeviceStats';
+import { RunningProcess } from './adb/types/RunningProcess';
 import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
 import { IntentPreset } from './adb/types/IntentPreset';
 import { Macro } from './adb/types/Macro';
@@ -213,9 +214,10 @@ contextBridge.exposeInMainWorld('adbApi', {
   // Свойства устройства
   allProperties: (serial: string) => ipcRenderer.invoke('adb:allProperties', serial),
 
-  // Мониторинг
-  deviceStats: (serial: string) => ipcRenderer.invoke('adb:deviceStats', serial),
-  runningProcesses: (serial: string) => ipcRenderer.invoke('adb:runningProcesses', serial),
+  // Мониторинг -- один вызов вместо deviceStats+runningProcesses по
+  // отдельности, см. AdbService.deviceStatsAndProcesses().
+  deviceStatsAndProcesses: (serial: string): Promise<{ stats: DeviceStats; processes: RunningProcess[] }> =>
+    ipcRenderer.invoke('adb:deviceStatsAndProcesses', serial),
   killProcess: (serial: string, pid: number) => ipcRenderer.invoke('adb:killProcess', serial, pid),
 
   securityInfo: (serial: string): Promise<SecurityFinding[]> => ipcRenderer.invoke('adb:securityInfo', serial),

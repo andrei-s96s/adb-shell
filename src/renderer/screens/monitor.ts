@@ -68,7 +68,7 @@ async function poll(serial: string): Promise<void> {
   // Устройство могло смениться, пока летел предыдущий запрос — не затираем
   // данные другого устройства результатом, пришедшим слишком поздно.
   try {
-    const [stats, processes] = await Promise.all([adbApi.deviceStats(serial), adbApi.runningProcesses(serial)]);
+    const { stats, processes } = await adbApi.deviceStatsAndProcesses(serial);
     if (getCurrentSerial() !== serial) return;
     renderStats(stats);
     renderProcesses(processes, serial);

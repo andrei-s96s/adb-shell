@@ -397,8 +397,7 @@ export interface AdbApi {
 
   allProperties(serial: string): Promise<DeviceProperty[]>;
 
-  deviceStats(serial: string): Promise<DeviceStats>;
-  runningProcesses(serial: string): Promise<RunningProcess[]>;
+  deviceStatsAndProcesses(serial: string): Promise<{ stats: DeviceStats; processes: RunningProcess[] }>;
   killProcess(serial: string, pid: number): Promise<void>;
 
   securityInfo(serial: string): Promise<SecurityFinding[]>;

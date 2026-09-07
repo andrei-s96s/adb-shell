@@ -59,6 +59,18 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 // уронит по памяти весь main-процесс, а не только вкладку Shell.
 const MAX_OUTPUT_BYTES = 200 * 1024 * 1024;
 
+// Команда и разделитель для deviceStatsAndProcesses() ниже -- экспортированы,
+// чтобы DemoAdbService.ts мог распознать ровно ЭТУ строку среди "сырых"
+// shell-команд и собрать демо-эквивалент вывода тем же разделителем, не
+// дублируя саму команду по отдельности в двух местах.
+export const MONITOR_STATS_SEPARATOR = '__ADBSHELL_MONITOR_SEP__';
+export const MONITOR_STATS_COMMAND = [
+  'dumpsys cpuinfo',
+  'cat /proc/meminfo',
+  'dumpsys battery',
+  'ps -A -o PID,PPID,USER,RSS,NAME',
+].join(`; echo ${MONITOR_STATS_SEPARATOR}; `);
+
 export class AdbService {
   readonly adbPath: string;
 
@@ -435,18 +447,25 @@ export class AdbService {
 
   // MARK: Мониторинг
 
-  async deviceStats(serial: string): Promise<DeviceStats> {
-    const [cpu, mem, battery] = await Promise.all([
-      this.run(['shell', 'dumpsys', 'cpuinfo'], { serial }),
-      this.run(['shell', 'cat', '/proc/meminfo'], { serial }),
-      this.run(['shell', 'dumpsys', 'battery'], { serial }),
-    ]);
-    return parseDeviceStats(combinedOutput(cpu), combinedOutput(mem), combinedOutput(battery));
-  }
-
-  async runningProcesses(serial: string): Promise<RunningProcess[]> {
-    const result = await this.run(['shell', 'ps', '-A', '-o', 'PID,PPID,USER,RSS,NAME'], { serial });
-    return parseProcessList(result.stdout);
+  /** Вкладка Мониторинг опрашивает это раз в POLL_INTERVAL_MS (2с, см.
+   * monitor.ts), пока открыта -- раньше deviceStats() и runningProcesses()
+   * были отдельными методами и вместе спавнили 4 ADB-процесса НА КАЖДЫЙ
+   * тик (dumpsys cpuinfo + cat /proc/meminfo + dumpsys battery + ps -A),
+   * непрерывно, пока экран открыт. Склеены в один `adb shell` вызов --
+   * четыре команды через ';' в одной строке аргументом (та же техника, что
+   * уже используется для сырого пользовательского ввода в shell()/
+   * runRaw()), разделены MONITOR_STATS_SEPARATOR в выводе. ';' (не '&&') --
+   * осознанно: одна упавшая команда не должна мешать остальным трём
+   * выполниться и попасть в вывод. */
+  async deviceStatsAndProcesses(serial: string): Promise<{ stats: DeviceStats; processes: RunningProcess[] }> {
+    const result = await this.run(['shell', MONITOR_STATS_COMMAND], { serial });
+    const [cpuOutput = '', memOutput = '', batteryOutput = '', processOutput = ''] = result.stdout
+      .split(MONITOR_STATS_SEPARATOR)
+      .map((s) => s.trim());
+    return {
+      stats: parseDeviceStats(cpuOutput, memOutput, batteryOutput),
+      processes: parseProcessList(processOutput),
+    };
   }
 
   async killProcess(serial: string, pid: number): Promise<void> {

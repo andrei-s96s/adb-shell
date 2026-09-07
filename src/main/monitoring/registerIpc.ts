@@ -9,8 +9,10 @@ import { DeviceStats } from '../adb/types/DeviceStats';
 import { analyzeSecurity } from '../adb/parsers/DeviceSecurityAnalyzer';
 
 export function registerMonitoringIpc(ctx: IpcContext): void {
-  ipcMain.handle('adb:deviceStats', (_e, serial: string) => ctx.adb.deviceStats(serial));
-  ipcMain.handle('adb:runningProcesses', (_e, serial: string) => ctx.adb.runningProcesses(serial));
+  // Один вызов вместо двух -- deviceStats и runningProcesses раньше были
+  // отдельными IPC-каналами (4 отдельных adb-процесса вместе), см.
+  // AdbService.deviceStatsAndProcesses() про склейку.
+  ipcMain.handle('adb:deviceStatsAndProcesses', (_e, serial: string) => ctx.adb.deviceStatsAndProcesses(serial));
   ipcMain.handle('adb:killProcess', (_e, serial: string, pid: number) => ctx.adb.killProcess(serial, pid));
 
   // Безопасность устройства -- разовая проверка (свойства не меняются на
