@@ -6,8 +6,8 @@
 // новым полем в тот же файл, а не отдельным стором на каждую мелочь.
 
 import { app } from 'electron';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
 export interface AppSettings {
   statsAlertsEnabled: boolean;
@@ -46,30 +46,16 @@ export class AppSettingsStore {
   private settings: AppSettings;
 
   constructor() {
-    this.settings = { ...DEFAULTS, ...this.load() };
+    const loaded = loadJsonStore<Partial<AppSettings>>(this.configPath, (p) => !!p && typeof p === 'object', {});
+    this.settings = { ...DEFAULTS, ...loaded };
   }
 
   private get configPath(): string {
     return path.join(app.getPath('userData'), CONFIG_FILE);
   }
 
-  private load(): Partial<AppSettings> {
-    try {
-      const raw = fs.readFileSync(this.configPath, 'utf8');
-      const parsed = JSON.parse(raw) as unknown;
-      return parsed && typeof parsed === 'object' ? (parsed as Partial<AppSettings>) : {};
-    } catch {
-      return {};
-    }
-  }
-
   private save(): void {
-    try {
-      fs.mkdirSync(path.dirname(this.configPath), { recursive: true });
-      fs.writeFileSync(this.configPath, JSON.stringify(this.settings));
-    } catch {
-      // Не критично — просто не переживёт перезапуск.
-    }
+    saveJsonStore(this.configPath, this.settings);
   }
 
   get(): AppSettings {

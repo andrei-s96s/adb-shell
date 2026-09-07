@@ -3,12 +3,12 @@
 // userData/intent-presets.json.
 
 import { app } from 'electron';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import { IntentPreset } from '../adb/types/IntentPreset';
 import { addPreset, removePreset } from './intentPresetsLogic';
+import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
 const CONFIG_FILE = 'intent-presets.json';
 
@@ -16,30 +16,15 @@ export class IntentPresetStore {
   private presets: IntentPreset[];
 
   constructor() {
-    this.presets = this.load();
+    this.presets = loadJsonStore<IntentPreset[]>(this.configPath, Array.isArray, []);
   }
 
   private get configPath(): string {
     return path.join(app.getPath('userData'), CONFIG_FILE);
   }
 
-  private load(): IntentPreset[] {
-    try {
-      const raw = fs.readFileSync(this.configPath, 'utf8');
-      const parsed = JSON.parse(raw) as unknown;
-      return Array.isArray(parsed) ? (parsed as IntentPreset[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
   private save(): void {
-    try {
-      fs.mkdirSync(path.dirname(this.configPath), { recursive: true });
-      fs.writeFileSync(this.configPath, JSON.stringify(this.presets));
-    } catch {
-      // Не критично — просто не переживёт перезапуск.
-    }
+    saveJsonStore(this.configPath, this.presets);
   }
 
   list(): IntentPreset[] {

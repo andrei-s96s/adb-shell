@@ -2,11 +2,11 @@
 // заменён на userData/shell-history.json.
 
 import { app } from 'electron';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import { SavedCommand, recordCommand, favoriteCommand, toggleFavorite, removeCommand } from './shellHistoryLogic';
+import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
 const CONFIG_FILE = 'shell-history.json';
 
@@ -14,30 +14,15 @@ export class ShellHistoryStore {
   private items: SavedCommand[];
 
   constructor() {
-    this.items = this.load();
+    this.items = loadJsonStore<SavedCommand[]>(this.configPath, Array.isArray, []);
   }
 
   private get configPath(): string {
     return path.join(app.getPath('userData'), CONFIG_FILE);
   }
 
-  private load(): SavedCommand[] {
-    try {
-      const raw = fs.readFileSync(this.configPath, 'utf8');
-      const parsed = JSON.parse(raw) as unknown;
-      return Array.isArray(parsed) ? (parsed as SavedCommand[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
   private save(): void {
-    try {
-      fs.mkdirSync(path.dirname(this.configPath), { recursive: true });
-      fs.writeFileSync(this.configPath, JSON.stringify(this.items));
-    } catch {
-      // Не критично — просто не переживёт перезапуск.
-    }
+    saveJsonStore(this.configPath, this.items);
   }
 
   list(): SavedCommand[] {

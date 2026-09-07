@@ -2,12 +2,12 @@
 // макросов. UserDefaults заменён на userData/macros.json.
 
 import { app } from 'electron';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import { Macro } from '../adb/types/Macro';
 import { addMacro, updateMacro, removeMacro, mergeImportedMacros } from './macrosLogic';
+import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
 const CONFIG_FILE = 'macros.json';
 
@@ -15,30 +15,15 @@ export class MacroStore {
   private macros: Macro[];
 
   constructor() {
-    this.macros = this.load();
+    this.macros = loadJsonStore<Macro[]>(this.configPath, Array.isArray, []);
   }
 
   private get configPath(): string {
     return path.join(app.getPath('userData'), CONFIG_FILE);
   }
 
-  private load(): Macro[] {
-    try {
-      const raw = fs.readFileSync(this.configPath, 'utf8');
-      const parsed = JSON.parse(raw) as unknown;
-      return Array.isArray(parsed) ? (parsed as Macro[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
   private save(): void {
-    try {
-      fs.mkdirSync(path.dirname(this.configPath), { recursive: true });
-      fs.writeFileSync(this.configPath, JSON.stringify(this.macros));
-    } catch {
-      // Не критично — просто не переживёт перезапуск.
-    }
+    saveJsonStore(this.configPath, this.macros);
   }
 
   list(): Macro[] {

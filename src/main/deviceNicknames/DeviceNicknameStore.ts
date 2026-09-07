@@ -4,10 +4,10 @@
 // userData/device-nicknames.json.
 
 import { app } from 'electron';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { NicknameMap, applySetNickname } from './deviceNicknamesLogic';
+import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
 const CONFIG_FILE = 'device-nicknames.json';
 
@@ -15,30 +15,11 @@ export class DeviceNicknameStore {
   private nicknames: NicknameMap;
 
   constructor() {
-    this.nicknames = this.load();
+    this.nicknames = loadJsonStore<NicknameMap>(this.configPath, (p) => !!p && typeof p === 'object', {});
   }
 
   private get configPath(): string {
     return path.join(app.getPath('userData'), CONFIG_FILE);
-  }
-
-  private load(): NicknameMap {
-    try {
-      const raw = fs.readFileSync(this.configPath, 'utf8');
-      const parsed = JSON.parse(raw) as unknown;
-      return parsed && typeof parsed === 'object' ? (parsed as NicknameMap) : {};
-    } catch {
-      return {};
-    }
-  }
-
-  private save(): void {
-    try {
-      fs.mkdirSync(path.dirname(this.configPath), { recursive: true });
-      fs.writeFileSync(this.configPath, JSON.stringify(this.nicknames));
-    } catch {
-      // Не критично — просто не переживёт перезапуск.
-    }
   }
 
   list(): NicknameMap {
@@ -47,7 +28,7 @@ export class DeviceNicknameStore {
 
   setNickname(serial: string, name: string): NicknameMap {
     this.nicknames = applySetNickname(this.nicknames, serial, name);
-    this.save();
+    saveJsonStore(this.configPath, this.nicknames);
     return this.nicknames;
   }
 }
