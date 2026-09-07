@@ -1,7 +1,7 @@
 // Порт бизнес-логики MacroStore из Sources/AdbShell/Services/MacroStore.swift
 // — чистые функции, не зависящие от electron/fs.
 
-import { Macro, MacroStep } from '../adb/types/Macro';
+import { Macro, MacroStep, MAX_MACRO_STEP_DELAY_MS } from '../adb/types/Macro';
 
 /** Разбирает вставленный текст (в том числе целиком вставленный .bat-скрипт
  * прошивки) на шаги макроса: берёт только строки, начинающиеся с `adb`
@@ -36,35 +36,61 @@ export function parseSteps(rawText: string, makeId: () => string): MacroStep[] {
   return steps;
 }
 
+/** Приводит шаги, пришедшие из структурного редактора (macros.ts), к
+ * сохраняемому виду: подрезает пробелы в командах, отбрасывает пустые
+ * незаполненные командные шаги (та же логика, что раньше отбрасывала
+ * пустые/нераспознанные строки в parseSteps -- пустая строка сама по себе
+ * ничего не значит), и ограничивает задержку шага-паузы диапазоном
+ * [0, MAX_MACRO_STEP_DELAY_MS], подставляя 0 вместо NaN/отрицательного
+ * значения -- на случай макроса, отредактированного вручную в JSON.
+ * Задержки, в отличие от команд, никогда не отбрасываются целиком: сама их
+ * задержка "0 мс", в отличие от пустой команды, не бессмысленна, а просто
+ * равна отсутствию паузы. */
+function sanitizeSteps(steps: MacroStep[]): MacroStep[] {
+  const sanitized: MacroStep[] = [];
+  for (const step of steps) {
+    if (step.isDelay) {
+      const delayMs = Number.isFinite(step.delayMs) ? Math.min(Math.max(0, step.delayMs as number), MAX_MACRO_STEP_DELAY_MS) : 0;
+      sanitized.push({ id: step.id, argsLine: '', isDelay: true, delayMs });
+    } else {
+      const argsLine = step.argsLine.trim();
+      if (argsLine.length === 0) continue;
+      sanitized.push({ id: step.id, argsLine, runIf: step.runIf });
+    }
+  }
+  return sanitized;
+}
+
 export function addMacro(
   macros: Macro[],
   name: string,
-  rawText: string,
+  steps: MacroStep[],
   autorunOnConnect: boolean,
   abortOnFirstFailure: boolean,
   makeId: () => string,
   hotkeyAccelerator?: string
 ): Macro[] {
   const trimmedName = name.trim();
-  const steps = parseSteps(rawText, makeId);
-  if (trimmedName.length === 0 || steps.length === 0) return macros;
-  return [...macros, { id: makeId(), name: trimmedName, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator }];
+  const sanitizedSteps = sanitizeSteps(steps);
+  if (trimmedName.length === 0 || sanitizedSteps.length === 0) return macros;
+  return [...macros, { id: makeId(), name: trimmedName, steps: sanitizedSteps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator }];
 }
 
 export function updateMacro(
   macros: Macro[],
   id: string,
   name: string,
-  rawText: string,
+  steps: MacroStep[],
   autorunOnConnect: boolean,
   abortOnFirstFailure: boolean,
-  makeId: () => string,
   hotkeyAccelerator?: string
 ): Macro[] {
   const trimmedName = name.trim();
-  const steps = parseSteps(rawText, makeId);
-  if (trimmedName.length === 0 || steps.length === 0) return macros;
-  return macros.map((m) => (m.id === id ? { ...m, name: trimmedName, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator } : m));
+  const sanitizedSteps = sanitizeSteps(steps);
+  if (trimmedName.length === 0 || sanitizedSteps.length === 0) return macros;
+  return macros.map((m) =>
+    m.id === id ? { ...m, name: trimmedName, steps: sanitizedSteps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator } : m
+  );
 }
 
 export function removeMacro(macros: Macro[], id: string): Macro[] {

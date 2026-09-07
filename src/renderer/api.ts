@@ -204,6 +204,9 @@ export interface IntentPreset {
 export interface MacroStep {
   id: string;
   argsLine: string;
+  isDelay?: boolean;
+  delayMs?: number;
+  runIf?: 'onPreviousSuccess' | 'onPreviousFailure';
 }
 
 export interface Macro {
@@ -220,6 +223,7 @@ export interface MacroRunResult {
   argsLine: string;
   output: string;
   isError: boolean;
+  skipped?: boolean;
 }
 
 export interface MacroRunOutcome {
@@ -401,7 +405,7 @@ export interface AdbApi {
   macrosList(): Promise<Macro[]>;
   macrosAdd(
     name: string,
-    rawText: string,
+    steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
     hotkeyAccelerator?: string
@@ -409,11 +413,12 @@ export interface AdbApi {
   macrosUpdate(
     id: string,
     name: string,
-    rawText: string,
+    steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
     hotkeyAccelerator?: string
   ): Promise<Macro[]>;
+  macrosParseScript(rawText: string): Promise<MacroStep[]>;
   macrosRemove(id: string): Promise<Macro[]>;
   macrosAddTag(id: string, tag: string): Promise<Macro[]>;
   macrosRemoveTag(id: string, tag: string): Promise<Macro[]>;

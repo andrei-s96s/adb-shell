@@ -2,9 +2,17 @@
 // последовательности adb-команд, запускаются одной кнопкой.
 
 import { adbApi, el, errorMessage } from '../api.js';
-import type { Macro, MacroRunResult } from '../api.js';
+import type { Macro, MacroStep, MacroRunResult } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
 import { openModal, openTextPromptModal } from '../modal.js';
+
+/** Дубликат Macro.MAX_MACRO_STEP_DELAY_MS (main/adb/types/Macro.ts) -- тот
+ * же принцип дублирования чистой константы, что и у extractVariableNames
+ * ниже (renderer не импортирует файлы main/* напрямую). Здесь используется
+ * только как атрибут max у числового поля (подсказка браузеру/пользователю)
+ * -- реальное ограничение применяется на сохранении, в sanitizeSteps
+ * (main/macros/macrosLogic.ts), единственном источнике истины по клампу. */
+const MAX_MACRO_STEP_DELAY_MS = 300_000;
 
 let listEl: HTMLUListElement;
 let statusEl: HTMLDivElement;
@@ -255,10 +263,17 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
       const stepLi = document.createElement('li');
       stepLi.className = 'row';
       const result = results?.[index];
-      const icon = result ? (result.isError ? '✗ ' : '✓ ') : '';
+      // ✓/✗ -- обычный шаг с результатом; ⏭ -- пропущен своим runIf (не
+      // ошибка, поэтому не крестик); "" -- ещё не выполнялся (задержка тоже
+      // молчит, у неё нет своего значка, только текст, см. ниже).
+      const icon = result ? (result.skipped ? '⏭ ' : result.isError ? '✗ ' : '✓ ') : '';
+      const stepText = step.isDelay
+        ? `⏱ задержка ${step.delayMs ?? 0} мс`
+        : `${icon}adb ${step.argsLine}${step.runIf === 'onPreviousSuccess' ? ' (если пред. успешен)' : step.runIf === 'onPreviousFailure' ? ' (если пред. с ошибкой)' : ''}`;
       const stepLabel = document.createElement('span');
-      stepLabel.textContent = `${icon}adb ${step.argsLine}`;
+      stepLabel.textContent = step.isDelay ? `${icon}${stepText}` : stepText;
       if (result?.isError) stepLabel.style.color = 'var(--cp-crimson)';
+      else if (result?.skipped) stepLabel.style.color = 'var(--cp-text-muted)';
       stepLi.appendChild(stepLabel);
       stepsEl.appendChild(stepLi);
     });
@@ -343,6 +358,13 @@ function promptVariables(macroName: string, names: string[]): Promise<Record<str
 }
 
 function openEditor(existing?: Macro): void {
+  // Клон шагов -- редактор мутирует этот локальный массив напрямую (по
+  // ссылкам на объекты при переключении runIf/delayMs, по индексам при
+  // добавлении/удалении/перестановке), не трогая existing.steps до самого
+  // нажатия "Сохранить" -- закрытие модалки без сохранения не должно
+  // оставлять следов в уже отрисованном списке.
+  let steps: MacroStep[] = existing ? existing.steps.map((s) => ({ ...s })) : [];
+
   openModal(existing ? 'Изменить макрос' : 'Новый макрос', (body, modal) => {
     const nameInput = document.createElement('input');
     nameInput.placeholder = 'Имя макроса';
@@ -351,32 +373,198 @@ function openEditor(existing?: Macro): void {
     nameInput.style.marginBottom = 'var(--space-8)';
     body.appendChild(nameInput);
 
-    const textarea = document.createElement('textarea');
-    textarea.placeholder = 'adb root\nadb remount\nadb shell ...';
-    textarea.rows = 10;
-    textarea.style.width = '100%';
-    textarea.style.fontFamily = 'var(--cp-mono)';
-    textarea.style.fontSize = 'var(--fs-12)';
-    textarea.style.padding = 'var(--space-8)';
-    textarea.style.borderRadius = 'var(--radius-8)';
-    textarea.style.border = '1px solid var(--cp-hairline)';
-    textarea.style.background = 'var(--cp-bg-panel-alt)';
-    textarea.style.color = 'var(--cp-text-primary)';
-    textarea.value = existing ? existing.steps.map((s) => `adb ${s.argsLine}`).join('\n') : '';
-    body.appendChild(textarea);
+    // errorEl создаётся здесь, но добавляется в body ниже, рядом с кнопкой
+    // "Сохранить" (как и раньше) -- нужен пораньше по коду, потому что на
+    // него ссылается обработчик "Вставить скрипт…" в секции шагов, а
+    // ссылка внутри замыкания видит его к моменту реального клика (после
+    // того как build() уже целиком отработает), а не к моменту объявления.
+    const errorEl = document.createElement('div');
+    errorEl.className = 'error';
 
-    const stepCountEl = document.createElement('div');
-    stepCountEl.className = 'hint';
-    body.appendChild(stepCountEl);
-    const updateStepCount = (): void => {
-      const count = textarea.value
-        .split(/\r\n|\r|\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.toLowerCase().startsWith('adb ')).length;
-      stepCountEl.textContent = `Строк, распознанных как шаги: ${count}`;
+    const stepsHeader = document.createElement('div');
+    stepsHeader.className = 'hint';
+    stepsHeader.textContent = 'Шаги (выполняются по порядку сверху вниз):';
+    body.appendChild(stepsHeader);
+
+    const stepsListEl = document.createElement('div');
+    stepsListEl.style.marginTop = 'var(--space-4)';
+    body.appendChild(stepsListEl);
+
+    const renderSteps = (): void => {
+      stepsListEl.innerHTML = '';
+      steps.forEach((step, index) => stepsListEl.appendChild(renderStepRow(step, index)));
     };
-    textarea.addEventListener('input', updateStepCount);
-    updateStepCount();
+
+    const renderStepRow = (step: MacroStep, index: number): HTMLDivElement => {
+      const row = document.createElement('div');
+      row.className = 'toolbar';
+      row.style.marginBottom = 'var(--space-4)';
+
+      const indexLabel = document.createElement('span');
+      indexLabel.className = 'hint';
+      indexLabel.style.minWidth = '20px';
+      indexLabel.textContent = `${index + 1}.`;
+      row.appendChild(indexLabel);
+
+      if (step.isDelay) {
+        const delayIcon = document.createElement('span');
+        delayIcon.className = 'hint';
+        delayIcon.textContent = '⏱ задержка';
+        row.appendChild(delayIcon);
+
+        const delayInput = document.createElement('input');
+        delayInput.type = 'number';
+        delayInput.className = 'input-narrow';
+        delayInput.min = '0';
+        delayInput.max = String(MAX_MACRO_STEP_DELAY_MS);
+        delayInput.value = String(step.delayMs ?? 0);
+        delayInput.addEventListener('input', () => {
+          step.delayMs = Math.max(0, Number(delayInput.value) || 0);
+        });
+        row.appendChild(delayInput);
+
+        const msLabel = document.createElement('span');
+        msLabel.className = 'hint';
+        msLabel.textContent = 'мс';
+        row.appendChild(msLabel);
+      } else {
+        const commandInput = document.createElement('input');
+        commandInput.type = 'text';
+        commandInput.placeholder = 'shell pm list packages (без "adb " в начале)';
+        commandInput.value = step.argsLine;
+        commandInput.addEventListener('input', () => {
+          step.argsLine = commandInput.value;
+        });
+        row.appendChild(commandInput);
+
+        const runIfSelect = document.createElement('select');
+        const runIfOptions: Array<['' | 'onPreviousSuccess' | 'onPreviousFailure', string]> = [
+          ['', 'Всегда'],
+          ['onPreviousSuccess', 'Если пред. успешен'],
+          ['onPreviousFailure', 'Если пред. с ошибкой'],
+        ];
+        for (const [value, text] of runIfOptions) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = text;
+          option.selected = (step.runIf ?? '') === value;
+          runIfSelect.appendChild(option);
+        }
+        runIfSelect.addEventListener('change', () => {
+          step.runIf = runIfSelect.value === '' ? undefined : (runIfSelect.value as 'onPreviousSuccess' | 'onPreviousFailure');
+        });
+        row.appendChild(runIfSelect);
+      }
+
+      const upBtn = document.createElement('button');
+      upBtn.type = 'button';
+      upBtn.textContent = '▲';
+      upBtn.title = 'Переместить выше';
+      upBtn.disabled = index === 0;
+      upBtn.addEventListener('click', () => {
+        [steps[index - 1], steps[index]] = [steps[index], steps[index - 1]];
+        renderSteps();
+      });
+      row.appendChild(upBtn);
+
+      const downBtn = document.createElement('button');
+      downBtn.type = 'button';
+      downBtn.textContent = '▼';
+      downBtn.title = 'Переместить ниже';
+      downBtn.disabled = index === steps.length - 1;
+      downBtn.addEventListener('click', () => {
+        [steps[index], steps[index + 1]] = [steps[index + 1], steps[index]];
+        renderSteps();
+      });
+      row.appendChild(downBtn);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Удалить шаг';
+      removeBtn.addEventListener('click', () => {
+        steps = steps.filter((_, i) => i !== index);
+        renderSteps();
+      });
+      row.appendChild(removeBtn);
+
+      return row;
+    };
+
+    renderSteps();
+
+    const stepsToolbar = document.createElement('div');
+    stepsToolbar.className = 'toolbar';
+    const addStepBtn = document.createElement('button');
+    addStepBtn.type = 'button';
+    addStepBtn.textContent = '+ Шаг';
+    addStepBtn.addEventListener('click', () => {
+      steps.push({ id: crypto.randomUUID(), argsLine: '' });
+      renderSteps();
+    });
+    stepsToolbar.appendChild(addStepBtn);
+
+    const addDelayBtn = document.createElement('button');
+    addDelayBtn.type = 'button';
+    addDelayBtn.textContent = '+ Задержка';
+    addDelayBtn.addEventListener('click', () => {
+      steps.push({ id: crypto.randomUUID(), argsLine: '', isDelay: true, delayMs: 1000 });
+      renderSteps();
+    });
+    stepsToolbar.appendChild(addDelayBtn);
+
+    const pasteScriptBtn = document.createElement('button');
+    pasteScriptBtn.type = 'button';
+    pasteScriptBtn.textContent = 'Вставить скрипт…';
+    stepsToolbar.appendChild(pasteScriptBtn);
+    body.appendChild(stepsToolbar);
+
+    // Свёрнутый по умолчанию блок массовой вставки -- альтернатива ручному
+    // добавлению по одному шагу: вставить целиком .bat-скрипт прошивки (или
+    // просто список "adb ..." строк), распознанные шаги ДОБАВЛЯЮТСЯ в конец
+    // уже редактируемого списка (не заменяют его).
+    const pasteBlock = document.createElement('div');
+    pasteBlock.hidden = true;
+    const pasteTextarea = document.createElement('textarea');
+    pasteTextarea.placeholder = 'adb root\nadb remount\nadb shell ...';
+    pasteTextarea.rows = 6;
+    pasteTextarea.style.width = '100%';
+    pasteTextarea.style.fontFamily = 'var(--cp-mono)';
+    pasteTextarea.style.fontSize = 'var(--fs-12)';
+    pasteTextarea.style.padding = 'var(--space-8)';
+    pasteTextarea.style.borderRadius = 'var(--radius-8)';
+    pasteTextarea.style.border = '1px solid var(--cp-hairline)';
+    pasteTextarea.style.background = 'var(--cp-bg-panel-alt)';
+    pasteTextarea.style.color = 'var(--cp-text-primary)';
+    pasteBlock.appendChild(pasteTextarea);
+    const pasteConfirmBtn = document.createElement('button');
+    pasteConfirmBtn.type = 'button';
+    pasteConfirmBtn.textContent = 'Добавить шаги';
+    pasteConfirmBtn.style.marginTop = 'var(--space-6)';
+    pasteBlock.appendChild(pasteConfirmBtn);
+    body.appendChild(pasteBlock);
+
+    pasteScriptBtn.addEventListener('click', () => {
+      pasteBlock.hidden = !pasteBlock.hidden;
+      if (!pasteBlock.hidden) pasteTextarea.focus();
+    });
+    pasteConfirmBtn.addEventListener('click', () => {
+      adbApi
+        .macrosParseScript(pasteTextarea.value)
+        .then((parsed) => {
+          steps = [...steps, ...parsed];
+          pasteTextarea.value = '';
+          pasteBlock.hidden = true;
+          renderSteps();
+        })
+        .catch((error) => (errorEl.textContent = errorMessage(error)));
+    });
+
+    const stepsHintEl = document.createElement('div');
+    stepsHintEl.className = 'hint';
+    stepsHintEl.textContent =
+      '«Если пред. успешен/с ошибкой» смотрит на результат ближайшего ПРЕДЫДУЩЕГО обычного шага (задержки пропускаются); если такого шага нет или он сам был пропущен -- шаг тоже будет пропущен.';
+    body.appendChild(stepsHintEl);
 
     const flagsRow = document.createElement('div');
     flagsRow.className = 'toolbar';
@@ -416,8 +604,6 @@ function openEditor(existing?: Macro): void {
       'Формат Electron Accelerator (модификаторы через "+": CommandOrControl, Alt, Shift). Работает даже когда окно не в фокусе, но не для макросов с переменными ${ИМЯ} -- их некому спросить без открытого окна.';
     body.appendChild(hotkeyHintEl);
 
-    const errorEl = document.createElement('div');
-    errorEl.className = 'error';
     body.appendChild(errorEl);
 
     const saveBtn = document.createElement('button');
@@ -429,16 +615,24 @@ function openEditor(existing?: Macro): void {
         errorEl.textContent = 'Укажите имя макроса';
         return;
       }
+      // Проверяем ДО вызова add/update -- раньше это определялось постфактум
+      // по тому, изменилась ли длина списка макросов, что работало только
+      // для добавления нового (для редактирования существующего "0 шагов"
+      // тихо схлопывалось в no-op без единого сообщения об ошибке). Здесь
+      // же то же самое, что использует sanitizeSteps на стороне main
+      // (macrosLogic.ts) для реального решения "сохранять или нет", только
+      // клиентская копия ради мгновенной проверки без похода на сервер.
+      const hasMeaningfulStep = steps.some((s) => s.isDelay || s.argsLine.trim().length > 0);
+      if (!hasMeaningfulStep) {
+        errorEl.textContent = 'Добавьте хотя бы один шаг с командой или задержкой';
+        return;
+      }
       const hotkeyAccelerator = hotkeyInput.value.trim() || undefined;
       const action = existing
-        ? adbApi.macrosUpdate(existing.id, name, textarea.value, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator)
-        : adbApi.macrosAdd(name, textarea.value, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator);
+        ? adbApi.macrosUpdate(existing.id, name, steps, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator)
+        : adbApi.macrosAdd(name, steps, autorunCheckbox.checked, abortCheckbox.checked, hotkeyAccelerator);
       action
         .then((updated) => {
-          if (updated.length === macros.length && !existing) {
-            errorEl.textContent = 'Не удалось разобрать ни одного шага (строки должны начинаться с "adb ")';
-            return;
-          }
           macros = updated;
           // main уже перерегистрировал хоткеи синхронно внутри macros:add/
           // update (см. applyMacroHotkeys в main.ts) -- к моменту этого then

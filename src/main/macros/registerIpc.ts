@@ -2,8 +2,11 @@
 
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import * as fsPromises from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { IpcContext } from '../ipcContext';
 import { runMacro } from './MacroRunner';
+import { parseSteps } from './macrosLogic';
+import { MacroStep } from '../adb/types/Macro';
 import { showSaveDialogFor, showOpenDialogFor } from '../util/dialogs';
 
 export function registerMacrosIpc(ctx: IpcContext): void {
@@ -12,8 +15,8 @@ export function registerMacrosIpc(ctx: IpcContext): void {
   ipcMain.handle('macros:list', () => macroStore.list());
   ipcMain.handle(
     'macros:add',
-    (_e, name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean, hotkeyAccelerator?: string) => {
-      const updated = macroStore.add(name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
+    (_e, name: string, steps: MacroStep[], autorunOnConnect: boolean, abortOnFirstFailure: boolean, hotkeyAccelerator?: string) => {
+      const updated = macroStore.add(name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
       ctx.applyMacroHotkeys();
       return updated;
     }
@@ -24,16 +27,23 @@ export function registerMacrosIpc(ctx: IpcContext): void {
       _e,
       id: string,
       name: string,
-      rawText: string,
+      steps: MacroStep[],
       autorunOnConnect: boolean,
       abortOnFirstFailure: boolean,
       hotkeyAccelerator?: string
     ) => {
-      const updated = macroStore.update(id, name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
+      const updated = macroStore.update(id, name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
       ctx.applyMacroHotkeys();
       return updated;
     }
   );
+  // Разбор вставленного скрипта в шаги -- вызывается редактором макроса
+  // (structured-editor в macros.ts) при клике "Вставить скрипт…", отдельно
+  // от macros:add/update: та же parseSteps(), что раньше вызывалась внутри
+  // add/update неявно, но теперь редактор сам решает, куда вставить
+  // получившиеся шаги в уже существующий структурный список (в конец,
+  // после ручных правок и т.п.), а не просто заменяет им весь макрос.
+  ipcMain.handle('macros:parseScript', (_e, rawText: string) => parseSteps(rawText, () => randomUUID()));
   ipcMain.handle('macros:remove', (_e, id: string) => {
     const updated = macroStore.remove(id);
     ctx.applyMacroHotkeys();

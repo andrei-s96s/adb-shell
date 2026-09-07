@@ -12,13 +12,17 @@
 
 import { AdbService } from '../adb/AdbService';
 import { combinedOutput } from '../adb/types/ProcessResult';
-import { Macro, MacroRunResult } from '../adb/types/Macro';
+import { Macro, MacroRunResult, MAX_MACRO_STEP_DELAY_MS } from '../adb/types/Macro';
 import { resolveVariables } from './macroRunnerLogic';
 import { tokenizeArgs } from '../adb/parsers/ShellQuoting';
 
 export interface MacroRunOutcome {
   completedFully: boolean;
   results: MacroRunResult[];
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function runMacro(
@@ -30,9 +34,41 @@ export async function runMacro(
 ): Promise<MacroRunOutcome> {
   const results: MacroRunResult[] = [];
   const total = macro.steps.length;
+  // Результат ближайшего ПРЕДЫДУЩЕГО обычного (не-задержки) шага -- на него
+  // смотрит runIf следующего обычного шага. Задержки его не трогают (см.
+  // ветку isDelay ниже -- пропущенный обычный шаг сбрасывает его в
+  // undefined (см. комментарий у Macro.runIf: условие смотрит только на
+  // шаг непосредственно перед собой, не ищет вглубь истории).
+  let lastCommandOutcome: 'success' | 'failure' | undefined;
+
   for (let index = 0; index < macro.steps.length; index++) {
     const step = macro.steps[index];
+
+    if (step.isDelay) {
+      const delayMs = Math.min(Math.max(0, step.delayMs ?? 0), MAX_MACRO_STEP_DELAY_MS);
+      await sleep(delayMs);
+      const stepResult: MacroRunResult = { argsLine: '', output: `Задержка ${delayMs} мс`, isError: false };
+      results.push(stepResult);
+      onStep?.(index, total, stepResult);
+      continue; // задержка прозрачна для lastCommandOutcome -- намеренно не трогаем его здесь
+    }
+
     const resolvedLine = resolveVariables(step.argsLine, variables);
+
+    const conditionMet =
+      step.runIf === 'onPreviousSuccess'
+        ? lastCommandOutcome === 'success'
+        : step.runIf === 'onPreviousFailure'
+          ? lastCommandOutcome === 'failure'
+          : true;
+    if (!conditionMet) {
+      const stepResult: MacroRunResult = { argsLine: resolvedLine, output: '', isError: false, skipped: true };
+      results.push(stepResult);
+      onStep?.(index, total, stepResult);
+      lastCommandOutcome = undefined; // пропуск -- тоже "неизвестный" исход для следующего условного шага
+      continue;
+    }
+
     const tokens = tokenizeArgs(resolvedLine);
     if (tokens.length === 0) continue;
     try {
@@ -41,11 +77,13 @@ export async function runMacro(
       const stepResult: MacroRunResult = { argsLine: resolvedLine, output: combinedOutput(result), isError };
       results.push(stepResult);
       onStep?.(index, total, stepResult);
+      lastCommandOutcome = isError ? 'failure' : 'success';
       if (isError && macro.abortOnFirstFailure) return { completedFully: false, results };
     } catch (error) {
       const stepResult: MacroRunResult = { argsLine: resolvedLine, output: (error as Error).message, isError: true };
       results.push(stepResult);
       onStep?.(index, total, stepResult);
+      lastCommandOutcome = 'failure';
       if (macro.abortOnFirstFailure) return { completedFully: false, results };
     }
   }

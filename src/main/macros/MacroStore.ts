@@ -5,7 +5,7 @@ import { app } from 'electron';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-import { Macro } from '../adb/types/Macro';
+import { Macro, MacroStep } from '../adb/types/Macro';
 import { addMacro, updateMacro, removeMacro, mergeImportedMacros, addMacroTag, removeMacroTag } from './macrosLogic';
 import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
@@ -34,8 +34,8 @@ export class MacroStore {
     return this.macros.find((m) => m.id === id);
   }
 
-  add(name: string, rawText: string, autorunOnConnect: boolean, abortOnFirstFailure: boolean, hotkeyAccelerator?: string): Macro[] {
-    this.macros = addMacro(this.macros, name, rawText, autorunOnConnect, abortOnFirstFailure, () => randomUUID(), hotkeyAccelerator);
+  add(name: string, steps: MacroStep[], autorunOnConnect: boolean, abortOnFirstFailure: boolean, hotkeyAccelerator?: string): Macro[] {
+    this.macros = addMacro(this.macros, name, steps, autorunOnConnect, abortOnFirstFailure, () => randomUUID(), hotkeyAccelerator);
     this.save();
     return this.macros;
   }
@@ -43,12 +43,12 @@ export class MacroStore {
   update(
     id: string,
     name: string,
-    rawText: string,
+    steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
     hotkeyAccelerator?: string
   ): Macro[] {
-    this.macros = updateMacro(this.macros, id, name, rawText, autorunOnConnect, abortOnFirstFailure, () => randomUUID(), hotkeyAccelerator);
+    this.macros = updateMacro(this.macros, id, name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator);
     this.save();
     return this.macros;
   }

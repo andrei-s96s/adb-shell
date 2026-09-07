@@ -15,7 +15,7 @@ import { DeviceStats } from './adb/types/DeviceStats';
 import { RunningProcess } from './adb/types/RunningProcess';
 import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
 import { IntentPreset } from './adb/types/IntentPreset';
-import { Macro, MacroRunResult } from './adb/types/Macro';
+import { Macro, MacroStep, MacroRunResult } from './adb/types/Macro';
 import { MacroRunOutcome } from './macros/MacroRunner';
 import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
 import { ManifestPackageDiff } from './appBundles/appBundleLogic';
@@ -205,20 +205,21 @@ contextBridge.exposeInMainWorld('adbApi', {
   macrosList: (): Promise<Macro[]> => ipcRenderer.invoke('macros:list'),
   macrosAdd: (
     name: string,
-    rawText: string,
+    steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
     hotkeyAccelerator?: string
-  ): Promise<Macro[]> => ipcRenderer.invoke('macros:add', name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
+  ): Promise<Macro[]> => ipcRenderer.invoke('macros:add', name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
   macrosUpdate: (
     id: string,
     name: string,
-    rawText: string,
+    steps: MacroStep[],
     autorunOnConnect: boolean,
     abortOnFirstFailure: boolean,
     hotkeyAccelerator?: string
   ): Promise<Macro[]> =>
-    ipcRenderer.invoke('macros:update', id, name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
+    ipcRenderer.invoke('macros:update', id, name, steps, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
+  macrosParseScript: (rawText: string): Promise<MacroStep[]> => ipcRenderer.invoke('macros:parseScript', rawText),
   macrosRemove: (id: string): Promise<Macro[]> => ipcRenderer.invoke('macros:remove', id),
   macrosAddTag: (id: string, tag: string): Promise<Macro[]> => ipcRenderer.invoke('macros:addTag', id, tag),
   macrosRemoveTag: (id: string, tag: string): Promise<Macro[]> => ipcRenderer.invoke('macros:removeTag', id, tag),
