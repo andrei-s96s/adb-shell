@@ -22,6 +22,7 @@ import { ScreenMirrorService } from './screenMirror/ScreenMirrorService';
 import { ConnectionProfileStore } from './connectionProfiles/ConnectionProfileStore';
 import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
 import { DevicePinStore } from './devicePins/DevicePinStore';
+import { DeviceTagStore } from './deviceTags/DeviceTagStore';
 import { AppSettingsStore } from './settings/AppSettingsStore';
 import { LogcatSession } from './adb/LogcatSession';
 import { DemoLogcatSession } from './adb/demo/DemoLogcatSession';
@@ -44,6 +45,7 @@ export interface IpcContext {
   readonly connectionProfiles: ConnectionProfileStore;
   readonly deviceNicknames: DeviceNicknameStore;
   readonly devicePins: DevicePinStore;
+  readonly deviceTags: DeviceTagStore;
   readonly appSettings: AppSettingsStore;
   readonly logcatSessions: Map<string, LogcatSession | DemoLogcatSession>;
   /** Определена в main.ts (нужны HOTKEY_ACCELERATOR/captureScreenshotToDesktop,

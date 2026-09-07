@@ -1,6 +1,7 @@
 import { adbApi, el, errorMessage } from './api.js';
 import type { Device, MdnsDevice, ConnectionProfile } from './api.js';
 import { setCurrentSerial, getCurrentSerial, onDeviceChanged } from './state.js';
+import { openTextPromptModal } from './modal.js';
 import { initTabs } from './tabs.js';
 import { initAppsScreen } from './screens/apps.js';
 import { initApkLibraryScreen } from './screens/apkLibrary.js';
@@ -24,6 +25,7 @@ const pairBtn = el<HTMLButtonElement>('pair-btn');
 const pairHostInput = el<HTMLInputElement>('pair-host');
 const pairCodeInput = el<HTMLInputElement>('pair-code');
 const pinnedStripEl = el<HTMLDivElement>('pinned-strip');
+const deviceTagFilterEl = el<HTMLDivElement>('device-tag-filter');
 const mdnsSectionEl = el<HTMLDivElement>('mdns-section');
 const mdnsListEl = el<HTMLUListElement>('mdns-list');
 const profilesListEl = el<HTMLUListElement>('profiles-list');
@@ -39,6 +41,11 @@ const demoModeBannerOffBtn = el<HTMLButtonElement>('demo-mode-banner-off');
 let devices: Device[] = [];
 let nicknames: Record<string, string> = {};
 let pinnedSerials: string[] = [];
+/** Теги устройств по serial -- тот же принцип, что и в apkLibrary.ts/
+ * macros.ts (ApkTagStore), но ключ здесь serial, а не путь к файлу/id
+ * макроса, см. DeviceTagStore. */
+let tagsBySerial: Record<string, string[]> = {};
+let activeDeviceTagFilter: string | undefined;
 let mdnsDevices: MdnsDevice[] = [];
 let profiles: ConnectionProfile[] = [];
 /** Демо-режим -- одно виртуальное устройство без реального adb, см.
@@ -175,8 +182,59 @@ function deviceStateBadge(state: Device['state']): { icon: string; hint: string 
   }
 }
 
+/** Чипы-фильтр по тегам устройств -- порт renderTagFilter() из apkLibrary.ts
+ * (ApkTagStore). */
+function renderDeviceTagFilter(): void {
+  const allTags = [...new Set(Object.values(tagsBySerial).flat())].sort();
+  deviceTagFilterEl.innerHTML = '';
+  if (activeDeviceTagFilter && !allTags.includes(activeDeviceTagFilter)) activeDeviceTagFilter = undefined;
+  for (const tag of allTags) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip' + (tag === activeDeviceTagFilter ? ' active' : '');
+    chip.textContent = tag;
+    chip.addEventListener('click', () => {
+      activeDeviceTagFilter = activeDeviceTagFilter === tag ? undefined : tag;
+      renderDeviceTagFilter();
+      renderDeviceList();
+    });
+    deviceTagFilterEl.appendChild(chip);
+  }
+}
+
+async function promptAddDeviceTag(device: Device): Promise<void> {
+  const tag = await openTextPromptModal('Добавить тег', 'тег');
+  if (!tag || !tag.trim()) return;
+  try {
+    tagsBySerial = await adbApi.deviceTagsAddTag(device.serial, tag);
+    renderDeviceTagFilter();
+    renderDeviceList();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+async function removeDeviceTag(device: Device, tag: string): Promise<void> {
+  try {
+    tagsBySerial = await adbApi.deviceTagsRemoveTag(device.serial, tag);
+    renderDeviceTagFilter();
+    renderDeviceList();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
 function renderDeviceList(): void {
   deviceListEl.innerHTML = '';
+  const visibleDevices = activeDeviceTagFilter
+    ? devices.filter((d) => (tagsBySerial[d.serial] ?? []).includes(activeDeviceTagFilter!))
+    : devices;
+  if (visibleDevices.length === 0 && devices.length > 0) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = 'Нет устройств с этим тегом';
+    deviceListEl.appendChild(li);
+    return;
+  }
   if (devices.length === 0) {
     const li = document.createElement('li');
     li.className = 'empty';
@@ -195,10 +253,20 @@ function renderDeviceList(): void {
     }
     return;
   }
-  for (const device of devices) {
+  for (const device of visibleDevices) {
     const li = document.createElement('li');
     const stateClass = device.state !== 'device' && device.state !== 'unknown' ? ` state-${device.state}` : '';
     li.className = 'row' + (device.state === 'device' ? ' ready' : '') + stateClass + (device.serial === getCurrentSerial() ? ' selected' : '');
+    // .row по умолчанию -- горизонтальный flex с justify-content:
+    // space-between (для двух прямых детей, например main+actions). Ниже
+    // добавляется ВТОРОЙ прямой ребёнок li (tagsRow, после main) -- без
+    // этого переключения на колонку space-between раскидал бы main и
+    // tagsRow по горизонтали, а не расположил бы теги под основной строкой
+    // (тот же баг класса, что уже был пойман и исправлен в apps.ts/
+    // files.ts/apkLibrary.ts, и то же решение, что уже использует
+    // macros.ts для своих строк с тегами).
+    li.style.flexDirection = 'column';
+    li.style.alignItems = 'stretch';
 
     const main = document.createElement('div');
     main.className = 'device-row-main';
@@ -291,6 +359,37 @@ function renderDeviceList(): void {
 
     main.appendChild(actions);
     li.appendChild(main);
+
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'row-tags';
+    for (const tag of tagsBySerial[device.serial] ?? []) {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      const chipLabel = document.createElement('span');
+      chipLabel.textContent = tag;
+      chip.appendChild(chipLabel);
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Убрать тег';
+      removeBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        void removeDeviceTag(device, tag);
+      });
+      chip.appendChild(removeBtn);
+      tagsRow.appendChild(chip);
+    }
+    const addTagBtn = document.createElement('button');
+    addTagBtn.type = 'button';
+    addTagBtn.className = 'tag-add-btn';
+    addTagBtn.textContent = '+ тег';
+    addTagBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void promptAddDeviceTag(device);
+    });
+    tagsRow.appendChild(addTagBtn);
+    li.appendChild(tagsRow);
+
     deviceListEl.appendChild(li);
   }
 }
@@ -614,9 +713,14 @@ void checkForUpdatesOnce();
  * перезапрашивать их на каждый 3-секундный тик поллинга устройств. */
 async function bootDeviceIdentity(): Promise<void> {
   try {
-    [nicknames, pinnedSerials] = await Promise.all([adbApi.deviceNicknamesList(), adbApi.devicePinsList()]);
+    [nicknames, pinnedSerials, tagsBySerial] = await Promise.all([
+      adbApi.deviceNicknamesList(),
+      adbApi.devicePinsList(),
+      adbApi.deviceTagsList(),
+    ]);
+    renderDeviceTagFilter();
   } catch {
-    // Не критично — список устройств отрисуется без никнеймов/пинов.
+    // Не критично — список устройств отрисуется без никнеймов/пинов/тегов.
   }
   try {
     demoModeOn = await adbApi.demoModeGet();

@@ -320,6 +320,10 @@ export interface AdbApi {
   devicePinsList(): Promise<string[]>;
   devicePinsToggle(serial: string): Promise<string[]>;
 
+  deviceTagsList(): Promise<Record<string, string[]>>;
+  deviceTagsAddTag(serial: string, tag: string): Promise<Record<string, string[]>>;
+  deviceTagsRemoveTag(serial: string, tag: string): Promise<Record<string, string[]>>;
+
   connectionProfilesList(): Promise<ConnectionProfile[]>;
   connectionProfilesAdd(name: string, host: string): Promise<ConnectionProfile[]>;
   connectionProfilesRemove(id: string): Promise<ConnectionProfile[]>;

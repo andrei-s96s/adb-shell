@@ -63,6 +63,14 @@ contextBridge.exposeInMainWorld('adbApi', {
   devicePinsList: (): Promise<string[]> => ipcRenderer.invoke('devicePins:list'),
   devicePinsToggle: (serial: string): Promise<string[]> => ipcRenderer.invoke('devicePins:toggle', serial),
 
+  // Теги устройств (по serial, как никнеймы/pin, но не одно значение, а
+  // набор произвольных меток -- см. DeviceTagStore)
+  deviceTagsList: (): Promise<Record<string, string[]>> => ipcRenderer.invoke('deviceTags:list'),
+  deviceTagsAddTag: (serial: string, tag: string): Promise<Record<string, string[]>> =>
+    ipcRenderer.invoke('deviceTags:addTag', serial, tag),
+  deviceTagsRemoveTag: (serial: string, tag: string): Promise<Record<string, string[]>> =>
+    ipcRenderer.invoke('deviceTags:removeTag', serial, tag),
+
   // Профили подключения
   connectionProfilesList: (): Promise<ConnectionProfile[]> => ipcRenderer.invoke('connectionProfiles:list'),
   connectionProfilesAdd: (name: string, host: string): Promise<ConnectionProfile[]> =>
