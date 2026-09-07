@@ -315,14 +315,27 @@ function renderBatchToolbar(): void {
 
 let lastLoadedDetail: AppDetail | undefined;
 
+/** Быстрые клики по соседним строкам запускают несколько параллельных
+ * adbApi.appDetail(), которые могут разрешиться не в порядке кликов
+ * (dumpsys package выполняется разное время для разных пакетов) -- без
+ * этой проверки renderDetail() показал бы данные не того приложения,
+ * что реально выделено сейчас, а кнопки действий (Force stop и т.п.)
+ * захватили бы в замыкании чужой packageName. Тот же приём уже применён
+ * в loadApps() для устаревшего ответа по смене устройства. */
+function isDetailRequestStale(serial: string, packageName: string): boolean {
+  return getCurrentSerial() !== serial || selectedForBatch.size !== 1 || !selectedForBatch.has(packageName);
+}
+
 async function loadDetail(serial: string, packageName: string): Promise<void> {
   stopNetPolling();
   detailEl.innerHTML = '<p class="placeholder">Загрузка…</p>';
   try {
     const detail = await adbApi.appDetail(serial, packageName);
+    if (isDetailRequestStale(serial, packageName)) return;
     renderDetail(detail, serial);
     if (detail.uid !== undefined) startNetPolling(serial, detail.uid);
   } catch (error) {
+    if (isDetailRequestStale(serial, packageName)) return;
     detailEl.innerHTML = '';
     const p = document.createElement('p');
     p.className = 'error';
