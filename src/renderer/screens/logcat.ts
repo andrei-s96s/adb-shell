@@ -21,6 +21,69 @@ let unsubscribe: (() => void) | undefined;
 let unsubscribeEnded: (() => void) | undefined;
 let activeSerial: string | undefined;
 
+// Живой стрим может отдавать десятки-сотни строк в секунду -- раньше
+// каждая ОТДЕЛЬНАЯ строка синхронно вызывала renderLog() (полный
+// innerHTML='' + пересборка до MAX_LINES узлов), то есть десятки полных
+// ре-рендеров DOM в секунду на активном устройстве, с реальным риском
+// подвисания рендерера. Новые строки теперь копятся в pendingLines и
+// дописываются в DOM инкрементально (appendChild, без пересборки уже
+// показанных строк) не чаще раза за кадр (requestAnimationFrame).
+// renderLog() (полная пересборка) остаётся только для случаев, где меняется
+// набор ВИДИМЫХ строк целиком -- смена фильтра/уровня, "Очистить",
+// смена устройства.
+let pendingLines: LogLine[] = [];
+let flushHandle: number | undefined;
+
+function cancelScheduledAppend(): void {
+  if (flushHandle !== undefined) {
+    cancelAnimationFrame(flushHandle);
+    flushHandle = undefined;
+  }
+  pendingLines = [];
+}
+
+function matchesCurrentFilter(line: LogLine, query: string, minLevel: LogLevel): boolean {
+  if (line.level < minLevel) return false;
+  if (!query) return true;
+  return line.message.toLowerCase().includes(query) || (line.tag ?? '').toLowerCase().includes(query);
+}
+
+function scheduleAppend(line: LogLine): void {
+  pendingLines.push(line);
+  if (flushHandle !== undefined) return;
+  flushHandle = requestAnimationFrame(flushPendingLines);
+}
+
+function flushPendingLines(): void {
+  flushHandle = undefined;
+  if (pendingLines.length === 0) return;
+  const batch = pendingLines;
+  pendingLines = [];
+
+  const query = filterInput.value.trim().toLowerCase();
+  const minLevel = Number.parseInt(levelSelect.value, 10) as LogLevel;
+  const fragment = document.createDocumentFragment();
+  let appended = 0;
+  for (const line of batch) {
+    if (!matchesCurrentFilter(line, query, minLevel)) continue;
+    const row = document.createElement('div');
+    row.className = `log-row log-level-${line.level}`;
+    row.textContent = `${line.timestamp ?? ''} ${levelLabel(line.level)} ${line.tag ?? ''}: ${line.message}`;
+    fragment.appendChild(row);
+    appended++;
+  }
+  if (appended === 0) return;
+  logEl.appendChild(fragment);
+  // Тот же предел, что и на буфере allLines -- ограничивает число живых
+  // DOM-узлов независимо от фильтра.
+  while (logEl.children.length > MAX_LINES) {
+    logEl.firstElementChild?.remove();
+  }
+  if (autoscrollCheckbox.checked) {
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+}
+
 export function initLogcatScreen(): void {
   logEl = el<HTMLDivElement>('logcat-log');
   statusEl = el<HTMLDivElement>('logcat-status');
@@ -47,7 +110,7 @@ export function initLogcatScreen(): void {
     if (!parsed) return;
     allLines.push(parsed);
     if (allLines.length > MAX_LINES) allLines.splice(0, allLines.length - MAX_LINES);
-    renderLog();
+    scheduleAppend(parsed);
   });
   // Процесс adb logcat мог завершиться сам (устройство отключили, оборвалось
   // Wi-Fi-соединение) -- без этого стрим молча замолкал: кнопки продолжали
@@ -115,14 +178,15 @@ function updateButtons(): void {
 }
 
 function renderLog(): void {
+  // Полная пересборка отражает СЕЙЧАС же весь allLines (включая ещё не
+  // сброшенные scheduleAppend()) -- без отмены отложенного flushPendingLines()
+  // те же строки дописались бы в DOM ещё раз на следующем кадре.
+  cancelScheduledAppend();
+
   const query = filterInput.value.trim().toLowerCase();
   const minLevel = Number.parseInt(levelSelect.value, 10) as LogLevel;
 
-  const filtered = allLines.filter((line) => {
-    if (line.level < minLevel) return false;
-    if (!query) return true;
-    return line.message.toLowerCase().includes(query) || (line.tag ?? '').toLowerCase().includes(query);
-  });
+  const filtered = allLines.filter((line) => matchesCurrentFilter(line, query, minLevel));
 
   logEl.innerHTML = '';
   for (const line of filtered) {
