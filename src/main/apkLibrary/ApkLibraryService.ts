@@ -37,6 +37,9 @@ import { assertPathWithinDirectory } from '../util/pathSafety';
 import { mapWithConcurrency } from '../util/concurrency';
 import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 import { findOutdatedDuplicates, InspectedApkFile, OutdatedDuplicate } from './apkLibraryLogic';
+import { findCertificateInEntries, ApkCertificateInfo } from './apkSignatureLogic';
+import { ApkSignatureInfo } from '../adb/types/ApkSignatureInfo';
+import { sha256OfFile } from '../util/sha256';
 
 const CONFIG_FILE = 'apk-library-config.json';
 
@@ -304,6 +307,28 @@ export class ApkLibraryService {
       }
     });
     return findOutdatedDuplicates(inspected.filter((f): f is InspectedApkFile => f !== undefined));
+  }
+
+  /** sha256 всего файла (надёжный сигнал всегда) + best-effort сертификат
+   * подписи из JAR/v1-подписи (см. apkSignatureLogic.ts -- почему именно
+   * best-effort, а не полноценный PKCS#7-разбор). Не кэшируется: в отличие
+   * от иконки/badging, вызывается по явному запросу пользователя (кнопка в
+   * карточке "Инфо"), а не на каждую строку списка библиотеки. */
+  async getSignatureInfo(apkPath: string): Promise<ApkSignatureInfo> {
+    const sha256 = await sha256OfFile(apkPath);
+    let certificate: ApkCertificateInfo | undefined;
+    try {
+      const zip = new AdmZip(apkPath);
+      const entries = zip
+        .getEntries()
+        .filter((entry) => /^META-INF\/[^/]+\.(RSA|DSA|EC)$/i.test(entry.entryName))
+        .map((entry) => entry.getData());
+      certificate = findCertificateInEntries(entries);
+    } catch {
+      // Файл может быть повреждён или не быть валидным zip вовсе -- sha256
+      // выше уже посчитан и остаётся единственным, но надёжным сигналом.
+    }
+    return { sha256, certificate };
   }
 
   /** Скачивает более новую версию с F-Droid в библиотеку и удаляет старый

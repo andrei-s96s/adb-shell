@@ -4,7 +4,7 @@
 // версия пакета, diff версии и разрешений с тем, что будет после обновления.
 
 import { adbApi, errorMessage } from '../api.js';
-import type { ApkManifestInfo, AppDetail } from '../api.js';
+import type { ApkManifestInfo, ApkSignatureInfo, AppDetail } from '../api.js';
 import { openModal } from '../modal.js';
 
 export function openApkInfoModal(apkPath: string, fileName: string, serial: string | undefined): void {
@@ -24,6 +24,10 @@ export function openApkInfoModal(apkPath: string, fileName: string, serial: stri
           }
         }
         render(body, manifest, installed);
+        // Подпись считается отдельно и не блокирует показ манифеста -- sha256
+        // всего файла может занять заметное время на большом APK, а
+        // сканирование сертификата вообще необязательно должно что-то найти.
+        renderSignature(body, apkPath);
       })
       .catch((error) => {
         body.innerHTML = `<p class="error">Ошибка: ${errorMessage(error)}</p>`;
@@ -69,6 +73,49 @@ function render(body: HTMLDivElement, manifest: ApkManifestInfo, installed: AppD
   }
 
   body.appendChild(permList(`Все разрешения (${manifest.permissions.length})`, manifest.permissions));
+}
+
+/** Считается и добавляется в модалку отдельным подзапросом (не блокирует
+ * показ манифеста выше) -- sha256 всего файла на большом APK заметно
+ * дольше, чем разбор badging через уже-закешированный aapt2, а сертификат
+ * подписи вообще не гарантированно найдётся (см. apkSignatureLogic.ts). */
+function renderSignature(body: HTMLDivElement, apkPath: string): void {
+  const card = document.createElement('div');
+  card.className = 'settings-section';
+  const heading = document.createElement('h3');
+  heading.textContent = 'Подпись';
+  card.appendChild(heading);
+  const placeholder = document.createElement('div');
+  placeholder.className = 'hint';
+  placeholder.textContent = 'Вычисление sha256…';
+  card.appendChild(placeholder);
+  body.appendChild(card);
+
+  adbApi
+    .apkLibrarySignatureInfo(apkPath)
+    .then((info: ApkSignatureInfo) => {
+      card.removeChild(placeholder);
+      card.appendChild(infoRow('sha256', info.sha256));
+      if (info.certificate) {
+        const cert = info.certificate;
+        card.appendChild(infoRow('Издатель', cert.subject.replace(/\n/g, ', ')));
+        if (!cert.selfSigned) {
+          card.appendChild(infoRow('Выдан кем (issuer)', cert.issuer.replace(/\n/g, ', ')));
+        }
+        card.appendChild(infoRow('Действителен', `${cert.validFrom} — ${cert.validTo}`));
+        card.appendChild(infoRow('Отпечаток сертификата', cert.fingerprint256));
+      } else {
+        const noCert = document.createElement('div');
+        noCert.className = 'hint';
+        noCert.textContent =
+          'Сертификат подписи не найден -- либо APK подписан только v2/v3-схемой без v1-совместимости, либо файл повреждён';
+        card.appendChild(noCert);
+      }
+    })
+    .catch((error) => {
+      placeholder.textContent = `Не удалось проверить подпись: ${errorMessage(error)}`;
+      placeholder.className = 'error';
+    });
 }
 
 function infoRow(label: string, value: string): HTMLDivElement {

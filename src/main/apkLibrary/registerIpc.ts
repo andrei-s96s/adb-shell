@@ -46,6 +46,7 @@ export function registerApkLibraryIpc(ctx: IpcContext): void {
     return apkLibrary.list();
   });
   ipcMain.handle('apkLibrary:inspect', (_e, apkPath: string) => apkLibrary.inspect(apkPath));
+  ipcMain.handle('apkLibrary:signatureInfo', (_e, apkPath: string) => apkLibrary.getSignatureInfo(apkPath));
   ipcMain.handle('apkLibrary:getIcon', async (_e, apkPath: string) => {
     const icon = await apkLibrary.extractIcon(apkPath);
     return icon ? `data:${icon.mimeType};base64,${icon.data.toString('base64')}` : undefined;

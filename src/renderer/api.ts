@@ -105,6 +105,21 @@ export interface ApkManifestInfo {
   rawBadging: string;
 }
 
+export interface ApkCertificateInfo {
+  subject: string;
+  issuer: string;
+  validFrom: string;
+  validTo: string;
+  fingerprint256: string;
+  serialNumber: string;
+  selfSigned: boolean;
+}
+
+export interface ApkSignatureInfo {
+  sha256: string;
+  certificate?: ApkCertificateInfo;
+}
+
 export interface FDroidUpdateInfo {
   packageName: string;
   installedVersionCode: number;
@@ -405,6 +420,7 @@ export interface AdbApi {
   apkLibraryRemoveTag(filePath: string, tag: string): Promise<Record<string, string[]>>;
   apkLibraryImportPaths(paths: string[]): Promise<ApkFile[]>;
   apkLibraryInspect(apkPath: string): Promise<ApkManifestInfo>;
+  apkLibrarySignatureInfo(apkPath: string): Promise<ApkSignatureInfo>;
   apkLibraryGetIcon(apkPath: string): Promise<string | undefined>;
 
   listDirectory(serial: string, dirPath: string): Promise<RemoteFile[]>;

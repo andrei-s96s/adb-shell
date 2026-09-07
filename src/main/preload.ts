@@ -23,6 +23,7 @@ import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundle
 import { ManifestPackageDiff } from './appBundles/appBundleLogic';
 import { DeviceSnapshotInfo } from './deviceSnapshots/DeviceSnapshotService';
 import { ApkManifestInfo } from './adb/types/ApkManifestInfo';
+import { ApkSignatureInfo } from './adb/types/ApkSignatureInfo';
 import { DownloadProgress } from './util/download';
 import { SavedCommand } from './shellHistory/shellHistoryLogic';
 
@@ -181,6 +182,8 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('apkLibrary:removeTag', filePath, tag),
   apkLibraryImportPaths: (paths: string[]): Promise<ApkFile[]> => ipcRenderer.invoke('apkLibrary:importPaths', paths),
   apkLibraryInspect: (apkPath: string): Promise<ApkManifestInfo> => ipcRenderer.invoke('apkLibrary:inspect', apkPath),
+  apkLibrarySignatureInfo: (apkPath: string): Promise<ApkSignatureInfo> =>
+    ipcRenderer.invoke('apkLibrary:signatureInfo', apkPath),
   apkLibraryGetIcon: (apkPath: string): Promise<string | undefined> => ipcRenderer.invoke('apkLibrary:getIcon', apkPath),
 
   // Файлы устройства
