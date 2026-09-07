@@ -16,6 +16,7 @@ import { RunningProcess } from './adb/types/RunningProcess';
 import { ThresholdCheckResult } from './monitoring/alertThresholdLogic';
 import { IntentPreset } from './adb/types/IntentPreset';
 import { Macro, MacroStep, MacroRunResult } from './adb/types/Macro';
+import { DeviceHistoryEntry } from './deviceHistory/deviceHistoryLogic';
 import { MacroRunOutcome } from './macros/MacroRunner';
 import { ExportBundleOutcome, ImportBundleOutcome } from './appBundles/AppBundleService';
 import { ManifestPackageDiff } from './appBundles/appBundleLogic';
@@ -70,6 +71,12 @@ contextBridge.exposeInMainWorld('adbApi', {
     ipcRenderer.invoke('deviceTags:addTag', serial, tag),
   deviceTagsRemoveTag: (serial: string, tag: string): Promise<Record<string, string[]>> =>
     ipcRenderer.invoke('deviceTags:removeTag', serial, tag),
+
+  // История подключений (по serial, включая давно отключённые сетевые
+  // устройства) -- см. DeviceHistoryStore
+  deviceHistoryList: (): Promise<DeviceHistoryEntry[]> => ipcRenderer.invoke('deviceHistory:list'),
+  deviceHistoryRemove: (serial: string): Promise<DeviceHistoryEntry[]> => ipcRenderer.invoke('deviceHistory:remove', serial),
+  deviceHistoryClear: (): Promise<DeviceHistoryEntry[]> => ipcRenderer.invoke('deviceHistory:clear'),
 
   // Профили подключения
   connectionProfilesList: (): Promise<ConnectionProfile[]> => ipcRenderer.invoke('connectionProfiles:list'),

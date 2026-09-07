@@ -5,7 +5,15 @@ import { ipcMain } from 'electron';
 import { IpcContext } from '../ipcContext';
 
 export function registerDevicesIpc(ctx: IpcContext): void {
-  ipcMain.handle('adb:listDevices', () => ctx.adb.listDevices());
+  ipcMain.handle('adb:listDevices', async () => {
+    const devices = await ctx.adb.listDevices();
+    // Только настоящий adb -- демо-устройство (см. DemoAdbService) не
+    // должно попадать в персистентную историю подключений, которой
+    // пользователь пользуется для РЕАЛЬНЫХ устройств (например, чтобы
+    // переподключиться к сетевому устройству, которое сейчас не видно).
+    if (ctx.adb === ctx.realAdb) ctx.deviceHistory.recordSeen(devices);
+    return devices;
+  });
   ipcMain.handle('adb:connect', (_e, host: string) => ctx.adb.connect(host));
   ipcMain.handle('adb:disconnect', (_e, serial: string) => ctx.adb.disconnect(serial));
   ipcMain.handle('adb:pair', (_e, hostPort: string, code: string) => ctx.adb.pair(hostPort, code));

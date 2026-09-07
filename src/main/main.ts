@@ -13,6 +13,7 @@ import { ConnectionProfileStore } from './connectionProfiles/ConnectionProfileSt
 import { DeviceNicknameStore } from './deviceNicknames/DeviceNicknameStore';
 import { DevicePinStore } from './devicePins/DevicePinStore';
 import { DeviceTagStore } from './deviceTags/DeviceTagStore';
+import { DeviceHistoryStore } from './deviceHistory/DeviceHistoryStore';
 import { AppSettingsStore } from './settings/AppSettingsStore';
 import { timestampForFilename } from './util/timestamp';
 import { showSaveDialogFor, showOpenDialogFor } from './util/dialogs';
@@ -33,6 +34,7 @@ import { IpcContext } from './ipcContext';
 import { registerDeviceNicknamesIpc } from './deviceNicknames/registerIpc';
 import { registerDevicePinsIpc } from './devicePins/registerIpc';
 import { registerDeviceTagsIpc } from './deviceTags/registerIpc';
+import { registerDeviceHistoryIpc } from './deviceHistory/registerIpc';
 import { registerConnectionProfilesIpc } from './connectionProfiles/registerIpc';
 import { registerDevicesIpc } from './adb/registerDevicesIpc';
 import { registerAppsIpc } from './apps/registerIpc';
@@ -78,6 +80,7 @@ const ctx: IpcContext = {
   deviceNicknames: new DeviceNicknameStore(),
   devicePins: new DevicePinStore(),
   deviceTags: new DeviceTagStore(),
+  deviceHistory: new DeviceHistoryStore(),
   appSettings,
   logcatSessions: new Map<string, LogcatSession | DemoLogcatSession>(),
   applyHotkeySetting: () => applyHotkeySetting(),
@@ -252,6 +255,7 @@ function registerIpcHandlers(): void {
   registerDeviceNicknamesIpc(ctx);
   registerDevicePinsIpc(ctx);
   registerDeviceTagsIpc(ctx);
+  registerDeviceHistoryIpc(ctx);
   registerConnectionProfilesIpc(ctx);
   registerDevicesIpc(ctx);
   registerAppsIpc(ctx);

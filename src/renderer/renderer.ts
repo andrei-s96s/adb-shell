@@ -2,6 +2,7 @@ import { adbApi, el, errorMessage } from './api.js';
 import type { Device, MdnsDevice, ConnectionProfile } from './api.js';
 import { setCurrentSerial, getCurrentSerial, onDeviceChanged } from './state.js';
 import { openTextPromptModal } from './modal.js';
+import { openDeviceHistoryModal } from './screens/deviceHistoryModal.js';
 import { initTabs } from './tabs.js';
 import { initAppsScreen } from './screens/apps.js';
 import { initApkLibraryScreen } from './screens/apkLibrary.js';
@@ -21,6 +22,8 @@ const refreshBtn = el<HTMLButtonElement>('refresh-btn');
 const restartAdbBtn = el<HTMLButtonElement>('restart-adb-btn');
 const connectBtn = el<HTMLButtonElement>('connect-btn');
 const connectHostInput = el<HTMLInputElement>('connect-host');
+const deviceHistoryBtn = el<HTMLButtonElement>('device-history-btn');
+const deviceHistoryDatalistEl = el<HTMLDataListElement>('device-history-datalist');
 const pairBtn = el<HTMLButtonElement>('pair-btn');
 const pairHostInput = el<HTMLInputElement>('pair-host');
 const pairCodeInput = el<HTMLInputElement>('pair-code');
@@ -527,16 +530,7 @@ function renderMdnsList(): void {
     } else {
       actionBtn.textContent = 'Connect';
       actionBtn.addEventListener('click', () => {
-        void (async () => {
-          statusEl.textContent = 'Подключение…';
-          try {
-            statusEl.textContent = await adbApi.connect(mdnsDevice.address);
-            manuallyDisconnectedHosts.delete(mdnsDevice.address);
-            await refreshDevices();
-          } catch (error) {
-            statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
-          }
-        })();
+        void connectToHost(mdnsDevice.address);
       });
     }
     li.appendChild(actionBtn);
@@ -672,24 +666,56 @@ restartAdbBtn.addEventListener('click', () => {
   })();
 });
 
+/** Общий путь подключения по host:port -- переиспользуется и полем ввода
+ * в сайдбаре, и модалкой истории подключений (deviceHistoryModal.ts),
+ * чтобы не дублировать "прощение" ручного отключения + refreshDevices. */
+async function connectToHost(host: string): Promise<void> {
+  statusEl.textContent = 'Подключение…';
+  try {
+    statusEl.textContent = await adbApi.connect(host);
+    // Пользователь сам подключил этот host заново -- если он раньше
+    // отключил его вручную (см. disconnectBtn выше), это "прощает" его,
+    // автопереподключение снова может подхватывать будущие обрывы связи.
+    manuallyDisconnectedHosts.delete(host);
+    await refreshDevices();
+    void refreshDeviceHistoryDatalist();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
 connectBtn.addEventListener('click', () => {
-  void (async () => {
-    const host = connectHostInput.value.trim();
-    if (!host) return;
-    statusEl.textContent = 'Подключение…';
-    try {
-      const result = await adbApi.connect(host);
-      statusEl.textContent = result;
-      // Пользователь сам подключил этот host заново -- если он раньше
-      // отключил его вручную (см. disconnectBtn выше), это "прощает" его,
-      // автопереподключение снова может подхватывать будущие обрывы связи.
-      manuallyDisconnectedHosts.delete(host);
-      await refreshDevices();
-    } catch (error) {
-      statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
-    }
-  })();
+  const host = connectHostInput.value.trim();
+  if (!host) return;
+  void connectToHost(host);
 });
+
+deviceHistoryBtn.addEventListener('click', () => {
+  openDeviceHistoryModal((host) => {
+    document.querySelector('.modal-overlay')?.remove();
+    void connectToHost(host);
+  });
+});
+
+/** Даталист автодополнения поля host по истории подключений -- тот же
+ * приём, что и у shell-history-datalist в shellScreen.ts, только источник
+ * данных другой (DeviceHistoryStore, не ShellHistoryStore). Обновляется
+ * при старте и после каждого успешного подключения -- новый host в истории
+ * должен появиться в автодополнении сразу, не только после перезапуска. */
+async function refreshDeviceHistoryDatalist(): Promise<void> {
+  try {
+    const entries = await adbApi.deviceHistoryList();
+    deviceHistoryDatalistEl.innerHTML = '';
+    for (const entry of entries) {
+      if (!entry.serial.includes(':')) continue;
+      const option = document.createElement('option');
+      option.value = entry.serial;
+      deviceHistoryDatalistEl.appendChild(option);
+    }
+  } catch {
+    // Автодополнение необязательно -- поле ввода остаётся рабочим и без него.
+  }
+}
 
 pairBtn.addEventListener('click', () => {
   void (async () => {
@@ -791,6 +817,7 @@ async function bootDeviceIdentity(): Promise<void> {
   } catch {
     // Не критично — список устройств отрисуется без никнеймов/пинов/тегов.
   }
+  void refreshDeviceHistoryDatalist();
   try {
     demoModeOn = await adbApi.demoModeGet();
     renderDemoModeButton();

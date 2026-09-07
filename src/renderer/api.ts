@@ -142,6 +142,14 @@ export interface DownloadProgress {
   totalBytes?: number;
 }
 
+export interface DeviceHistoryEntry {
+  serial: string;
+  model?: string;
+  product?: string;
+  firstSeenMs: number;
+  lastSeenMs: number;
+}
+
 export interface ConnectionProfile {
   id: string;
   name: string;
@@ -323,6 +331,10 @@ export interface AdbApi {
   deviceTagsList(): Promise<Record<string, string[]>>;
   deviceTagsAddTag(serial: string, tag: string): Promise<Record<string, string[]>>;
   deviceTagsRemoveTag(serial: string, tag: string): Promise<Record<string, string[]>>;
+
+  deviceHistoryList(): Promise<DeviceHistoryEntry[]>;
+  deviceHistoryRemove(serial: string): Promise<DeviceHistoryEntry[]>;
+  deviceHistoryClear(): Promise<DeviceHistoryEntry[]>;
 
   connectionProfilesList(): Promise<ConnectionProfile[]>;
   connectionProfilesAdd(name: string, host: string): Promise<ConnectionProfile[]>;

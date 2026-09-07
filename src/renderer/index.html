@@ -30,9 +30,11 @@
         <div class="connect-row">
           <button id="refresh-btn" type="button">Обновить</button>
           <button id="restart-adb-btn" type="button" title="adb kill-server && adb start-server — помогает, когда adb не видит устройства или ведёт себя странно">Перезапуск adb</button>
+          <button id="device-history-btn" type="button" title="Все устройства, хотя бы раз подключавшиеся к этому приложению">История…</button>
         </div>
         <div class="connect-row">
-          <input id="connect-host" placeholder="192.168.1.50:5555" />
+          <input id="connect-host" placeholder="192.168.1.50:5555" list="device-history-datalist" autocomplete="off" />
+          <datalist id="device-history-datalist"></datalist>
           <button id="connect-btn" type="button">Подключить</button>
         </div>
         <div class="hint section-title">Сопряжение по коду (Android 11+)</div>
