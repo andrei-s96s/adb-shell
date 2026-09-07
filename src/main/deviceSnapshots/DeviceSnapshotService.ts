@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { AdbService } from '../adb/AdbService';
 import { exportBundle, importBundle, ExportBundleOutcome, ImportBundleOutcome } from '../appBundles/AppBundleService';
 import { makeSnapshotFilename, parseSnapshotFilename } from './deviceSnapshotLogic';
+import { assertPathWithinDirectory } from '../util/pathSafety';
 
 export interface DeviceSnapshotInfo {
   path: string;
@@ -75,6 +76,7 @@ export class DeviceSnapshotService {
   }
 
   delete(snapshotPath: string): void {
+    assertPathWithinDirectory(snapshotPath, this.directory);
     fs.unlinkSync(snapshotPath);
   }
 }

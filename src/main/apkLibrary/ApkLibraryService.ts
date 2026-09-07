@@ -32,6 +32,7 @@ import { resolveAdaptiveIconFile } from '../adb/parsers/AdaptiveIconResolver';
 import { FDroidUpdateInfo, fdroidDownloadUrl } from '../adb/types/FDroidUpdateInfo';
 import { checkFDroidUpdate } from './FDroidUpdateChecker';
 import { downloadWithProgress, DownloadProgress } from '../util/download';
+import { assertPathWithinDirectory } from '../util/pathSafety';
 
 const CONFIG_FILE = 'apk-library-config.json';
 
@@ -128,6 +129,7 @@ export class ApkLibraryService {
   }
 
   deleteFile(filePath: string): void {
+    assertPathWithinDirectory(filePath, this.directory);
     fs.unlinkSync(filePath);
   }
 
