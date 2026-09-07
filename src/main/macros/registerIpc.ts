@@ -39,6 +39,11 @@ export function registerMacrosIpc(ctx: IpcContext): void {
     ctx.applyMacroHotkeys();
     return updated;
   });
+  // Теги живут прямо на Macro (не отдельным словарём "путь -> теги", как
+  // ApkTagStore) -- список макросов уже возвращает их без дополнительного
+  // запроса, addTag/removeTag нужны только для мутации.
+  ipcMain.handle('macros:addTag', (_e, id: string, tag: string) => macroStore.addTag(id, tag));
+  ipcMain.handle('macros:removeTag', (_e, id: string, tag: string) => macroStore.removeTag(id, tag));
   // Какие аккселераторы макросов реально зарегистрированы ПРЯМО СЕЙЧАС --
   // macros.ts сверяет с этим список, чтобы пометить макрос, чей хоткей
   // задан, но не активен (занят скриншот-хоткеем/другим макросом/ОС, или у

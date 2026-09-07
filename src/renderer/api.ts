@@ -213,6 +213,7 @@ export interface Macro {
   autorunOnConnect: boolean;
   abortOnFirstFailure: boolean;
   hotkeyAccelerator?: string;
+  tags?: string[];
 }
 
 export interface MacroRunResult {
@@ -414,6 +415,8 @@ export interface AdbApi {
     hotkeyAccelerator?: string
   ): Promise<Macro[]>;
   macrosRemove(id: string): Promise<Macro[]>;
+  macrosAddTag(id: string, tag: string): Promise<Macro[]>;
+  macrosRemoveTag(id: string, tag: string): Promise<Macro[]>;
   macrosActiveHotkeys(): Promise<string[]>;
   macrosRun(macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome>;
   onMacroStepResult(callback: (runId: string, macroId: string, index: number, total: number, result: MacroRunResult) => void): () => void;

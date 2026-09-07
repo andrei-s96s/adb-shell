@@ -890,18 +890,22 @@ input[type='checkbox']:checked::after {
   color: var(--cp-gold);
 }
 
-.apk-row-tags {
+/* row-tags, а не apk-row-tags -- изначально была только у Библиотеки APK,
+   но сама разметка (обёртка чипов тегов с кнопкой удаления внутри строки
+   списка) общая для любого экрана с тегируемыми элементами, поэтому
+   переименована в общую при добавлении тегов макросов. */
+.row-tags {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4);
   margin-top: var(--space-2);
 }
 
-.apk-row-tags .tag-chip {
+.row-tags .tag-chip {
   cursor: default;
 }
 
-.apk-row-tags .tag-chip button {
+.row-tags .tag-chip button {
   padding: 0 var(--space-2);
   background: none;
   border: none;

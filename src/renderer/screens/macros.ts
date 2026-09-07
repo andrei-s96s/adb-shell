@@ -4,11 +4,16 @@
 import { adbApi, el, errorMessage } from '../api.js';
 import type { Macro, MacroRunResult } from '../api.js';
 import { onDeviceChanged, getCurrentSerial } from '../state.js';
-import { openModal } from '../modal.js';
+import { openModal, openTextPromptModal } from '../modal.js';
 
 let listEl: HTMLUListElement;
 let statusEl: HTMLDivElement;
+let tagFilterEl: HTMLDivElement;
 let macros: Macro[] = [];
+/** Тег, по которому сейчас отфильтрован список -- тот же принцип, что и
+ * activeTagFilter в apkLibrary.ts (ApkTagStore), но теги здесь читаются
+ * прямо из macros[].tags, отдельного запроса за списком тегов не нужно. */
+let activeTagFilter: string | undefined;
 let runningMacroId: string | undefined;
 /** Результаты последнего запуска, по macro.id -- шаги сверяются по индексу
  * (как в оригинале: шаг вроде "wait-for-device" может повторяться, сверка
@@ -57,6 +62,7 @@ function extractVariableNames(macro: Macro): string[] {
 export function initMacrosScreen(): void {
   listEl = el<HTMLUListElement>('macros-list');
   statusEl = el<HTMLDivElement>('macros-status');
+  tagFilterEl = el<HTMLDivElement>('macros-tag-filter');
 
   // Живой прогресс шагов -- runMacro() на main-стороне зовёт onStep() после
   // КАЖДОГО шага, а не только в самом конце (см. MacroRunner.ts); runId
@@ -91,6 +97,8 @@ export function initMacrosScreen(): void {
       .then((updated) => {
         macros = updated;
         statusEl.textContent = 'Импортировано';
+        // Импортированные макросы могли принести свои теги.
+        renderTagFilter();
         renderList();
       })
       .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
@@ -104,20 +112,46 @@ export function initMacrosScreen(): void {
     .macrosList()
     .then((list) => {
       macros = list;
+      renderTagFilter();
       renderList();
     })
     .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
   void refreshActiveHotkeys().then(renderList);
 }
 
+/** Чипы-фильтр по тегам макросов -- порт renderTagFilter() из apkLibrary.ts
+ * (ApkTagStore), но список тегов собирается прямо из macros[].tags, а не из
+ * отдельного словаря "путь -> теги": у макроса теги хранятся на самой
+ * записи (см. Macro.tags), отдельного запроса за списком тегов не нужно. */
+function renderTagFilter(): void {
+  const allTags = [...new Set(macros.flatMap((m) => m.tags ?? []))].sort();
+  tagFilterEl.innerHTML = '';
+  if (activeTagFilter && !allTags.includes(activeTagFilter)) activeTagFilter = undefined;
+  for (const tag of allTags) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip' + (tag === activeTagFilter ? ' active' : '');
+    chip.textContent = tag;
+    chip.addEventListener('click', () => {
+      activeTagFilter = activeTagFilter === tag ? undefined : tag;
+      renderTagFilter();
+      renderList();
+    });
+    tagFilterEl.appendChild(chip);
+  }
+}
+
 function renderList(): void {
   listEl.innerHTML = '';
-  if (macros.length === 0) {
-    listEl.innerHTML = '<li class="hint">Нет макросов — создайте новый кнопкой выше</li>';
+  const visible = activeTagFilter ? macros.filter((m) => (m.tags ?? []).includes(activeTagFilter!)) : macros;
+  if (visible.length === 0) {
+    listEl.innerHTML =
+      macros.length === 0
+        ? '<li class="hint">Нет макросов — создайте новый кнопкой выше</li>'
+        : '<li class="hint">Нет макросов с этим тегом</li>';
     return;
   }
   const serial = getCurrentSerial();
-  for (const macro of macros) {
+  for (const macro of visible) {
     listEl.appendChild(renderRow(macro, serial));
   }
 }
@@ -174,7 +208,11 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
       .then((updated) => {
         macros = updated;
         // Удалённый макрос мог держать хоткей, занятый у другого макроса --
-        // после удаления он мог освободиться и стать активным.
+        // после удаления он мог освободиться и стать активным. Он же мог
+        // быть единственным носителем какого-то тега -- фильтр надо
+        // пересобрать, иначе в чипах останется тег, которым уже никто не
+        // помечен.
+        renderTagFilter();
         void refreshActiveHotkeys().then(renderList);
       })
       .catch((error) => (statusEl.textContent = `Ошибка: ${errorMessage(error)}`));
@@ -183,6 +221,30 @@ function renderRow(macro: Macro, serial: string | undefined): HTMLLIElement {
 
   main.appendChild(actions);
   li.appendChild(main);
+
+  const tagsRow = document.createElement('div');
+  tagsRow.className = 'row-tags';
+  for (const tag of macro.tags ?? []) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    const chipLabel = document.createElement('span');
+    chipLabel.textContent = tag;
+    chip.appendChild(chipLabel);
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Убрать тег';
+    removeBtn.addEventListener('click', () => void removeMacroTag(macro, tag));
+    chip.appendChild(removeBtn);
+    tagsRow.appendChild(chip);
+  }
+  const addTagBtn = document.createElement('button');
+  addTagBtn.type = 'button';
+  addTagBtn.className = 'tag-add-btn';
+  addTagBtn.textContent = '+ тег';
+  addTagBtn.addEventListener('click', () => void promptAddMacroTag(macro));
+  tagsRow.appendChild(addTagBtn);
+  li.appendChild(tagsRow);
 
   if (expandedMacroId === macro.id) {
     const stepsEl = document.createElement('ul');
@@ -388,4 +450,26 @@ function openEditor(existing?: Macro): void {
     });
     body.appendChild(saveBtn);
   });
+}
+
+async function promptAddMacroTag(macro: Macro): Promise<void> {
+  const tag = await openTextPromptModal('Добавить тег', 'тег');
+  if (!tag || !tag.trim()) return;
+  try {
+    macros = await adbApi.macrosAddTag(macro.id, tag);
+    renderTagFilter();
+    renderList();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
+}
+
+async function removeMacroTag(macro: Macro, tag: string): Promise<void> {
+  try {
+    macros = await adbApi.macrosRemoveTag(macro.id, tag);
+    renderTagFilter();
+    renderList();
+  } catch (error) {
+    statusEl.textContent = `Ошибка: ${errorMessage(error)}`;
+  }
 }

@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSteps, addMacro, updateMacro, removeMacro, mergeImportedMacros } from '../main/macros/macrosLogic';
+import {
+  parseSteps,
+  addMacro,
+  updateMacro,
+  removeMacro,
+  mergeImportedMacros,
+  addMacroTag,
+  removeMacroTag,
+  allMacroTags,
+} from '../main/macros/macrosLogic';
 import { Macro } from '../main/adb/types/Macro';
 
 let nextId = 0;
@@ -89,6 +98,52 @@ test('removeMacro deletes by id', () => {
   let macros = addMacro([], 'Flash', 'adb root', false, false, makeId);
   macros = removeMacro(macros, macros[0].id);
   assert.deepEqual(macros, []);
+});
+
+test('addMacroTag adds a trimmed tag to the matching macro only', () => {
+  let macros = addMacro([], 'Flash', 'adb root', false, false, makeId);
+  macros = addMacro(macros, 'Other', 'adb remount', false, false, makeId);
+  const targetId = macros[0].id;
+  macros = addMacroTag(macros, targetId, '  work  ');
+  assert.deepEqual(macros[0].tags, ['work']);
+  assert.equal(macros[1].tags, undefined);
+});
+
+test('addMacroTag ignores a blank tag and a duplicate of an existing one', () => {
+  let macros = addMacro([], 'Flash', 'adb root', false, false, makeId);
+  const id = macros[0].id;
+  macros = addMacroTag(macros, id, '   ');
+  assert.equal(macros[0].tags, undefined);
+  macros = addMacroTag(macros, id, 'work');
+  macros = addMacroTag(macros, id, 'work');
+  assert.deepEqual(macros[0].tags, ['work']);
+});
+
+test('removeMacroTag drops the tags field entirely once the last tag is removed', () => {
+  let macros = addMacro([], 'Flash', 'adb root', false, false, makeId);
+  const id = macros[0].id;
+  macros = addMacroTag(macros, id, 'work');
+  macros = removeMacroTag(macros, id, 'work');
+  assert.equal(macros[0].tags, undefined);
+});
+
+test('removeMacroTag removing one of several tags keeps the rest', () => {
+  let macros = addMacro([], 'Flash', 'adb root', false, false, makeId);
+  const id = macros[0].id;
+  macros = addMacroTag(macros, id, 'work');
+  macros = addMacroTag(macros, id, 'test');
+  macros = removeMacroTag(macros, id, 'work');
+  assert.deepEqual(macros[0].tags, ['test']);
+});
+
+test('allMacroTags is deduped and sorted across all macros', () => {
+  let macros = addMacro([], 'Flash', 'adb root', false, false, makeId);
+  macros = addMacro(macros, 'Other', 'adb remount', false, false, makeId);
+  macros = addMacroTag(macros, macros[0].id, 'work');
+  macros = addMacroTag(macros, macros[0].id, 'beta');
+  macros = addMacroTag(macros, macros[1].id, 'work');
+  macros = addMacroTag(macros, macros[1].id, 'alpha');
+  assert.deepEqual(allMacroTags(macros), ['alpha', 'beta', 'work']);
 });
 
 test('mergeImportedMacros does not duplicate on repeated import', () => {

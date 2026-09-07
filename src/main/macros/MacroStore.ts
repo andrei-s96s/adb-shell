@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import { Macro } from '../adb/types/Macro';
-import { addMacro, updateMacro, removeMacro, mergeImportedMacros } from './macrosLogic';
+import { addMacro, updateMacro, removeMacro, mergeImportedMacros, addMacroTag, removeMacroTag } from './macrosLogic';
 import { loadJsonStore, saveJsonStore } from '../util/jsonStore';
 
 const CONFIG_FILE = 'macros.json';
@@ -55,6 +55,18 @@ export class MacroStore {
 
   remove(id: string): Macro[] {
     this.macros = removeMacro(this.macros, id);
+    this.save();
+    return this.macros;
+  }
+
+  addTag(id: string, tag: string): Macro[] {
+    this.macros = addMacroTag(this.macros, id, tag);
+    this.save();
+    return this.macros;
+  }
+
+  removeTag(id: string, tag: string): Macro[] {
+    this.macros = removeMacroTag(this.macros, id, tag);
     this.save();
     return this.macros;
   }

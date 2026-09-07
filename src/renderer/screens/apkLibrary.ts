@@ -336,7 +336,7 @@ function renderRow(file: ApkFile, serial: string | undefined): HTMLLIElement {
   }
 
   const tagsRow = document.createElement('div');
-  tagsRow.className = 'apk-row-tags';
+  tagsRow.className = 'row-tags';
   for (const tag of tagsByPath[file.path] ?? []) {
     const chip = document.createElement('span');
     chip.className = 'tag-chip';

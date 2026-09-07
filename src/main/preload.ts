@@ -220,6 +220,8 @@ contextBridge.exposeInMainWorld('adbApi', {
   ): Promise<Macro[]> =>
     ipcRenderer.invoke('macros:update', id, name, rawText, autorunOnConnect, abortOnFirstFailure, hotkeyAccelerator),
   macrosRemove: (id: string): Promise<Macro[]> => ipcRenderer.invoke('macros:remove', id),
+  macrosAddTag: (id: string, tag: string): Promise<Macro[]> => ipcRenderer.invoke('macros:addTag', id, tag),
+  macrosRemoveTag: (id: string, tag: string): Promise<Macro[]> => ipcRenderer.invoke('macros:removeTag', id, tag),
   macrosActiveHotkeys: (): Promise<string[]> => ipcRenderer.invoke('macros:activeHotkeys'),
   macrosRun: (macroId: string, serial: string, variables: Record<string, string>, runId: string): Promise<MacroRunOutcome> =>
     ipcRenderer.invoke('macros:run', macroId, serial, variables, runId),

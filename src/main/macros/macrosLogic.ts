@@ -77,3 +77,36 @@ export function mergeImportedMacros(macros: Macro[], imported: Macro[]): Macro[]
   const existingIds = new Set(macros.map((m) => m.id));
   return [...macros, ...imported.filter((m) => !existingIds.has(m.id))];
 }
+
+/** Порт семантики addTag/removeTag/allTags из apkTagsLogic.ts (ApkTagStore),
+ * адаптированный под массив макросов с id вместо словаря "путь -> теги" --
+ * см. комментарий у Macro.tags. */
+export function addMacroTag(macros: Macro[], id: string, tag: string): Macro[] {
+  const trimmed = tag.trim();
+  if (trimmed.length === 0) return macros;
+  return macros.map((m) => {
+    if (m.id !== id) return m;
+    const existing = m.tags ?? [];
+    if (existing.includes(trimmed)) return m;
+    return { ...m, tags: [...existing, trimmed] };
+  });
+}
+
+/** Пустой список тегов после удаления убирает поле tags целиком (undefined),
+ * а не оставляет пустой массив -- держит персистентный JSON компактным, тот
+ * же выбор, что и в ApkTagStore.removeTag. */
+export function removeMacroTag(macros: Macro[], id: string, tag: string): Macro[] {
+  return macros.map((m) => {
+    if (m.id !== id) return m;
+    const remaining = (m.tags ?? []).filter((t) => t !== tag);
+    return { ...m, tags: remaining.length === 0 ? undefined : remaining };
+  });
+}
+
+export function allMacroTags(macros: Macro[]): string[] {
+  const set = new Set<string>();
+  for (const macro of macros) {
+    for (const tag of macro.tags ?? []) set.add(tag);
+  }
+  return [...set].sort();
+}
