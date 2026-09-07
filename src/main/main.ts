@@ -36,6 +36,7 @@ import { DeviceStats } from './adb/types/DeviceStats';
 import { comparePackages } from './adb/parsers/PackageDiff';
 import { analyzeSecurity } from './adb/parsers/DeviceSecurityAnalyzer';
 import { timestampForFilename } from './util/timestamp';
+import { showSaveDialogFor, showOpenDialogFor } from './util/dialogs';
 import { ApkTagStore } from './apkLibrary/ApkTagStore';
 import { IntentPresetStore } from './intentPresets/IntentPresetStore';
 import { MacroStore } from './macros/MacroStore';
@@ -233,25 +234,21 @@ function registerIpcHandlers(): void {
     return profiles.length;
   });
   ipcMain.handle('connectionProfiles:export', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showSaveDialogFor(event, {
       title: 'Экспорт профилей подключения',
       defaultPath: 'adbshell-profiles.json',
       filters: [{ name: 'JSON', extensions: ['json'] }],
-    };
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    });
     if (result.canceled || !result.filePath) return false;
     await fsPromises.writeFile(result.filePath, connectionProfiles.exportJSON(), 'utf8');
     return true;
   });
   ipcMain.handle('connectionProfiles:import', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showOpenDialogFor(event, {
       title: 'Импорт профилей подключения',
       properties: ['openFile' as const],
       filters: [{ name: 'JSON', extensions: ['json'] }],
-    };
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    });
     if (result.canceled || result.filePaths.length === 0) return connectionProfiles.list();
     const raw = await fsPromises.readFile(result.filePaths[0], 'utf8');
     return connectionProfiles.importJSON(raw);
@@ -332,24 +329,20 @@ function registerIpcHandlers(): void {
   // (renderer в sandboxed contextIsolation-режиме доступа к нативным
   // диалогам не имеет).
   ipcMain.handle('dialog:selectApk', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showOpenDialogFor(event, {
       title: 'Выберите APK',
       properties: ['openFile' as const],
       filters: [{ name: 'Android package', extensions: ['apk'] }],
-    };
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    });
     if (result.canceled || result.filePaths.length === 0) return undefined;
     return result.filePaths[0];
   });
   ipcMain.handle('dialog:selectApks', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showOpenDialogFor(event, {
       title: 'Выберите APK (можно несколько)',
       properties: ['openFile' as const, 'multiSelections' as const],
       filters: [{ name: 'Android package', extensions: ['apk'] }],
-    };
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    });
     return result.canceled ? [] : result.filePaths;
   });
 
@@ -385,26 +378,22 @@ function registerIpcHandlers(): void {
   // Наборы приложений (экспорт/импорт с runtime-разрешениями) и снапшоты
   // устройства -- см. AppBundleService.ts/DeviceSnapshotService.ts.
   ipcMain.handle('apps:exportSelected', async (event: IpcMainInvokeEvent, serial: string, packages: string[]) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showSaveDialogFor(event, {
       title: 'Экспорт набора приложений',
       defaultPath: `apps-export-${timestampForFilename(new Date())}.zip`,
       filters: [{ name: 'ZIP', extensions: ['zip'] }],
-    };
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    });
     if (result.canceled || !result.filePath) return undefined;
     const outcome = await exportBundle(packages, serial, undefined, result.filePath, adb);
     if (outcome.entryCount > 0) shell.showItemInFolder(result.filePath);
     return outcome;
   });
   ipcMain.handle('apps:importBundle', async (event: IpcMainInvokeEvent, serial: string) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showOpenDialogFor(event, {
       title: 'Импорт набора приложений',
       properties: ['openFile' as const],
       filters: [{ name: 'ZIP', extensions: ['zip'] }],
-    };
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    });
     if (result.canceled || result.filePaths.length === 0) return undefined;
     return importBundle(result.filePaths[0], serial, adb);
   });
@@ -426,25 +415,21 @@ function registerIpcHandlers(): void {
   ipcMain.handle('apkLibrary:list', () => apkLibrary.list());
   ipcMain.handle('apkLibrary:getDirectory', () => apkLibrary.getDirectory());
   ipcMain.handle('apkLibrary:chooseDirectory', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showOpenDialogFor(event, {
       title: 'Выберите папку для библиотеки APK',
       properties: ['openDirectory' as const, 'createDirectory' as const],
       defaultPath: apkLibrary.getDirectory(),
-    };
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    });
     if (result.canceled || result.filePaths.length === 0) return apkLibrary.getDirectory();
     apkLibrary.setDirectory(result.filePaths[0]);
     return apkLibrary.getDirectory();
   });
   ipcMain.handle('apkLibrary:addFiles', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showOpenDialogFor(event, {
       title: 'Добавить APK в библиотеку',
       properties: ['openFile' as const, 'multiSelections' as const],
       filters: [{ name: 'Android package', extensions: ['apk'] }],
-    };
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    });
     if (result.canceled || result.filePaths.length === 0) return apkLibrary.list();
     apkLibrary.importFiles(result.filePaths);
     return apkLibrary.list();
@@ -510,15 +495,11 @@ function registerIpcHandlers(): void {
   // "куда сохранить" через диалог здесь же (renderer выбора пути не видит).
   ipcMain.handle('adb:push', (_e, serial: string, localPath: string, remotePath: string) => adb.push(serial, localPath, remotePath));
   ipcMain.handle('dialog:selectFileToPush', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = { title: 'Выберите файл для отправки на устройство', properties: ['openFile' as const] };
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    const result = await showOpenDialogFor(event, { title: 'Выберите файл для отправки на устройство', properties: ['openFile' as const] });
     return result.canceled || result.filePaths.length === 0 ? undefined : result.filePaths[0];
   });
   ipcMain.handle('adb:pullToChosenPath', async (event: IpcMainInvokeEvent, serial: string, remotePath: string, suggestedName: string) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = { title: 'Сохранить как', defaultPath: suggestedName };
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    const result = await showSaveDialogFor(event, { title: 'Сохранить как', defaultPath: suggestedName });
     if (result.canceled || !result.filePath) return false;
     await adb.pull(serial, remotePath, result.filePath);
     shell.showItemInFolder(result.filePath);
@@ -529,9 +510,7 @@ function registerIpcHandlers(): void {
     const paths = await adb.apkPaths(serial, packageName);
     const basePath = paths.find((p) => p.endsWith('base.apk')) ?? paths[0];
     if (!basePath) return false;
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = { title: 'Экспортировать APK', defaultPath: `${packageName}.apk`, filters: [{ name: 'APK', extensions: ['apk'] }] };
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    const result = await showSaveDialogFor(event, { title: 'Экспортировать APK', defaultPath: `${packageName}.apk`, filters: [{ name: 'APK', extensions: ['apk'] }] });
     if (result.canceled || !result.filePath) return false;
     await adb.pull(serial, basePath, result.filePath);
     shell.showItemInFolder(result.filePath);
@@ -576,13 +555,11 @@ function registerIpcHandlers(): void {
     });
   });
   ipcMain.handle('dialog:selectRecordPath', async (event: IpcMainInvokeEvent, serial: string) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showSaveDialogFor(event, {
       title: 'Записать зеркалирование в файл',
       defaultPath: `adbshell-${serial.replace(/[:/\\]/g, '-')}-${timestampForFilename(new Date())}.mp4`,
       filters: [{ name: 'MP4', extensions: ['mp4'] }],
-    };
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    });
     return result.canceled ? undefined : result.filePath;
   });
 
@@ -607,25 +584,21 @@ function registerIpcHandlers(): void {
     return runMacro(macro, serial, adb, variables);
   });
   ipcMain.handle('macros:export', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showSaveDialogFor(event, {
       title: 'Экспорт макросов',
       defaultPath: 'adbshell-macros.json',
       filters: [{ name: 'JSON', extensions: ['json'] }],
-    };
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    });
     if (result.canceled || !result.filePath) return false;
     await fsPromises.writeFile(result.filePath, macroStore.exportJSON(), 'utf8');
     return true;
   });
   ipcMain.handle('macros:import', async (event: IpcMainInvokeEvent) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showOpenDialogFor(event, {
       title: 'Импорт макросов',
       properties: ['openFile' as const],
       filters: [{ name: 'JSON', extensions: ['json'] }],
-    };
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    });
     if (result.canceled || result.filePaths.length === 0) return macroStore.list();
     const raw = await fsPromises.readFile(result.filePaths[0], 'utf8');
     return macroStore.importJSON(raw);
@@ -718,13 +691,11 @@ function registerIpcHandlers(): void {
   // обязан открываться из main (см. dialog:selectApk выше), содержимое CSV
   // уже готово к записи, приходит от renderer строкой.
   ipcMain.handle('dialog:saveCsv', async (event: IpcMainInvokeEvent, defaultName: string, content: string) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showSaveDialogFor(event, {
       title: 'Экспорт CSV',
       defaultPath: defaultName,
       filters: [{ name: 'CSV', extensions: ['csv'] }],
-    };
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    });
     if (result.canceled || !result.filePath) return false;
     await fsPromises.writeFile(result.filePath, content, 'utf8');
     shell.showItemInFolder(result.filePath);
@@ -749,13 +720,11 @@ function registerIpcHandlers(): void {
     await clipboard.write([new ClipboardItem({ 'image/png': new Blob([buffer], { type: 'image/png' }) })]);
   });
   ipcMain.handle('dialog:saveScreenshot', async (event: IpcMainInvokeEvent, base64Png: string) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const options = {
+    const result = await showSaveDialogFor(event, {
       title: 'Сохранить скриншот',
       defaultPath: `adbshell-screenshot-${timestampForFilename(new Date())}.png`,
       filters: [{ name: 'PNG', extensions: ['png'] }],
-    };
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    });
     if (result.canceled || !result.filePath) return false;
     await fsPromises.writeFile(result.filePath, Buffer.from(base64Png, 'base64'));
     shell.showItemInFolder(result.filePath);
