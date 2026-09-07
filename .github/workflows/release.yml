@@ -33,7 +33,7 @@ jobs:
 
       # См. комментарий в build.yml -- тот же принцип кэширования.
       - name: Cache vendor binaries (adb/aapt2/scrcpy)
-        uses: actions/cache@v7
+        uses: actions/cache@v6
         with:
           path: |
             vendor

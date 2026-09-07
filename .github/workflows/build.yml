@@ -32,7 +32,7 @@ jobs:
       # vendor/<os>/, поэтому ключ ещё и по runner.os -- незачем тащить в
       # кэш платформы, которые эта job не трогает.
       - name: Cache vendor binaries (adb/aapt2/scrcpy)
-        uses: actions/cache@v7
+        uses: actions/cache@v6
         with:
           path: |
             vendor
