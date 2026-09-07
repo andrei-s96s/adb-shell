@@ -33,6 +33,7 @@ import { FDroidUpdateInfo, fdroidDownloadUrl } from '../adb/types/FDroidUpdateIn
 import { checkFDroidUpdate } from './FDroidUpdateChecker';
 import { downloadWithProgress, DownloadProgress } from '../util/download';
 import { assertPathWithinDirectory } from '../util/pathSafety';
+import { mapWithConcurrency } from '../util/concurrency';
 
 const CONFIG_FILE = 'apk-library-config.json';
 
@@ -240,23 +241,17 @@ export class ApkLibraryService {
     if (!ApkLibraryService.locateAapt2()) return {};
     const files = this.list();
     const results: Record<string, FDroidUpdateInfo> = {};
-    const maxConcurrent = 4;
-    let index = 0;
-    const worker = async (): Promise<void> => {
-      while (index < files.length) {
-        const file = files[index++];
-        try {
-          const info = await ApkLibraryService.inspect(file.path);
-          const versionCode = info.packageName && info.versionCode ? Number(info.versionCode) : undefined;
-          if (!info.packageName || versionCode === undefined || Number.isNaN(versionCode)) continue;
-          const update = await checkFDroidUpdate(info.packageName, versionCode);
-          if (update) results[file.path] = update;
-        } catch {
-          // Файл без читаемого манифеста просто пропускается.
-        }
+    await mapWithConcurrency(files, 4, async (file) => {
+      try {
+        const info = await ApkLibraryService.inspect(file.path);
+        const versionCode = info.packageName && info.versionCode ? Number(info.versionCode) : undefined;
+        if (!info.packageName || versionCode === undefined || Number.isNaN(versionCode)) return;
+        const update = await checkFDroidUpdate(info.packageName, versionCode);
+        if (update) results[file.path] = update;
+      } catch {
+        // Файл без читаемого манифеста просто пропускается.
       }
-    };
-    await Promise.all(Array.from({ length: maxConcurrent }, () => worker()));
+    });
     return results;
   }
 

@@ -12,6 +12,7 @@ import { demoIconDataUri } from '../adb/demo/demoIcons';
 import { FDroidUpdateInfo, fdroidDownloadUrl } from '../adb/types/FDroidUpdateInfo';
 import { checkFDroidUpdate } from '../apkLibrary/FDroidUpdateChecker';
 import { downloadWithProgress } from '../util/download';
+import { mapWithConcurrency } from '../util/concurrency';
 import { showSaveDialogFor, showOpenDialogFor } from '../util/dialogs';
 import { timestampForFilename } from '../util/timestamp';
 import { exportBundle, importBundle } from '../appBundles/AppBundleService';
@@ -37,9 +38,10 @@ export function registerAppsIpc(ctx: IpcContext): void {
   ipcMain.handle('adb:appDetail', (_e, serial: string, packageName: string) => ctx.adb.appDetail(serial, packageName));
   // Сверка установленных пользовательских приложений с F-Droid: один
   // bulk-дамп versionCode со всего устройства + сетевые запросы с
-  // ограничением параллелизма (тот же worker-pool, что и у библиотеки APK
-  // в ApkLibraryService.checkFDroidUpdates). Ничего не ставит сама -- только
-  // сообщает о найденном обновлении, установка отдельным вызовом ниже.
+  // ограничением параллелизма (тот же mapWithConcurrency, что и у
+  // библиотеки APK в ApkLibraryService.checkFDroidUpdates). Ничего не
+  // ставит сама -- только сообщает о найденном обновлении, установка
+  // отдельным вызовом ниже.
   ipcMain.handle('apps:checkFDroidUpdates', async (_e, serial: string) => {
     const [apps, versionCodes] = await Promise.all([
       ctx.adb.listApps(serial),
@@ -47,16 +49,10 @@ export function registerAppsIpc(ctx: IpcContext): void {
     ]);
     const candidates = apps.filter((a) => !a.isSystem && versionCodes[a.packageName] !== undefined);
     const results: Record<string, FDroidUpdateInfo> = {};
-    const maxConcurrent = 4;
-    let index = 0;
-    const worker = async (): Promise<void> => {
-      while (index < candidates.length) {
-        const app = candidates[index++];
-        const update = await checkFDroidUpdate(app.packageName, versionCodes[app.packageName]).catch(() => undefined);
-        if (update) results[app.packageName] = update;
-      }
-    };
-    await Promise.all(Array.from({ length: maxConcurrent }, () => worker()));
+    await mapWithConcurrency(candidates, 4, async (app) => {
+      const update = await checkFDroidUpdate(app.packageName, versionCodes[app.packageName]).catch(() => undefined);
+      if (update) results[app.packageName] = update;
+    });
     return results;
   });
   // Скачивает найденную версию с F-Droid во временный файл и ставит на то
