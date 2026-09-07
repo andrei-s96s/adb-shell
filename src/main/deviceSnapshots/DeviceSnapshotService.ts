@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 
 import { AdbService } from '../adb/AdbService';
 import { exportBundle, importBundle, ExportBundleOutcome, ImportBundleOutcome } from '../appBundles/AppBundleService';
-import { makeSnapshotFilename, parseSnapshotFilename } from './deviceSnapshotLogic';
+import { makeSnapshotFilename, parseSnapshotFilename, snapshotsToPruneAfterTaking } from './deviceSnapshotLogic';
 import { assertPathWithinDirectory } from '../util/pathSafety';
 
 export interface DeviceSnapshotInfo {
@@ -22,6 +22,13 @@ export interface DeviceSnapshotInfo {
   appCount: number;
   createdAtMs: number;
 }
+
+/** Снапшотов на ОДНО устройство больше этого -- при регулярном снятии
+ * снапшотов одного и того же устройства (deviceLabel) папка Snapshots
+ * иначе растёт бессрочно, каждый снапшот -- полный .zip со ВСЕМИ
+ * пользовательскими APK устройства. take() ниже сам подчищает лишнее сразу
+ * после успешного снятия нового. */
+const MAX_SNAPSHOTS_PER_DEVICE = 5;
 
 export class DeviceSnapshotService {
   get directory(): string {
@@ -63,7 +70,24 @@ export class DeviceSnapshotService {
     fs.mkdirSync(this.directory, { recursive: true });
     const uniqueSuffix = randomUUID().slice(0, 8);
     const destination = path.join(this.directory, makeSnapshotFilename(deviceLabel, packages.length, uniqueSuffix));
-    return exportBundle(packages, serial, deviceLabel, destination, adb, onProgress);
+    const outcome = await exportBundle(packages, serial, deviceLabel, destination, adb, onProgress);
+    if (outcome.entryCount > 0) this.pruneOldSnapshots(deviceLabel);
+    return outcome;
+  }
+
+  /** Держит не больше MAX_SNAPSHOTS_PER_DEVICE снапшотов на каждое устройство
+   * -- см. snapshotsToPruneAfterTaking() в deviceSnapshotLogic.ts про то,
+   * какие именно считаются лишними. Удаляет молча, остальные устройства не
+   * трогает. */
+  private pruneOldSnapshots(deviceLabel: string): void {
+    const stale = snapshotsToPruneAfterTaking(this.list(), deviceLabel, MAX_SNAPSHOTS_PER_DEVICE);
+    for (const snap of stale) {
+      try {
+        this.delete(snap.path);
+      } catch {
+        // Не критично -- максимум останется на один лишний файл больше положенного.
+      }
+    }
   }
 
   async restore(

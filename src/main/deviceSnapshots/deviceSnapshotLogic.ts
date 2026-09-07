@@ -34,3 +34,22 @@ export function parseSnapshotFilename(filename: string): ParsedSnapshotName | un
   const appCount = Number(parts[2].replace(/[^0-9]/g, '')) || 0;
   return { label, appCount };
 }
+
+/** Из ВСЕХ снапшотов (любых устройств вперемешку), отсортированных по
+ * убыванию даты -- ровно то, что уже отдаёт DeviceSnapshotService.list() --
+ * выбирает те снапшоты устройства justTakenDeviceLabel, что старше самых
+ * свежих `keep` штук у этого же устройства (группировка по
+ * sanitizeDeviceLabel, той же, что уже кодирует deviceLabel в имени
+ * файла). Снапшоты ДРУГИХ устройств не трогает. Чистая функция -- решение
+ * "что именно лишнее" протестировано без реальной файловой системы;
+ * DeviceSnapshotService.pruneOldSnapshots() только удаляет то, что она
+ * вернула. */
+export function snapshotsToPruneAfterTaking<T extends { deviceLabel: string }>(
+  allSnapshotsNewestFirst: T[],
+  justTakenDeviceLabel: string,
+  keep: number
+): T[] {
+  const sanitized = sanitizeDeviceLabel(justTakenDeviceLabel);
+  const sameDevice = allSnapshotsNewestFirst.filter((s) => sanitizeDeviceLabel(s.deviceLabel) === sanitized);
+  return sameDevice.slice(Math.max(keep, 0));
+}
