@@ -52,6 +52,13 @@ export class AdbCommandError extends Error {}
 // вкладке Shell/макросах, который вправе выполняться сколько угодно.
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+// Верхний предел накопленного stdout+stderr одного вызова run() -- в
+// отличие от timeoutMs, применяется ко ВСЕМ вызовам без исключения, в т.ч.
+// shell()/runRaw() с timeoutMs: 0 (см. комментарий выше). Без него
+// "болтливая" команда копила бы вывод в JS-строку без остановки, пока не
+// уронит по памяти весь main-процесс, а не только вкладку Shell.
+const MAX_OUTPUT_BYTES = 200 * 1024 * 1024;
+
 export class AdbService {
   readonly adbPath: string;
 
@@ -99,6 +106,8 @@ export class AdbService {
       const stderrDecoder = new StringDecoder('utf8');
       let settled = false;
       let timedOut = false;
+      let outputOverflowed = false;
+      let outputBytes = 0;
       const timer = timeoutMs
         ? setTimeout(() => {
             if (settled) return;
@@ -107,8 +116,35 @@ export class AdbService {
           }, timeoutMs)
         : undefined;
 
-      child.stdout?.on('data', (chunk: Buffer) => (stdout += stdoutDecoder.write(chunk)));
-      child.stderr?.on('data', (chunk: Buffer) => (stderr += stderrDecoder.write(chunk)));
+      // Верхний предел на накопленный вывод -- отдельно от таймаута, потому
+      // что shell()/runRaw() намеренно вызывают run() с timeoutMs: 0 (см.
+      // комментарий там), а run() используется вообще для всех adb-команд
+      // сервиса. Без предела "болтливая" команда (`cat /dev/urandom`,
+      // `find /` на устройстве с миллионом файлов) копила бы вывод в
+      // обычную JS-строку без остановки, пока не уронит по памяти весь
+      // main-процесс Electron -- не только вкладку Shell, а всё приложение
+      // со всеми окнами. 200 МБ выбраны с большим запасом: любой
+      // структурированный вывод (dumpsys, getprop, списки пакетов),
+      // который дальше идёт в парсеры, на практике на пару порядков меньше.
+      const trackOutput = (chunkLength: number): boolean => {
+        if (outputOverflowed) return true;
+        outputBytes += chunkLength;
+        if (outputBytes > MAX_OUTPUT_BYTES) {
+          outputOverflowed = true;
+          child.kill();
+          return true;
+        }
+        return false;
+      };
+
+      child.stdout?.on('data', (chunk: Buffer) => {
+        if (trackOutput(chunk.length)) return;
+        stdout += stdoutDecoder.write(chunk);
+      });
+      child.stderr?.on('data', (chunk: Buffer) => {
+        if (trackOutput(chunk.length)) return;
+        stderr += stderrDecoder.write(chunk);
+      });
       child.on('error', (error) => {
         if (settled) return;
         settled = true;
@@ -128,6 +164,10 @@ export class AdbService {
         stderr += stderrDecoder.end();
         if (timedOut) {
           reject(new AdbCommandError(`adb не ответил за ${Math.round(timeoutMs! / 1000)}с -- устройство могло зависнуть, потерять соединение или ждать системный диалог на экране`));
+          return;
+        }
+        if (outputOverflowed) {
+          reject(new AdbCommandError(`Вывод команды превысил ${Math.round(MAX_OUTPUT_BYTES / (1024 * 1024))} МБ и был прерван`));
           return;
         }
         resolve({ stdout, stderr, exitCode: code });
