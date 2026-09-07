@@ -58,7 +58,8 @@
         {
           "target": "zip",
           "arch": [
-            "universal"
+            "x64",
+            "arm64"
           ]
         }
       ],
@@ -72,7 +73,8 @@
             "**/*"
           ]
         }
-      ]
+      ],
+      "artifactName": "${productName}-${version}-${arch}-mac.${ext}"
     },
     "afterSign": "scripts/afterSign.js",
     "win": {

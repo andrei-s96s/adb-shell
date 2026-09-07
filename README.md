@@ -38,11 +38,13 @@ Android-устройствами через `adb` — по USB или по се�
   платным сертификатом) — «Дополнительно» → «Выполнить в любом случае».
   `adb.exe`, `aapt2.exe` и `scrcpy.exe` вшиты прямо в установщик, отдельно
   ставить Android Platform Tools не нужно.
-- **macOS 13 (Ventura) и новее** — `ADB Shell-X.Y.Z-universal-mac.zip`, один
-  файл для Intel и Apple Silicon. Не подписано платным Apple Developer ID,
-  поэтому при первом запуске Gatekeeper покажет предупреждение — правый
-  клик по `ADB Shell.app` → «Открыть» → «Открыть» в диалоге. `adb`, `aapt2`
-  и `scrcpy` вшиты прямо в сборку (все — универсальные бинарники), отдельно
+- **macOS 13 (Ventura) и новее** — отдельный архив на каждую архитектуру,
+  а не один общий universal-файл (который тащил бы вдвое больше байт, чем
+  нужно любому конкретному Mac): `ADB Shell-X.Y.Z-arm64-mac.zip` для Apple
+  Silicon, `ADB Shell-X.Y.Z-x64-mac.zip` для Intel. Не подписано платным
+  Apple Developer ID, поэтому при первом запуске Gatekeeper покажет
+  предупреждение — правый клик по `ADB Shell.app` → «Открыть» → «Открыть»
+  в диалоге. `adb`, `aapt2` и `scrcpy` вшиты прямо в сборку, отдельно
   ставить Android Platform Tools не нужно.
 - **Linux** — `ADB-Shell-X.Y.Z.AppImage` (x86_64). Дать файлу права на
   выполнение (`chmod +x`) и запустить — установка не нужна. `adb`, `aapt2`
@@ -203,7 +205,7 @@ npm test
 **Сборка пакетов** (`electron-builder`):
 
 ```bash
-npm run dist:mac    # ADB Shell-X.Y.Z-universal-mac.zip (x86_64+arm64, один файл)
+npm run dist:mac    # ADB Shell-X.Y.Z-{x64,arm64}-mac.zip (два отдельных файла)
 npm run dist:win    # ADB Shell Setup X.Y.Z.exe (NSIS)
 npm run dist:linux  # ADB-Shell-X.Y.Z.AppImage (x86_64)
 ```

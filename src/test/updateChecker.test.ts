@@ -65,25 +65,36 @@ test('findLatestRelease defaults assets to an empty array when the release has n
   assert.deepEqual(findLatestRelease(releases)?.assets, []);
 });
 
-test('pickAssetForPlatform picks the .exe on win32, .zip on darwin, .AppImage on linux', () => {
+test('pickAssetForPlatform picks the .exe on win32, .AppImage on linux', () => {
   const assets: ReleaseAsset[] = [
     { name: 'ADB Shell Setup 1.3.0.exe', url: 'win' },
-    { name: 'ADB Shell-1.3.0-universal-mac.zip', url: 'mac' },
     { name: 'ADB-Shell-1.3.0.AppImage', url: 'linux' },
   ];
-  assert.equal(pickAssetForPlatform(assets, 'win32')?.url, 'win');
-  assert.equal(pickAssetForPlatform(assets, 'darwin')?.url, 'mac');
-  assert.equal(pickAssetForPlatform(assets, 'linux')?.url, 'linux');
+  assert.equal(pickAssetForPlatform(assets, 'win32', 'x64')?.url, 'win');
+  assert.equal(pickAssetForPlatform(assets, 'linux', 'x64')?.url, 'linux');
+});
+
+test('pickAssetForPlatform on darwin picks the zip matching the running Mac\'s own architecture', () => {
+  const assets: ReleaseAsset[] = [
+    { name: 'ADB Shell-1.6.0-x64-mac.zip', url: 'mac-x64' },
+    { name: 'ADB Shell-1.6.0-arm64-mac.zip', url: 'mac-arm64' },
+  ];
+  assert.equal(pickAssetForPlatform(assets, 'darwin', 'x64')?.url, 'mac-x64');
+  assert.equal(pickAssetForPlatform(assets, 'darwin', 'arm64')?.url, 'mac-arm64');
+  // Архитектуры, которых у Node/Electron на Mac не бывает (ia32 и т.п.) --
+  // трактуются как x64, тот же практический дефолт, что и раньше был у
+  // единственного universal-архива.
+  assert.equal(pickAssetForPlatform(assets, 'darwin', 'ia32')?.url, 'mac-x64');
 });
 
 test('pickAssetForPlatform returns undefined when no asset matches the platform', () => {
   const assets: ReleaseAsset[] = [{ name: 'ADB Shell Setup 1.3.0.exe', url: 'win' }];
-  assert.equal(pickAssetForPlatform(assets, 'darwin'), undefined);
+  assert.equal(pickAssetForPlatform(assets, 'darwin', 'arm64'), undefined);
 });
 
 test('pickAssetForPlatform returns undefined for an unsupported platform', () => {
   const assets: ReleaseAsset[] = [{ name: 'ADB Shell Setup 1.3.0.exe', url: 'win' }];
-  assert.equal(pickAssetForPlatform(assets, 'freebsd'), undefined);
+  assert.equal(pickAssetForPlatform(assets, 'freebsd', 'x64'), undefined);
 });
 
 test('findChecksumAsset finds the <name>.sha256 companion asset for a given file', () => {

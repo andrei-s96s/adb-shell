@@ -63,10 +63,24 @@ export function findLatestRelease(releases: GitHubReleaseRaw[]): UpdateInfo | un
  * платформу, симметрично тому, как release.yml публикует по одному файлу
  * на ОС (.exe/-mac.zip/.AppImage). undefined, если релиз почему-то не
  * содержит подходящего ассета (например, ещё собирается на CI). */
-export function pickAssetForPlatform(assets: ReleaseAsset[], platform: NodeJS.Platform): ReleaseAsset | undefined {
-  const suffix = platform === 'win32' ? '.exe' : platform === 'darwin' ? '.zip' : platform === 'linux' ? '.AppImage' : undefined;
-  if (!suffix) return undefined;
-  return assets.find((a) => a.name.endsWith(suffix));
+/** С версии, где macOS-релиз разбит на два отдельных архива по архитектуре
+ * (build.mac в package.json: arch ['x64','arm64'] вместо одного
+ * 'universal' -- вдвое меньше скачивать) darwin-ассетов в релизе ДВА, а не
+ * один, и оба заканчиваются на .zip -- одного суффикса уже недостаточно,
+ * нужно сверить архитектуру собранного файла (electron-builder кодирует её
+ * в имени через artifactName, см. package.json) с архитектурой машины,
+ * которая спрашивает про обновление, иначе можно молча подсунуть Intel-
+ * сборку на Apple Silicon (она бы запустилась через Rosetta, просто
+ * медленнее и не тем файлом, что пользователь ожидал) или наоборот
+ * (arm64-сборка на Intel вообще не запустится). */
+export function pickAssetForPlatform(assets: ReleaseAsset[], platform: NodeJS.Platform, arch: NodeJS.Architecture): ReleaseAsset | undefined {
+  if (platform === 'win32') return assets.find((a) => a.name.endsWith('.exe'));
+  if (platform === 'linux') return assets.find((a) => a.name.endsWith('.AppImage'));
+  if (platform === 'darwin') {
+    const archTag = arch === 'arm64' ? 'arm64' : 'x64';
+    return assets.find((a) => a.name.endsWith('.zip') && a.name.includes(`-${archTag}-mac`));
+  }
+  return undefined;
 }
 
 /** Ассет с контрольной суммой (sha256, hex) конкретного файла релиза, если

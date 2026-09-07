@@ -213,7 +213,7 @@ function registerIpcHandlers(): void {
   // проброшен через contextBridge, да и логика выбора и так уже одна на
   // main-процесс -- см. pickAssetForPlatform).
   ipcMain.handle('app:downloadUpdate', async (event: IpcMainInvokeEvent, assets: ReleaseAsset[]) => {
-    const asset = pickAssetForPlatform(assets, process.platform);
+    const asset = pickAssetForPlatform(assets, process.platform, process.arch);
     if (!asset) throw new Error('Не найден подходящий файл обновления для этой платформы в этом релизе');
     const checksumAsset = findChecksumAsset(assets, asset.name);
     const prepared = await downloadAndPrepareUpdate(
