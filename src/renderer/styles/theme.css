@@ -234,8 +234,15 @@ textarea {
 .locale-switch {
   flex: none;
   width: 52px;
+  font-family: inherit;
   font-size: var(--fs-11);
   text-align: center;
+  text-align-last: center;
+  padding: var(--space-7) var(--space-4);
+  border-radius: var(--radius-8);
+  border: 1px solid var(--cp-hairline);
+  background: var(--cp-bg-panel-alt);
+  color: var(--cp-text-primary);
 }
 
 .demo-mode-toggle.active {
@@ -344,9 +351,15 @@ textarea {
 /* outline (не border) -- рисуется отдельным кольцом СНАРУЖИ уже занятого
    border-box, поэтому золотое кольцо выбора и изумрудная рамка "готово"
    спокойно уживаются на одной строке, не конкурируя за одно и то же
-   свойство. */
+   свойство. outline-offset обязателен -- без зазора кольцо вплотную
+   прижато к уже скруглённой рамке .ready, и на скруглённых углах два
+   разных цвета сходятся почти впритык (эффект "зелёная рамка, но углы
+   жёлтые", пойманный вживую на реальном устройстве в состоянии
+   ready+selected одновременно) -- с зазором видно два отдельных
+   скруглённых контура, а не грязный шов между ними. */
 #device-list li.selected {
   outline: 1px solid var(--cp-gold);
+  outline-offset: 2px;
 }
 
 /* Проблемные состояния устройства -- та же пара "цветная рамка + лёгкая
@@ -1197,6 +1210,35 @@ input[type='checkbox']:checked::after {
 
 /* Настройки */
 
+/* .settings-section переиспользуется и вне вкладки "Настройки" (apkInfo.ts,
+   deviceCompare.ts, snapshots.ts и т.п. -- везде это просто "карточка"),
+   поэтому сетка в две колонки задаётся только для карточек ВНУТРИ самой
+   вкладки, а не для класса вообще -- иначе поломались бы все остальные
+   места, использующие тот же класс в одноколоночном модальном окне.
+   Раньше 6 карточек шли одна под одной (одна колонка, max-width 460px) --
+   на невысоком окне (см. minHeight в main.ts) вкладка не помещалась без
+   скролла; в два столбца те же карточки укладываются в 3 строки, почти
+   вдвое ниже. align-items: start -- каждая карточка своей естественной
+   высоты (например, "Язык интерфейса" всего одна строка), а не растянута
+   до высоты самой высокой соседки в паре. */
+#tab-settings.active {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  align-content: start;
+  gap: var(--space-10);
+}
+
+#tab-settings .settings-section {
+  margin-bottom: 0;
+  max-width: none;
+  padding: var(--space-12);
+}
+
+#tab-settings .settings-section h3 {
+  margin-bottom: var(--space-8);
+}
+
 .settings-section {
   background: var(--cp-bg-panel);
   border: 1px solid var(--cp-hairline);
@@ -1273,14 +1315,19 @@ input[type='checkbox']:checked::after {
    https://andrei-s96s.github.io/adb-shell/, но показаны прямо в приложении,
    без похода во внешний браузер. */
 
+/* Карточка целиком рассчитана на то, чтобы влезать без скролла в
+   .tab-panel даже на небольшом окне (см. minHeight окна в main.ts) -- QR и
+   текстовый блок раньше шли друг под другом (высокий, узкий столбец),
+   теперь бок о бок в один невысокий блок (.donate-body), что примерно
+   вдвое сокращает высоту карточки при той же ширине. */
 .donate-card {
-  max-width: 420px;
+  max-width: 480px;
   width: 100%;
-  margin: var(--space-24) auto;
+  margin: var(--space-16) auto;
   background: var(--cp-bg-panel);
   border: 1px solid var(--cp-hairline);
   border-radius: var(--radius-12);
-  padding: var(--space-32) var(--space-28) var(--space-28);
+  padding: var(--space-20) var(--space-24);
   text-align: center;
 }
 
@@ -1291,30 +1338,42 @@ input[type='checkbox']:checked::after {
 }
 
 .donate-lede {
-  margin: 0 0 var(--space-24);
+  margin: 0 0 var(--space-16);
   color: var(--cp-text-muted);
-  font-size: var(--fs-13);
-  line-height: 1.5;
+  font-size: var(--fs-12);
+  line-height: 1.4;
+}
+
+.donate-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  text-align: left;
 }
 
 .donate-qr {
+  flex-shrink: 0;
   /* Белый фон вне зависимости от темы -- QR должен читаться сканером и в
      тёмной теме приложения. */
   background: #fff;
-  border-radius: var(--radius-12);
-  padding: var(--space-16);
+  border-radius: var(--radius-8);
+  padding: var(--space-10);
   display: inline-block;
   line-height: 0;
 }
 
 .donate-qr svg {
-  width: 180px;
-  height: 180px;
+  width: 128px;
+  height: 128px;
   display: block;
 }
 
+.donate-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .donate-network {
-  margin-top: var(--space-18);
   font-size: var(--fs-11);
   font-weight: 600;
   letter-spacing: 0.6px;
@@ -1323,25 +1382,25 @@ input[type='checkbox']:checked::after {
 }
 
 .donate-address {
-  margin-top: var(--space-10);
-  padding: var(--space-12) var(--space-14);
+  margin-top: var(--space-8);
+  padding: var(--space-10) var(--space-12);
   background: var(--cp-bg-panel-alt);
   border: 1px solid var(--cp-hairline);
   border-radius: var(--radius-8);
   font-family: var(--cp-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-11);
   word-break: break-all;
   color: var(--cp-text-primary);
   user-select: all;
 }
 
 .donate-card button {
-  margin-top: var(--space-14);
+  margin-top: var(--space-10);
   width: 100%;
 }
 
 .donate-copied {
-  margin-top: var(--space-10);
+  margin-top: var(--space-6);
   min-height: 16px;
   font-size: var(--fs-12);
   color: var(--cp-emerald);
