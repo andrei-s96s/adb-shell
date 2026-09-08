@@ -30,6 +30,7 @@ export function onDeviceChanged(listener: Listener): void {
  * скрытое поведение мимо того, что на экране. undefined -- фильтр снят,
  * значит буквально "все". */
 let deviceTagFilter: string | undefined;
+const tagFilterListeners: Array<(tag: string | undefined) => void> = [];
 
 export function getDeviceTagFilter(): string | undefined {
   return deviceTagFilter;
@@ -37,4 +38,17 @@ export function getDeviceTagFilter(): string | undefined {
 
 export function setDeviceTagFilter(tag: string | undefined): void {
   deviceTagFilter = tag;
+  for (const listener of tagFilterListeners) listener(tag);
+}
+
+/** Для экранов, у которых где-то есть УЖЕ ОТРИСОВАННЫЙ, персистентный кусок
+ * UI, зависящий от фильтра (например, title кнопки "На всех" в macros.ts) --
+ * без подписки он оставался бы актуальным только на момент своего последнего
+ * renderList(), а не на момент, когда фильтр реально сменился в сайдбаре
+ * (renderer.ts меняет deviceTagFilter, но сам не знает, у кого из экранов
+ * есть что переотрисовать). Экраны, которые лишь ЧИТАЮТ фильтр в момент
+ * клика (shellScreen.ts/apkLibrary.ts -- статус пишется заново при каждом
+ * запуске действия), в этой подписке не нуждаются: там устареть нечему. */
+export function onDeviceTagFilterChanged(listener: (tag: string | undefined) => void): void {
+  tagFilterListeners.push(listener);
 }

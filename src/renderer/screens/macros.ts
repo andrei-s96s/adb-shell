@@ -3,7 +3,7 @@
 
 import { adbApi, el, errorMessage } from '../api.js';
 import type { Macro, MacroStep, MacroRunResult } from '../api.js';
-import { onDeviceChanged, getCurrentSerial, getDeviceTagFilter } from '../state.js';
+import { onDeviceChanged, onDeviceTagFilterChanged, getCurrentSerial, getDeviceTagFilter } from '../state.js';
 import { batchTargetLabel } from '../deviceBatchTarget.js';
 import { openModal, openTextPromptModal } from '../modal.js';
 import { openMacroRunHistoryModal } from './macroRunHistoryModal.js';
@@ -119,6 +119,12 @@ export function initMacrosScreen(): void {
   // Список макросов не зависит от устройства -- перерисовываем только для
   // того, чтобы кнопка "Запустить" включалась/выключалась вместе с выбором.
   onDeviceChanged(() => renderList());
+  // title кнопки "На всех" (renderRow ниже) упоминает активный тег-фильтр --
+  // без этой подписки он оставался бы актуальным только на момент последнего
+  // renderList(), а не на момент, когда фильтр реально сменили в сайдбаре,
+  // пока вкладка "Макросы" не в фокусе (или даже в фокусе -- сайдбар виден
+  // всегда, независимо от активной вкладки).
+  onDeviceTagFilterChanged(() => renderList());
 
   adbApi
     .macrosList()
